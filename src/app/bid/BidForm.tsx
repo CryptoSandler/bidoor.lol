@@ -188,11 +188,11 @@ export function BidForm({
       </Field>
 
       <Field
-        label="Official launchpad link"
+        label="Where it launched"
         hint={
           existing
-            ? "This entry's launchpad link was frozen by its first bid and will not be changed."
-            : `Where this token launched. Any https link works. Launchpads we recognise on ${chain.name} — ${chain.launchpads.join(", ")} — also earn a verified mark on your row.`
+            ? "This entry's launch link was frozen by its first bid and will not be changed."
+            : `Any https link. Known launchpads get a verified badge — on ${chain.name} we recognise ${chain.launchpads.join(", ")}.`
         }
         error={errors.launchpadUrl}
       >

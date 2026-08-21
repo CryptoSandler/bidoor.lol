@@ -100,7 +100,7 @@ export class PaymentAmountUnavailable extends Error {
 /** How many fractions we try before giving up rather than looping forever. */
 const FRACTION_ATTEMPTS = 40;
 
-export function createPendingBid(bid: NormalizedBid): PendingBid {
+export function createPendingBid(bid: NormalizedBid, ipHash: string | null = null): PendingBid {
   expireStalePendingBids();
 
   const id = randomUUID();
@@ -110,8 +110,8 @@ export function createPendingBid(bid: NormalizedBid): PendingBid {
   const insert = db().prepare(
     `INSERT INTO pending_bids
        (id, chain_id, contract, contract_key, launchpad_url, launchpad_host,
-        launchpad_verified, amount_usd, payment_micros, status, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+        launchpad_verified, amount_usd, ip_hash, payment_micros, status, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
   );
 
   // The fraction is drawn at random and offered to the database. If another
@@ -130,6 +130,7 @@ export function createPendingBid(bid: NormalizedBid): PendingBid {
         bid.launchpadHost,
         bid.launchpadVerified ? 1 : 0,
         bid.amountUsd,
+        ipHash,
         paymentBaseUnits(bid.amountUsd, fraction),
         now.toISOString(),
         expires.toISOString(),

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getChain } from "@/lib/chains";
 import { fetchTokenMetadata } from "@/lib/dexscreener";
 import { paymentWallet } from "@/lib/payments/config";
+import { checkBidCreationLimits, clientIp, hashIp } from "@/lib/payments/limits";
 import { createPendingBid } from "@/lib/payments/pending";
 import { rankEntries } from "@/lib/ranking";
 import { findByContractKey } from "@/lib/store";
@@ -39,6 +40,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, errors: result.errors }, { status: 422 });
   }
 
+  // Checked before the DexScreener lookup: a caller who is over their limit
+  // should not be able to make us do outbound work on every request.
+  const ipHash = hashIp(clientIp(request));
+  const limit = checkBidCreationLimits(ipHash, result.value.amountUsd);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { ok: false, errors: { amountUsd: limit.message }, reason: limit.reason, retryAt: limit.retryAt },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(
+            Math.max(1, Math.ceil((Date.parse(limit.retryAt) - Date.now()) / 1000)),
+          ),
+        },
+      },
+    );
+  }
+
   // Resolve the token before taking anyone to a payment screen. Failing here
   // costs nothing; failing after they have sent USDC costs them money.
   const chain = getChain(result.value.chainId)!;
@@ -50,7 +69,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const pending = createPendingBid(result.value);
+  const pending = createPendingBid(result.value, ipHash);
 
   return NextResponse.json({
     ok: true,

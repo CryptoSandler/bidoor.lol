@@ -38,6 +38,9 @@ export function db(): DatabaseSync {
       launchpad_host TEXT    NOT NULL,
       launchpad_verified INTEGER NOT NULL DEFAULT 0,
       amount_usd     INTEGER NOT NULL,
+      -- Salted hash of the caller's IP. Raw addresses are never stored; this
+      -- exists only to count bids per caller for rate limiting.
+      ip_hash        TEXT,
       -- The exact amount, in USDC base units, that this bid must be paid with:
       -- the bid plus its own random fraction. This is what ties an incoming
       -- transfer to a bid.
@@ -48,6 +51,9 @@ export function db(): DatabaseSync {
       expires_at     TEXT    NOT NULL,
       paid_at        TEXT
     );
+
+    CREATE INDEX IF NOT EXISTS pending_bids_ip ON pending_bids (ip_hash, created_at);
+    CREATE INDEX IF NOT EXISTS pending_bids_amount ON pending_bids (amount_usd, status);
 
     -- Two bids waiting for payment can never ask for the same amount, because
     -- then a transfer matching that amount would be attributable to either.
@@ -120,6 +126,9 @@ function migrate(database: DatabaseSync): void {
     database.exec(
       `ALTER TABLE pending_bids ADD COLUMN launchpad_verified INTEGER NOT NULL DEFAULT 0`,
     );
+  }
+  if (!columns.some((column) => column.name === "ip_hash")) {
+    database.exec(`ALTER TABLE pending_bids ADD COLUMN ip_hash TEXT`);
   }
 }
 

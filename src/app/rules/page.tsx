@@ -128,7 +128,7 @@ export default function RulesPage() {
           rejected rather than creating a nameless row.
         </Rule>
         <Rule>
-          The launchpad link is the one field a bidder supplies, and it is frozen by the first bid on
+          The launch link is the one field a bidder supplies, and it is frozen by the first bid on
           an entry. Later bids never change it.
         </Rule>
       </Section>
@@ -149,16 +149,16 @@ export default function RulesPage() {
 
       <Section title="Links">
         <Rule>
-          A launchpad link is required, and any https link will do. We do not keep a list of
-          approved launchpads to decide what may be listed — whether a token is real is
-          DexScreener&apos;s call, and a launchpad we have not heard of is not a reason to refuse a
-          real token.
+          A launch link is required — where the token came from — and any https link will do. We do
+          not keep a list of approved launchpads to decide what may be listed: whether a token is
+          real is DexScreener&apos;s call, and a launchpad we have not heard of is not a reason to
+          refuse a real token.
         </Rule>
         <Rule>
-          Links on launchpads we do recognise earn a{" "}
-          <span className="font-bold text-positive">✓</span> on the row. That mark says the link
-          points at a launchpad we know for that chain, and nothing more — it is not a review of the
-          token.
+          <span className="font-bold text-text">Known launchpads get a verified badge.</span> If the
+          link points at a launchpad we recognise for that chain, the row shows a{" "}
+          <span className="font-bold text-positive">✓</span>. That is all the badge means — it is not
+          a review of the token, and its absence is not a warning.
         </Rule>
         <Rule>
           Query parameters are stripped from every link. Referral, affiliate and tracking tags do not

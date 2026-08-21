@@ -42,6 +42,43 @@ export function paymentBaseUnits(amountUsd: number, fraction: number): number {
   return amountUsd * 10 ** USDC_DECIMALS + fraction * FRACTION_UNIT_BASE;
 }
 
+/**
+ * Rate limits on creating pending bids.
+ *
+ * Creating a pending bid is free and reserves a payment amount, which makes it
+ * the cheapest thing on the site to abuse. Two separate ceilings apply: one per
+ * caller, and one on how much of a single amount's fraction space can be held
+ * at once. See DECISIONES.md §9 and §11.
+ */
+export const RATE_LIMITS = {
+  /** Unpaid bids one caller may hold at the same time. */
+  livePendingPerIp: 5,
+  /** Bids one caller may start within the rolling window below. */
+  createdPerIpPerWindow: 20,
+  /** Length of that rolling window, in minutes. */
+  windowMinutes: 60,
+  /**
+   * Unpaid bids that may share a base amount at once.
+   *
+   * There are 9,999 fractions per amount, so this sits at 5% of the space. The
+   * point is not to ration it but to keep allocation far away from the edge:
+   * near saturation the random draw starts colliding repeatedly and creation
+   * gets slow before it gets impossible.
+   */
+  livePendingPerAmount: 500,
+} as const;
+
+/**
+ * Salt for hashing caller IP addresses.
+ *
+ * Raw IPs are not stored. Without a salt an IPv4 hash is trivially reversible
+ * by brute force — the whole space is four billion — so set this in production
+ * if the hashes matter to you.
+ */
+export function rateLimitSalt(): string {
+  return process.env.RATE_LIMIT_SALT ?? "";
+}
+
 /** Confirmations we require before treating a transfer as settled. */
 export const RPC_COMMITMENT = "confirmed";
 

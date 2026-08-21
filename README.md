@@ -88,6 +88,17 @@ Solana · BNB Chain · Robinhood Chain · Base · Ethereum · TON · TRON · Hyp
 
 Each chain carries its own address family and its own launchpad allowlist. See `src/lib/chains.ts`.
 
+## Rate limits
+
+Creating a pending bid is free and reserves a payment amount, so it is capped three ways — all in
+`RATE_LIMITS` in `src/lib/payments/config.ts`: live pending bids per caller, bids started per caller
+per hour, and how many pending bids may share one base amount. That last cap sits at 5% of the
+available fractions so allocation never approaches saturation.
+
+Expired bids are swept inside the limit check itself, on both the allow and the deny path, so a
+caller who fills a limit is released by expiry alone with no cleanup job. Raw IPs are never stored,
+only a salted hash used as a counting key.
+
 ## Not built yet
 
 Moderation, rate limiting, pagination, and — most importantly — any binding between a payment and

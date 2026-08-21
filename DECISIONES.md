@@ -444,3 +444,81 @@ strippeados), pero el dominio ya no decide si entrás: decide si tu fila muestra
   higiene importa igual — pero llamarlo "official launchpad link" en la UI es ahora un poco
   generoso. Lo dejé como "Official launchpad link" por continuidad; vale discutir renombrarlo.
 
+---
+
+## 11. Tanda 6 — endurecimiento pre-lanzamiento
+
+### Rate limiting
+
+Crear una puja pendiente es gratis y **reserva un monto**, lo que la convertía en lo más barato de
+abusar del sitio. Tres techos, todos en `RATE_LIMITS` (`payments/config.ts`), ninguno hardcodeado en
+el call site:
+
+| Límite | Valor | Por qué ese número |
+|---|---|---|
+| Pendientes vivas por IP | 5 | Un usuario real casi nunca tiene más de una o dos abiertas. 5 deja margen para equivocarse sin dar volumen a un atacante. |
+| Creaciones por IP por ventana | 20 / 60 min | Cubre el caso legítimo de tantear montos y abandonar, y corta el goteo automatizado. |
+| Pendientes vivas por monto base | 500 | 5% de las 9.999 fracciones. No es racionamiento: cerca de la saturación el sorteo empieza a colisionar y la creación se pone lenta **antes** de volverse imposible. El techo mantiene la asignación lejos de ese borde. |
+
+Decisiones que vale marcar:
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 50 | **El barrido de expiradas corre dentro del chequeo, antes de contar** | Es lo que hace que un atacante que llenó un límite no lo retenga más allá de la expiración. Corre en el camino de aceptación **y** en el de rechazo — hay un test específico para eso. Sin cron, sin job: el que está bloqueado se desbloquea esperando. |
+| 51 | **El límite se chequea ANTES del lookup a DexScreener** | Si no, alguien pasado de límite igual nos hace hacer trabajo saliente en cada request. |
+| 52 | **No se guarda la IP cruda, solo un hash salado** | Es un contador, no un registro de visitantes. Con `RATE_LIMIT_SALT` sin setear el hash de una IPv4 es reversible por fuerza bruta (son 4 mil millones), y está dicho en el código y en `.env.example`. |
+| 53 | **Sin cabeceras de proxy caemos a un bucket compartido `unknown`** | Es deliberadamente estricto en vez de permisivo: preferimos limitar de más a que un deploy mal configurado deje el límite sin efecto. |
+| 54 | **El techo por monto responde "probá otro monto"** | Saturar $50 no puede ser una caída global. El mensaje empuja a un monto libre y el test verifica que $51 sigue funcionando. |
+| 55 | **429 con `Retry-After` y un mensaje con cuándo reintentar** | El `retryAt` se calcula de datos reales — la expiración más próxima, o cuándo sale la puja más vieja de la ventana — no de una constante. |
+
+**Lo que el rate limiting NO cubre:** es por IP, así que no frena a alguien con IPs rotativas. Para
+eso hace falta prueba de trabajo, captcha o cuentas, y ninguna está. También: el bucket `unknown`
+es compartido, así que en un deploy sin proxy headers **todos los usuarios comparten un límite de
+5** — hay que confirmar que el hosting manda `x-forwarded-for` antes de lanzar.
+
+### Renombre del link
+
+`"Official launchpad link"` → **`"Where it launched"`**, con helper *"Any https link. Known
+launchpads get a verified badge."* El label viejo prometía oficialidad que la regla nueva (§10) ya no
+sostiene. Las reglas ahora dicen además que **la ausencia del badge no es una advertencia**, que era
+la lectura peligrosa que quedaba.
+
+---
+
+## 12. Bloqueantes que siguen abiertos
+
+Revisión del board pedida en esta tanda. Esto **no** está implementado; es la lista para decidir.
+
+### Bloqueantes de verdad (pagos ya están conectados, así que estos ya están corriendo)
+
+1. **No hay política de reembolso escrita** (§5.2). Las reglas dicen "final and non-refundable", que
+   es una política — pero no cubre el caso que *nosotros* generamos: un pago confirmado que queda en
+   `unmatched_payments` porque el monto no coincidió. Ahí hay plata de alguien, la UI le promete que
+   "support can apply it", y **no existe ni el proceso ni la pantalla de soporte**. Es la promesa más
+   riesgosa que hace el producto hoy.
+2. **No hay moderación.** No hay forma de bajar una entrada. Un token que resulta ser un rug queda
+   en el board, pago, para siempre. Sin esto, la primera vez que pase es una crisis sin herramienta.
+3. **No hay reconciliación automática.** Si el pago se confirma y DexScreener se cae en ese instante,
+   el pago queda registrado y la entrada no se aplica. El mensaje pide recargar; nada lo repara solo.
+4. **No hay cuentas ni disputa de propiedad** (§5.8). Sin identidad no hay "mis entradas" ni forma de
+   resolver quién controla una fila.
+
+### Decisiones de producto todavía sin responder
+
+5. **¿El margen del #1 es fijo o porcentual?** Hoy $5 fijo, que sobre un board de $10.000 no es
+   margen (§4.1).
+6. **¿Prendemos decaimiento?** Construido y apagado. Solo se puede anunciar una vez (§ranking).
+7. **¿El board muestra todo o corta en el top N?** Con el gate de launchpad afuera (§10) la cola va a
+   ser más ruidosa, así que esto pesa más que antes.
+8. **¿Cuál es el precio piso real?** $5 se heredó de un producto de SaaS, no de tokens.
+9. **¿Override manual de metadata?** Si DexScreener tiene mal un nombre, hoy no hay cómo corregirlo.
+10. **¿"RobinPad" entra al allowlist, y con qué dominio?** (§2.2).
+
+### Deuda técnica que ya no es opcional
+
+11. **Paginación.** 16 filas andan; 600 no.
+12. **Rate limiting por algo que no sea IP** (§11).
+13. **RPC dedicado de Solana.** El público tiene rate limits agresivos y no siempre sirve
+    transacciones históricas. Hay `SOLANA_RPC_URL` pero no hay reintentos ni fallback.
+14. **Open Graph images.** El producto se comparte por link; hoy la preview no muestra nada.
+

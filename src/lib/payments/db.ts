@@ -63,6 +63,18 @@ export function db(): DatabaseSync {
     CREATE UNIQUE INDEX IF NOT EXISTS pending_bids_payment_unique
       ON pending_bids (payment_micros) WHERE status = 'pending';
 
+    -- Every signature we have ever evaluated against the chain, whatever the
+    -- verdict. Claiming happens BEFORE the outcome is acted on, so a signature
+    -- presented twice loses the second time even if the first presentation was
+    -- a mismatch. This is what stops an on-chain transfer from being a bearer
+    -- instrument that anyone can spend.
+    CREATE TABLE IF NOT EXISTS consumed_signatures (
+      signature   TEXT PRIMARY KEY,
+      bid_id      TEXT,
+      outcome     TEXT NOT NULL,
+      consumed_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS payments (
       id                TEXT PRIMARY KEY,
       -- The guarantee this whole table exists for: one signature, one bid, ever.
@@ -72,6 +84,23 @@ export function db(): DatabaseSync {
       verified_at       TEXT    NOT NULL,
       FOREIGN KEY (bid_id) REFERENCES pending_bids(id)
     );
+
+    -- One bid can only ever have one payment applied to it. The status check in
+    -- the verify route is a check-then-act and loses to a concurrent request;
+    -- this does not.
+    CREATE UNIQUE INDEX IF NOT EXISTS payments_bid_unique ON payments (bid_id);
+
+    -- Verification attempts, for rate limiting. Rows older than the window are
+    -- swept rather than kept: this is a counter, not an audit log.
+    CREATE TABLE IF NOT EXISTS verification_attempts (
+      id          TEXT PRIMARY KEY,
+      bid_id      TEXT NOT NULL,
+      ip_hash     TEXT,
+      attempted_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS verification_attempts_bid ON verification_attempts (bid_id, attempted_at);
+    CREATE INDEX IF NOT EXISTS verification_attempts_ip ON verification_attempts (ip_hash, attempted_at);
 
     -- Bids that were paid for and applied to the board, so a settled payment
     -- survives a restart instead of living only in memory.

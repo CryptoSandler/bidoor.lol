@@ -95,9 +95,52 @@ export function solanaRpcUrls(): string[] {
 }
 
 /** Attempts per verification, across all configured endpoints. */
-export const RPC_MAX_ATTEMPTS = 4;
-/** First backoff step; doubles each retry. */
-export const RPC_BACKOFF_MS = 400;
+export const RPC_MAX_ATTEMPTS = 3;
+/** First backoff step; doubles each retry, capped by RPC_BACKOFF_MAX_MS. */
+export const RPC_BACKOFF_MS = 300;
+/** Ceiling on a single backoff step, so a retry cannot hold a request open. */
+export const RPC_BACKOFF_MAX_MS = 1_200;
+
+/**
+ * Tolerance when comparing a transaction's on-chain blockTime against the bid's
+ * own window. Our clock and the cluster's are not the same clock; two minutes
+ * is generous for skew and far too short to be useful to an attacker hunting a
+ * transfer that matches their randomly assigned fraction.
+ */
+export const BLOCKTIME_SKEW_SECONDS = 120;
+
+/**
+ * Rate limits on verification. Bid creation was already capped; verification
+ * was not, which let one bid id drive unlimited RPC calls.
+ */
+export const VERIFY_LIMITS = {
+  /** Attempts allowed against a single bid within the window. */
+  perBid: 10,
+  /** Attempts allowed from one caller within the window, across all bids. */
+  perIp: 30,
+  windowMinutes: 10,
+  /** Minimum gap between two attempts on the same bid, in seconds. */
+  minIntervalSeconds: 3,
+} as const;
+
+/**
+ * How many proxies sit in front of this app and append to x-forwarded-for.
+ * Vercel and Cloudflare are one hop. Getting this wrong in the permissive
+ * direction hands the caller control of their own rate-limit bucket.
+ */
+export function trustedProxyHops(): number {
+  const configured = Number(process.env.TRUSTED_PROXY_HOPS);
+  return Number.isInteger(configured) && configured > 0 ? configured : 1;
+}
+
+/**
+ * Escape hatch for local development, where there is no proxy and therefore no
+ * trustworthy client address. Off by default: in production, being unable to
+ * identify a caller must stop bid creation, not silently disable the limits.
+ */
+export function allowUntrustedClientIp(): boolean {
+  return process.env.ALLOW_UNTRUSTED_CLIENT_IP === "true";
+}
 
 /**
  * Where someone whose payment did not match is told to go. Not a promise that

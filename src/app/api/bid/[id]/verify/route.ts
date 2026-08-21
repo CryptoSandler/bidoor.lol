@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { getChain } from "@/lib/chains";
 import { fetchTokenMetadata } from "@/lib/dexscreener";
 import { paymentWallet, supportContact } from "@/lib/payments/config";
+import { checkVerificationLimits, clientIp, hashIp } from "@/lib/payments/limits";
 import {
+  claimSignature,
   getPendingBid,
   markFailed,
   recordAcceptedBid,
   recordPayment,
   recordUnmatchedPayment,
+  recordVerificationAttempt,
 } from "@/lib/payments/pending";
 import { verifyPayment } from "@/lib/payments/solana";
 import { placeBid } from "@/lib/store";
@@ -16,9 +19,13 @@ import type { NormalizedBid } from "@/lib/validation";
 /**
  * Settles a pending bid against a transaction signature.
  *
- * Order matters. The signature is claimed in the database BEFORE the board is
- * touched, so a signature can never pay for two bids even if two requests
- * arrive at the same instant — the UNIQUE constraint decides the winner.
+ * Two invariants drive the order of everything below.
+ *
+ * A transaction only counts if it landed inside this bid's own window, so a
+ * transfer that predates the bid can never be lifted off the chain and used to
+ * claim it. And a signature is burned the moment it is *evaluated*, matching or
+ * not, so a mismatched transfer stops being a bearer instrument that the next
+ * person to paste it can spend.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,6 +34,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!wallet.ok) {
     return NextResponse.json({ ok: false, message: wallet.message }, { status: 503 });
   }
+
+  const identity = clientIp(request);
+  if (!identity.ok) {
+    return NextResponse.json(
+      { ok: false, message: "Payment checks are temporarily unavailable on this deployment." },
+      { status: 503 },
+    );
+  }
+  const ipHash = hashIp(identity.ip);
 
   let signature = "";
   try {
@@ -49,16 +65,59 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
+  // Before any outbound work: verification used to be unlimited, so one bid id
+  // was enough to drive unbounded RPC calls and drain the node quota.
+  const limit = checkVerificationLimits(id, ipHash);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { ok: false, message: limit.message, reason: limit.reason, status: "failed" },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+  recordVerificationAttempt(id, ipHash);
+
   const verified = await verifyPayment({
     signature,
     expectedBaseUnits: bid.paymentBaseUnits,
     wallet: wallet.wallet,
+    createdAtMs: Date.parse(bid.createdAt),
+    expiresAtMs: Date.parse(bid.expiresAt),
   });
 
+  // "We could not look" is not a verdict. Burning a signature because a node
+  // was slow would destroy a real payment, so these two paths leave it intact.
+  const inconclusive =
+    !verified.ok &&
+    (verified.reason === "rpc_unavailable" ||
+      verified.reason === "not_confirmed" ||
+      verified.reason === "no_block_time" ||
+      verified.reason === "invalid_signature");
+
+  if (inconclusive) {
+    if (!verified.ok) markFailed(id, "failed", verified.message);
+    return NextResponse.json(
+      { ok: false, message: (verified as { message: string }).message, status: "failed" },
+      { status: 422 },
+    );
+  }
+
+  // The chain gave a definitive answer, so the signature is spent either way.
+  // Claimed before anything is acted on, so two concurrent requests cannot both
+  // proceed and the loser is told plainly.
+  const claimed = claimSignature(signature, id, verified.ok ? "applied" : verified.reason);
+  if (!claimed.ok) {
+    const message = "That transaction has already been used. A payment can only be presented once.";
+    markFailed(id, "failed", message);
+    return NextResponse.json(
+      { ok: false, message, reason: "signature_used", status: "failed" },
+      { status: 409 },
+    );
+  }
+
   if (!verified.ok) {
-    // Real money that reached us but matched no bid is filed rather than
-    // dropped. The signature is deliberately NOT consumed: this is somebody's
-    // funds, and support has to be able to apply them.
+    // Real money that reached us but matched no bid is still filed for support.
+    // The signature is now spent, so nobody else can claim it — recovering it is
+    // an operator decision, not a race.
     if (verified.receivedBaseUnits !== undefined) {
       recordUnmatchedPayment({
         signature,
@@ -69,16 +128,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
     }
 
-    // Points at a human, not at an automated recovery we do not have. Reviewing
-    // these is a manual queue in the admin console.
+    // Points at a human, not at an automated recovery we do not have.
     const contact = supportContact();
     const message =
       verified.receivedBaseUnits !== undefined && contact
         ? `${verified.message} To have it applied, contact ${contact} with the transaction signature.`
         : verified.message;
 
-    // A wrong paste is not a dead bid: the window is still open, so leave the
-    // reason visible and let them try another signature.
     markFailed(id, "failed", message);
     return NextResponse.json(
       { ok: false, message, reason: verified.reason, status: "failed" },
@@ -86,12 +142,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
-  const claimed = recordPayment(id, signature, verified.amountBaseUnits);
-  if (!claimed.ok) {
-    const message = "That transaction has already been used to pay for a bid.";
-    markFailed(id, "failed", message);
+  const payment = recordPayment(id, signature, verified.amountBaseUnits);
+  if (!payment.ok) {
+    // payments.bid_id is UNIQUE, so this is the concurrent-settlement case: the
+    // bid already has a payment applied.
     return NextResponse.json(
-      { ok: false, message, reason: "signature_used", status: "failed" },
+      { ok: false, message: "This bid already has a payment applied.", status: "failed" },
       { status: 409 },
     );
   }

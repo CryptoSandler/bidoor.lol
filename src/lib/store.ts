@@ -63,6 +63,7 @@ function buildSeed(): Store {
       logoUrl: spec.logoUrl,
       metadataFetchedAt: new Date(now).toISOString(),
       launchpadUrl: spec.launchpadUrl ?? null,
+      clickUrl: spec.launchpadUrl ?? spec.links.website ?? null,
       launchpadHost: spec.launchpadUrl ? new URL(spec.launchpadUrl).hostname : null,
       launchpadVerified: spec.launchpadUrl
         ? isKnownLaunchpad(getChain(spec.chainId)!, new URL(spec.launchpadUrl).hostname)
@@ -87,6 +88,13 @@ function buildSeed(): Store {
 
     for (const accepted of listAcceptedBids()) {
       // Bids from before a delisting do not come back: relisting starts at zero.
+      //
+      // Ties go to the delisting: a bid stamped at exactly the delisting's
+      // millisecond is dropped. That is the conservative side of a race that
+      // cannot really happen — delisting is a human action, and a payment
+      // settling in the same millisecond as one would be a coincidence, not a
+      // pattern — and erring the other way would let a rug survive its own
+      // removal.
       const delisting = delisted.get(accepted.bid.contractKey);
       if (delisting && accepted.createdAt <= delisting.delistedAt) continue;
       applyBid(store, accepted.bid, accepted.metadata, accepted.createdAt);
@@ -189,9 +197,10 @@ function applyBid(
     existing.links = metadata.links;
     existing.metadataFetchedAt = metadata.fetchedAt;
 
-    // launchpadUrl, launchpadHost and launchpadVerified are deliberately
-    // untouched: frozen by the first bid, so later bidders cannot repoint where
-    // the row sends clicks or talk it into a verified mark.
+    // launchpadUrl, launchpadHost, launchpadVerified and clickUrl are
+    // deliberately untouched: frozen by the first bid, so neither a later bidder
+    // nor the token's own deployer can repoint where the row sends clicks or
+    // talk it into a verified mark.
 
     const after = rankEntries([...state.entries.values()]);
     const row = after.find((item) => item.id === existing.id)!;
@@ -211,6 +220,8 @@ function applyBid(
     launchpadUrl: bid.launchpadUrl,
     launchpadHost: bid.launchpadHost,
     launchpadVerified: bid.launchpadVerified,
+    // Fixed here, at creation, and never touched again. See Entry.clickUrl.
+    clickUrl: bid.launchpadUrl ?? metadata.links.website ?? null,
     bids: [event],
     clicks: 0,
     createdAt: now,

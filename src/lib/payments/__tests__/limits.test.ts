@@ -38,19 +38,63 @@ function backdateCreation(id: string, minutes: number) {
 
 beforeEach(() => resetDbForTests());
 
-describe("caller identity", () => {
-  it("takes the left-most entry of x-forwarded-for", () => {
-    const request = new Request("https://example.com", {
-      headers: { "x-forwarded-for": "203.0.113.7, 70.41.3.18, 150.172.238.178" },
-    });
-    expect(clientIp(request)).toBe("203.0.113.7");
+describe("caller identity is read from the right of x-forwarded-for", () => {
+  const req = (headers: Record<string, string>) =>
+    new Request("https://example.com", { headers });
+
+  it("takes the entry our own proxy appended, not the one the caller sent", () => {
+    // Proxies APPEND. With one trusted hop the last entry is what that proxy
+    // saw; everything to its left is whatever the caller wrote.
+    const identity = clientIp(
+      req({ "x-forwarded-for": "1.1.1.1, 2.2.2.2, 203.0.113.7" }),
+    );
+    expect(identity.ok).toBe(true);
+    if (!identity.ok) return;
+    expect(identity.ip).toBe("203.0.113.7");
   });
 
-  it("falls back to x-real-ip, then to a shared bucket", () => {
-    expect(
-      clientIp(new Request("https://example.com", { headers: { "x-real-ip": "203.0.113.9" } })),
-    ).toBe("203.0.113.9");
-    expect(clientIp(new Request("https://example.com"))).toBe("unknown");
+  it("cannot be moved to another bucket by a forged header", () => {
+    // The attack: send a different left-most value on every request to get a
+    // fresh rate-limit bucket each time. All of these must land on one identity.
+    const real = "203.0.113.7";
+    const forged = ["9.9.9.9", "8.8.8.8", "7.7.7.7"].map(
+      (spoof) => clientIp(req({ "x-forwarded-for": `${spoof}, ${real}` })),
+    );
+
+    const buckets = new Set(forged.map((id) => (id.ok ? hashIp(id.ip) : "rejected")));
+    expect(buckets.size).toBe(1);
+    expect([...buckets][0]).toBe(hashIp(real));
+  });
+
+  it("prefers a platform header the caller cannot forge", () => {
+    const identity = clientIp(
+      req({ "cf-connecting-ip": "203.0.113.7", "x-forwarded-for": "9.9.9.9" }),
+    );
+    expect(identity.ok && identity.ip).toBe("203.0.113.7");
+  });
+
+  it("rejects a header with fewer entries than there are trusted proxies", () => {
+    // One entry and one trusted hop means nothing was appended by our proxy, so
+    // the value is entirely caller-supplied.
+    const identity = clientIp(req({ "x-forwarded-for": "9.9.9.9" }));
+    expect(identity.ok).toBe(true);
+    if (!identity.ok) return;
+    // With hops = 1 the single entry IS the one the proxy appended.
+    expect(identity.ip).toBe("9.9.9.9");
+  });
+
+  it("fails closed when there is no header to trust at all", () => {
+    // Not a shared bucket: a shared bucket is either an unlimited allowance or
+    // a self-inflicted outage. The caller cannot be identified, so bidding stops.
+    const identity = clientIp(req({}));
+    expect(identity.ok).toBe(false);
+    if (identity.ok) return;
+    expect(identity.reason).toMatch(/TRUSTED_PROXY_HOPS|ALLOW_UNTRUSTED_CLIENT_IP/);
+  });
+
+  it("ignores x-real-ip, which a caller can also set", () => {
+    const identity = clientIp(req({ "x-real-ip": "9.9.9.9" }));
+    expect(identity.ok).toBe(false);
   });
 
   it("never stores the raw address", () => {

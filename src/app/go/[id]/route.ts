@@ -10,9 +10,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const entry = registerClick(id);
 
-  // The launch link is optional, so fall back to the token's own site before
-  // giving up on having anywhere to send the visitor.
-  const target = entry?.launchpadUrl ?? entry?.links.website ?? null;
+  // Frozen at creation. Deliberately NOT recomputed from the entry's current
+  // links: the token's deployer controls those, and following them would let a
+  // listed row be repointed after the fact.
+  const target = entry?.clickUrl ?? null;
   if (!target) return NextResponse.redirect(new URL("/", request.url));
 
   return NextResponse.redirect(target, {

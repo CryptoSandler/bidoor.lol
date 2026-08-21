@@ -45,10 +45,10 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          {/* A launch link is optional and so is a website, so an entry can have
-              nowhere to send a click. It renders as plain text rather than a
-              link that goes nowhere. */}
-          {entry.launchpadUrl || entry.links.website ? (
+          {/* An entry can have nowhere to send a click — the destination is
+              fixed when the entry is created and never adopted later. Those rows
+              render as plain text rather than a link that goes nowhere. */}
+          {entry.clickUrl ? (
             <a
               href={`/go/${entry.id}`}
               target="_blank"

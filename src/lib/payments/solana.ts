@@ -1,5 +1,7 @@
 import { base58Decode } from "../base58";
 import {
+  BLOCKTIME_SKEW_SECONDS,
+  RPC_BACKOFF_MAX_MS,
   RPC_BACKOFF_MS,
   RPC_COMMITMENT,
   RPC_MAX_ATTEMPTS,
@@ -25,6 +27,8 @@ export type PaymentFailure =
   | "wrong_destination"
   | "insufficient_amount"
   | "overpaid"
+  | "outside_bid_window"
+  | "no_block_time"
   | "rpc_unavailable";
 
 export type VerifyResult =
@@ -50,6 +54,8 @@ type TokenBalance = {
 
 export type SolanaTransaction = {
   slot?: number;
+  /** Unix seconds. Absent on very old transactions and on some light nodes. */
+  blockTime?: number | null;
   meta?: {
     err?: unknown;
     preTokenBalances?: TokenBalance[];
@@ -88,6 +94,18 @@ export async function verifyPayment(params: {
    */
   expectedBaseUnits: bigint;
   wallet: string;
+  /**
+   * The bid's own window, as epoch milliseconds. The transaction must have
+   * landed inside it.
+   *
+   * Without this, a payment is a bearer instrument: amounts are only unique
+   * among live bids, so they are recycled, and any unspent transfer ever made
+   * to our wallet could be claimed by whoever pasted its signature first. Tying
+   * the transaction to the window means a transfer that predates the bid cannot
+   * pay for it, however well the amount matches.
+   */
+  createdAtMs: number;
+  expiresAtMs: number;
   fetchTransaction?: TransactionFetcher;
 }): Promise<VerifyResult> {
   const signature = params.signature.trim();
@@ -137,6 +155,31 @@ export async function verifyPayment(params: {
       ok: false,
       reason: "failed_tx",
       message: "That transaction failed on-chain, so nothing was transferred.",
+    };
+  }
+
+  // --- The transaction must belong to this bid's lifetime -----------------
+  const blockTime = transaction.blockTime;
+  if (typeof blockTime !== "number" || !Number.isFinite(blockTime)) {
+    // Refusing to guess: without a timestamp we cannot tell a fresh payment
+    // from one lifted off the chain, and guessing in the caller's favour is
+    // exactly the hole this check exists to close.
+    return {
+      ok: false,
+      reason: "no_block_time",
+      message:
+        "That transaction has no confirmed block time yet, so it cannot be matched to this bid. Try again in a moment.",
+    };
+  }
+
+  const skewMs = BLOCKTIME_SKEW_SECONDS * 1000;
+  const blockTimeMs = blockTime * 1000;
+  if (blockTimeMs < params.createdAtMs - skewMs || blockTimeMs > params.expiresAtMs + skewMs) {
+    return {
+      ok: false,
+      reason: "outside_bid_window",
+      message:
+        "That transaction was not made during this bid. Pay for a bid after starting it — a transfer from before the bid existed cannot be used to claim it.",
     };
   }
 
@@ -213,7 +256,10 @@ async function defaultFetchTransaction(signature: string): Promise<SolanaTransac
     } catch (error) {
       lastError = error;
       if (attempt < RPC_MAX_ATTEMPTS - 1) {
-        await sleep(RPC_BACKOFF_MS * 2 ** attempt);
+        // Capped so a retry cannot hold a request open for long. Attempts are
+        // sequential, so they never multiply concurrent connections; the cap is
+        // about how long one request can occupy a worker.
+        await sleep(Math.min(RPC_BACKOFF_MS * 2 ** attempt, RPC_BACKOFF_MAX_MS));
       }
     }
   }

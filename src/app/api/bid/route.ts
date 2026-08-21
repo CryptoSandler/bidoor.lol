@@ -40,9 +40,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, errors: result.errors }, { status: 422 });
   }
 
+  // Fails closed: if we cannot identify the caller we cannot rate limit them,
+  // and an unlimited allowance on the endpoint that reserves payment amounts is
+  // not something to shrug at.
+  const identity = clientIp(request);
+  if (!identity.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        errors: { amountUsd: "Bids are temporarily unavailable on this deployment." },
+        reason: "untrusted_client",
+      },
+      { status: 503 },
+    );
+  }
+
   // Checked before the DexScreener lookup: a caller who is over their limit
   // should not be able to make us do outbound work on every request.
-  const ipHash = hashIp(clientIp(request));
+  const ipHash = hashIp(identity.ip);
   const limit = checkBidCreationLimits(ipHash, result.value.amountUsd);
   if (!limit.ok) {
     return NextResponse.json(

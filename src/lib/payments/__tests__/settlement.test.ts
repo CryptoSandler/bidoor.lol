@@ -37,9 +37,10 @@ function bidFor(amountUsd: number): NormalizedBid {
   };
 }
 
-function paidTx(baseUnits: string): SolanaTransaction {
+function paidTx(baseUnits: string, blockTime = Math.floor(Date.now() / 1000)): SolanaTransaction {
   return {
     slot: 1,
+    blockTime,
     meta: {
       err: null,
       preTokenBalances: [
@@ -67,6 +68,8 @@ async function settle(
     signature,
     expectedBaseUnits: pending.paymentBaseUnits,
     wallet: WALLET,
+    createdAtMs: Date.parse(pending.createdAt),
+    expiresAtMs: Date.parse(pending.expiresAt),
     fetchTransaction: async () => paidTx(pay(pending.paymentBaseUnits).toString()),
   });
   if (!verified.ok) return { pending, applied: false as const, verified };

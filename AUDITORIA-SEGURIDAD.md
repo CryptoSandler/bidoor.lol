@@ -3,6 +3,10 @@
 **Fecha:** 2026-08-21 · **Commit auditado:** `5a05cbb` · **Alcance:** todo `src/`, esquema SQLite,
 configuración de entorno.
 
+> **Estado de remediación (2026-08-21).** Se corrigieron **C-1, C-2, A-1, A-4 y M-5**, cada uno con
+> tests. El estado de cada hallazgo está marcado en su título. Lo pendiente está resumido en
+> §"Estado de remediación" al final, junto con una tanda de deploy que sigue **bloqueante**.
+
 **Modelo de amenaza asumido:** adversario activo, con incentivo económico, capacidad de leer la
 cadena (nuestra wallet de cobro es pública y toda transferencia entrante es observable), rotar IPs a
 bajo costo, y desplegar tokens arbitrarios con la metadata que quiera. **No** se asume acceso al
@@ -33,7 +37,7 @@ infle: son controles reales, verificados leyendo el código, no supuestos.
 
 # CRÍTICO
 
-## C-1 · Una transacción no está atada en el tiempo a la puja: toda transferencia entrante es un instrumento al portador
+## C-1 · ✅ CORREGIDO · Una transacción no está atada en el tiempo a la puja: toda transferencia entrante es un instrumento al portador
 
 **Archivos:** `src/lib/payments/solana.ts:51-58` (el tipo `SolanaTransaction` ni siquiera pide
 `blockTime`), `src/lib/payments/solana.ts:145-187`, `src/app/api/bid/[id]/verify/route.ts:52-56`.
@@ -83,7 +87,7 @@ condición de carrera, y la víctima no tiene forma de notarlo hasta que reclama
 
 ---
 
-## C-2 · El rate limiting es evadible con una cabecera falsa, y con eso cae también la defensa de C-1
+## C-2 · ✅ CORREGIDO · El rate limiting es evadible con una cabecera falsa, y con eso cae también la defensa de C-1
 
 **Archivo:** `src/lib/payments/limits.ts:31-38`.
 
@@ -122,7 +126,7 @@ absoluto (usar otro mecanismo), en vez de simular que se limita.
 
 # ALTO
 
-## A-1 · El destino del click es mutable por el dueño del token — reintroduce exactamente el problema que la regla de acortadores existía para evitar
+## A-1 · ✅ CORREGIDO · El destino del click es mutable por el dueño del token — reintroduce exactamente el problema que la regla de acortadores existía para evitar
 
 **Archivos:** `src/app/go/[id]/route.ts:15-20`, `src/components/BoardRow.tsx:51-53`,
 `src/lib/dexscreener.ts:112-137`, `src/lib/store.ts` (top-up refresca `links` desde DexScreener).
@@ -152,7 +156,7 @@ dejar la fila sin link cuando no hay launch link. Adicionalmente: interstitial d
 dominio destino antes de redirigir, que es barato y corta el uso del dominio como blanqueador de
 reputación.
 
-## A-2 · El techo por monto es un recurso compartido: 500 pujas bloquean a todo el mundo en el monto más popular
+## A-2 · ⚠️ ABIERTO · El techo por monto es un recurso compartido: 500 pujas bloquean a todo el mundo en el monto más popular
 
 **Archivos:** `src/lib/payments/config.ts:68` (`livePendingPerAmount: 500`),
 `src/lib/payments/limits.ts:106-120`.
@@ -174,7 +178,7 @@ monto está saturado, asignar automáticamente un monto base contiguo (`$1` → 
 y si se agota, ofrecer `$2`) en vez de rechazar. Y subir el espacio de fracciones a 6 decimales
 (USDC lo soporta) elimina la escasez de raíz.
 
-## A-3 · La cola de pagos no coincidentes es escribible por cualquiera y sirve para engañar al operador
+## A-3 · 🟡 MITIGADO PARCIAL · La cola de pagos no coincidentes es escribible por cualquiera y sirve para engañar al operador
 
 **Archivos:** `src/app/api/bid/[id]/verify/route.ts:62-70`,
 `src/lib/payments/pending.ts:281-320`, `src/app/admin/AdminActions.tsx` (render de la cola).
@@ -201,7 +205,7 @@ el operador lo coteje; (b) marcar visualmente que `bid_id` es un dato aportado p
 firma, no una atribución del sistema; (c) exigir doble confirmación con el monto tipeado a mano;
 (d) rate-limitar `/api/bid/[id]/verify` (ver A-4) para cortar la inundación.
 
-## A-4 · `/api/bid/[id]/verify` y `/api/token` no tienen ningún límite: quema de cuota de RPC y de DexScreener a pedido
+## A-4 · 🟡 CORREGIDO EN PARTE · `/api/bid/[id]/verify` y `/api/token` no tienen ningún límite: quema de cuota de RPC y de DexScreener a pedido
 
 **Archivos:** `src/app/api/bid/[id]/verify/route.ts` (sin `checkBidCreationLimits`),
 `src/app/api/token/route.ts` (sin auth ni límite), `src/lib/payments/solana.ts:204-222`.
@@ -230,7 +234,7 @@ más tiempo.
 
 # MEDIO
 
-## M-1 · La cookie de admin **es** el secreto maestro, y `secure` es condicional
+## M-1 · ⚠️ ABIERTO · La cookie de admin **es** el secreto maestro, y `secure` es condicional
 
 **Archivos:** `src/app/api/admin/session/route.ts:20-29`, `src/lib/admin.ts:23-27`.
 
@@ -247,7 +251,7 @@ La cookie guarda el `ADMIN_TOKEN` **en crudo**. Es `httpOnly` ✓ y `sameSite: "
 embebida) en vez del token; `secure: true` siempre salvo en `localhost`; `path` acotado a `/admin` y
 `/api/admin`; tabla de sesiones revocables.
 
-## M-2 · Sin límite ni registro de intentos en el login de admin
+## M-2 · ⚠️ ABIERTO · Sin límite ni registro de intentos en el login de admin
 
 **Archivos:** `src/app/api/admin/session/route.ts`, `src/app/api/reconcile/route.ts`.
 
@@ -258,7 +262,7 @@ sin límite de intentos, sin bloqueo y sin log. Si `ADMIN_TOKEN` es una frase co
 **Fix.** Rate limit agresivo + backoff en cualquier ruta que valide el token; registrar los fallos;
 documentar en `.env.example` que debe ser ≥32 bytes aleatorios; considerar restringir `/admin` por IP.
 
-## M-3 · `checkToken` filtra la longitud del token por timing
+## M-3 · ⚠️ ABIERTO · `checkToken` filtra la longitud del token por timing
 
 **Archivo:** `src/lib/admin.ts:11-20`.
 
@@ -274,7 +278,7 @@ búsqueda. Menor por sí solo; relevante junto con M-2.
 **Fix.** `timingSafeEqual(sha256(candidate), sha256(expected))` — digests de longitud fija, sin
 retorno temprano.
 
-## M-4 · La metadata de DexScreener se renderiza sin normalizar Unicode ni acotar longitud
+## M-4 · ⚠️ ABIERTO · La metadata de DexScreener se renderiza sin normalizar Unicode ni acotar longitud
 
 **Archivo:** `src/lib/dexscreener.ts:185-201` (solo `.trim()` y `.toUpperCase()`).
 
@@ -292,7 +296,7 @@ consola de admin**:
 **Fix.** Normalizar a NFKC, eliminar controles bidi y zero-width, acotar a ~32/12 caracteres y marcar
 las filas cuyo nombre haya sido alterado por el saneamiento.
 
-## M-5 · Una puja puede liquidarse dos veces en carrera: falta `UNIQUE` sobre `payments.bid_id`
+## M-5 · ✅ CORREGIDO · Una puja puede liquidarse dos veces en carrera: falta `UNIQUE` sobre `payments.bid_id`
 
 **Archivos:** `src/lib/payments/db.ts:66-74`, `src/app/api/bid/[id]/verify/route.ts:42-50, 89-97`.
 
@@ -308,7 +312,7 @@ componente que lleva la cuenta del dinero, y el mismo patrón se repite en la ru
 transacción con `UPDATE pending_bids SET status='paid' WHERE id=? AND status<>'paid'` y comprobar
 `changes === 1`.
 
-## M-6 · El salt del hash de IP tiene default vacío
+## M-6 · ⚠️ ABIERTO · El salt del hash de IP tiene default vacío
 
 **Archivo:** `src/lib/payments/config.ts:79`.
 
@@ -324,7 +328,7 @@ está seteado en producción. Considerar además truncar el hash y expirar `ip_h
 
 # BAJO
 
-## B-1 · `.env.example` no está versionado
+## B-1 · ✅ CORREGIDO · `.env.example` no está versionado
 
 **Archivo:** `.gitignore:32` — el patrón `.env*` también matchea `.env.example`
 (`git check-ignore` lo confirma; `git ls-files` devuelve 0 resultados).
@@ -336,7 +340,7 @@ pasa desapercibido.
 
 **Fix.** `!.env.example` en `.gitignore` y commitearlo.
 
-## B-2 · Enumeración de transferencias mediante los mensajes de error
+## B-2 · ✅ CORREGIDO DE HECHO · Enumeración de transferencias mediante los mensajes de error
 
 **Archivo:** `src/lib/payments/solana.ts:179-183`.
 
@@ -347,7 +351,7 @@ ya es pública en la cadena, así que el impacto es bajo, pero acelera el recono
 **Fix.** Devolver el monto solo cuando la firma corresponda a una transacción posterior a la creación
 de la puja (que es el fix de C-1 de todos modos).
 
-## B-3 · La frontera cliente/servidor depende de un `import type` sin verificación
+## B-3 · ⚠️ ABIERTO · La frontera cliente/servidor depende de un `import type` sin verificación
 
 **Archivo:** `src/app/bid/[id]/PaymentPanel.tsx:6`.
 
@@ -359,7 +363,7 @@ nada lo impide en el futuro.
 **Fix.** Mover los tipos compartidos a un módulo sin dependencias de servidor, o añadir un
 `server-only` guard en `payments/*`.
 
-## B-4 · Código muerto en la ruta de pagos
+## B-4 · ⚠️ ABIERTO · Código muerto en la ruta de pagos
 
 **Archivo:** `src/lib/payments/pending.ts:178` — `reopen()` no se llama desde ningún lado.
 
@@ -456,3 +460,103 @@ No se auditó: dependencias de terceros (`npm audit`), configuración del hostin
 seguridad, HSTS, CSP — **no hay ninguna configurada**, lo cual amerita su propia revisión), backups y
 cifrado en reposo de `data/bidtape.db` (contiene `ip_hash` y el historial completo de pagos), ni el
 manejo operativo de la wallet de cobro, que por diseño vive fuera de este proyecto.
+
+---
+
+# Estado de remediación
+
+Aplicado en la tanda posterior a esta auditoría. Todo lo de abajo tiene tests, y los dos críticos
+tienen tests que se verificó que **fallan sin el fix**.
+
+## Corregido
+
+**C-1 — La transacción ahora está atada a la ventana de la puja, y la firma se quema al evaluarse.**
+`SolanaTransaction` incorpora `blockTime` y `verifyPayment` recibe `createdAtMs`/`expiresAtMs`
+(`solana.ts`). Una transacción fuera de esa ventana se rechaza con `outside_bid_window`, y una sin
+`blockTime` con `no_block_time` — no se adivina a favor del que paga, que es justo el agujero.
+Tolerancia de 120 s por desfase de reloj entre nuestro servidor y el clúster.
+
+Además se revirtió la decisión #42: `claimSignature` (`pending.ts`) inserta en
+`consumed_signatures` (PK sobre la firma) **antes** de actuar sobre el resultado, coincida o no. Un
+pago no coincidente se sigue archivando para soporte, pero su firma queda gastada, así que deja de
+ser un instrumento al portador.
+
+Dos caminos NO queman la firma, deliberadamente: RPC inalcanzable y transacción aún no confirmada.
+No son veredictos, y quemar ahí dejaría que un nodo lento destruya un pago real. Está testeado.
+
+*Tests:* `signature-binding.test.ts` — 16 casos. Verificado que con la ventana desactivada fallan
+3 (`REJECTS a transfer made before the bid existed`, la variante de cosecha a 90 días, y la
+posterior a la expiración), y que con el quemado en modo viejo falla `burns the signature on a
+MISMATCH too`.
+
+**C-2 — La IP se lee desde la derecha, y se falla cerrado.** `clientIp` (`limits.ts`) devuelve ahora
+un `ClientIdentity`, prefiere cabeceras que pone la plataforma (`cf-connecting-ip`, `true-client-ip`,
+`x-vercel-forwarded-for`, `fly-client-ip`) y, si no, toma de `x-forwarded-for` la entrada que agregó
+nuestro propio proxy, contando desde la derecha según `TRUSTED_PROXY_HOPS` (default 1, que es lo de
+Vercel y Cloudflare).
+
+Sin cabecera confiable **se falla cerrado**: la creación de pujas devuelve 503 en lugar de caer a un
+bucket compartido, porque un bucket compartido para todos los anónimos es o una barra libre o una
+caída autoinfligida. `ALLOW_UNTRUSTED_CLIENT_IP=true` es la salida explícita para desarrollo local.
+Se dejó de leer `x-real-ip`, que el cliente también puede poner.
+
+*Tests:* `limits.test.ts` — incluye el ataque concreto: tres requests con `x-forwarded-for`
+falsificado distinto deben caer todas en **un solo** bucket. Verificado que vuelve a fallar si se
+lee por izquierda.
+
+**A-1 — El destino del click se congela al crear la entrada.** `Entry.clickUrl` se fija una vez, en
+la primera puja, y ni un top-up ni un cambio del deployer en DexScreener lo mueven. Una entrada
+creada sin destino no adopta un `website` que aparezca después. `/go/[id]` y `BoardRow` leen solo ese
+campo.
+
+*Tests:* `hardening.test.ts` — el caso central es el deployer que cambia su website por un drainer y
+paga $1 para forzar el refresco: los links mostrados se actualizan, el destino del click no.
+
+**A-4 (parcial) — Rate limit en `/verify`.** `checkVerificationLimits` acota por puja (10 por
+ventana de 10 min), por caller (30) y con un intervalo mínimo de 3 s entre intentos sobre la misma
+puja, registrado en `verification_attempts`. Se chequea **antes** de cualquier trabajo saliente. El
+backoff del RPC pasó a 3 intentos con techo de 1,2 s por paso, así que un request no puede retener un
+worker mucho tiempo; los reintentos son secuenciales y nunca multiplicaron conexiones concurrentes.
+
+**M-5 — `UNIQUE` sobre `payments.bid_id`.** El check de `status === 'paid'` era un check-then-act y
+perdía contra un request concurrente; la constraint no. `recordPayment` distingue ahora
+`bid_already_paid` de `signature_used`.
+
+**B-1 — `.env.example` se versiona.** `!.env.example` en `.gitignore`. Se documentaron además
+`TRUSTED_PROXY_HOPS` y `ALLOW_UNTRUSTED_CLIENT_IP`.
+
+**B-2 — Resuelto de hecho.** El oráculo de montos requería que el verificador llegara a evaluar el
+balance; ahora una transacción fuera de la ventana se rechaza antes, así que ya no se puede consultar
+una transacción arbitraria.
+
+## Cambio de comportamiento a comunicar
+
+El quemado de firma en el camino de mismatch **cambia el trato**: antes se le decía al usuario que
+podía reintentar con la misma firma. Ahora no puede — la firma queda gastada y la recuperación pasa
+sí o sí por soporte. El copy de la pantalla de pago y de Rules debería reflejarlo antes de lanzar; es
+más seguro pero es más áspero, y prometer un reintento que ya no existe sería peor que ambas cosas.
+
+## Sigue abierto
+
+Por orden de lo que pesa: **A-2** (500 pujas pendientes bloquean el monto de $1 para todos),
+**A-3** (la cola de unmatched no muestra el remitente on-chain, así que un operador puede ser
+inducido a aplicar plata ajena — mitigado en parte porque la firma ya está quemada y el atacante no
+puede además reclamarla él), **M-1/M-2/M-3** (la cookie de admin **es** el secreto maestro, sin
+límite de intentos ni registro, y con fuga de longitud por timing), **M-4** (metadata de DexScreener
+sin normalizar Unicode ni acotar longitud), **M-6** (salt de IP con default vacío), **B-3** y **B-4**.
+
+## Tanda aparte — BLOQUEANTE DE DEPLOY, no implementada
+
+Estas dos no se tocaron en esta remediación y **no deberían pasar a producción sin resolverse**:
+
+1. **Cabeceras de seguridad.** Hoy no hay **ninguna** configurada. Faltan como mínimo:
+   `Content-Security-Policy` (el sitio carga imágenes de un CDN externo y no tiene CSP, así que
+   cualquier inyección futura no tiene contención), `Strict-Transport-Security`,
+   `X-Content-Type-Options: nosniff`, `Referrer-Policy` a nivel documento y `Permissions-Policy`.
+   Se configuran en `next.config.ts` con `headers()`.
+2. **Cifrado en reposo de `data/bidtape.db`.** La base contiene el historial completo de pagos, las
+   firmas consumidas y los `ip_hash` de los visitantes (con M-6 abierto, esos hashes son
+   efectivamente IPs). Hoy es un archivo en disco sin cifrar y sin política de backup ni de
+   retención. Definir: dónde vive, quién puede leerlo, cada cuánto se respalda, cómo se restaura y
+   cuánto tiempo se guardan los `ip_hash`.
+

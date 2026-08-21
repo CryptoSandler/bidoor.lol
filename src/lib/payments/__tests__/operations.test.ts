@@ -150,7 +150,7 @@ describe("delisting", () => {
     expect(delistings[0].contractKey).toBe(target.contractKey);
   });
 
-  it("frees the rank: a relisting starts from zero, not from the old total", () => {
+  it("frees the rank: a relisting starts from zero, not from the old total", async () => {
     // Pay for a token, then delist it.
     const pending = createPendingBid(bidFor(USDC_ADDR, 5000));
     recordPayment(pending.id, SIG, pending.paymentBaseUnits);
@@ -159,7 +159,11 @@ describe("delisting", () => {
 
     expect(listRanked().find((e) => e.contract === USDC_ADDR)!.totalUsd).toBe(5000);
 
+    // Real time has to pass around the delisting: bids are matched to it by
+    // timestamp, and in a test everything otherwise lands in one millisecond.
+    await new Promise((resolve) => setTimeout(resolve, 5));
     delistEntry(`solana:${USDC_ADDR}`, "Rug");
+    await new Promise((resolve) => setTimeout(resolve, 5));
     delete (globalThis as { __board?: unknown }).__board;
     expect(listRanked().some((e) => e.contract === USDC_ADDR)).toBe(false);
 
@@ -258,6 +262,8 @@ describe("RPC resilience", () => {
       signature: SIG,
       expectedBaseUnits: 100_000_000n,
       wallet: "8vQ2mQ6xkYPfJ7BFhCGDVzWJ1uYTLDXQoK4Vn5wCq3Rt",
+      createdAtMs: Date.now() - 60_000,
+      expiresAtMs: Date.now() + 60_000,
     });
 
     expect(result.ok).toBe(false);

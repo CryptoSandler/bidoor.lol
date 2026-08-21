@@ -186,7 +186,7 @@ export function reopen(id: string): void {
 
 export type RecordPaymentResult =
   | { ok: true }
-  | { ok: false; reason: "signature_used" };
+  | { ok: false; reason: "signature_used" | "bid_already_paid" };
 
 /**
  * Claims a signature for a bid. The UNIQUE constraint on payments.signature is
@@ -207,7 +207,15 @@ export function recordPayment(
       )
       .run(randomUUID(), signature.trim(), bidId, amountBaseUnits.toString(), new Date().toISOString());
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, reason: "signature_used" };
+    if (isUniqueViolation(error)) {
+      // Two UNIQUE constraints can fire here: the signature, and payments.bid_id
+      // which stops one bid ever having two payments applied to it.
+      const message = (error as Error).message ?? "";
+      return {
+        ok: false,
+        reason: /bid_id|payments_bid_unique/i.test(message) ? "bid_already_paid" : "signature_used",
+      };
+    }
     throw error;
   }
 
@@ -427,4 +435,93 @@ export function delistingsByKey(): Map<string, Delisting> {
 
 export function listDelistings(): Delisting[] {
   return [...delistingsByKey().values()].sort((a, b) => b.delistedAt.localeCompare(a.delistedAt));
+}
+
+// --- Signature consumption ---------------------------------------------------
+
+export type ClaimResult = { ok: true } | { ok: false; reason: "signature_used" };
+
+/**
+ * Burns a signature, whatever the verdict was.
+ *
+ * A signature is spent by being *evaluated*, not by matching. Leaving a
+ * mismatched one reusable — which is what we did before — meant every stray
+ * transfer to our wallet stayed claimable by whoever pasted it next, which is
+ * the same thing as leaving cash on the pavement.
+ *
+ * Deliberately NOT called when the chain could not be reached or the
+ * transaction is not confirmed yet: those are not verdicts, and burning on them
+ * would let a flaky RPC destroy a legitimate payment.
+ */
+export function claimSignature(
+  signature: string,
+  bidId: string | null,
+  outcome: string,
+): ClaimResult {
+  try {
+    db()
+      .prepare(
+        `INSERT INTO consumed_signatures (signature, bid_id, outcome, consumed_at)
+         VALUES (?, ?, ?, ?)`,
+      )
+      .run(signature.trim(), bidId, outcome, new Date().toISOString());
+    return { ok: true };
+  } catch (error) {
+    if (isUniqueViolation(error)) return { ok: false, reason: "signature_used" };
+    throw error;
+  }
+}
+
+export function signatureWasConsumed(signature: string): boolean {
+  const row = db()
+    .prepare(`SELECT 1 AS hit FROM consumed_signatures WHERE signature = ?`)
+    .get(signature.trim()) as { hit: number } | undefined;
+  return row !== undefined;
+}
+
+// --- Verification attempts (rate limiting) -----------------------------------
+
+export function recordVerificationAttempt(bidId: string, ipHash: string | null): void {
+  db()
+    .prepare(
+      `INSERT INTO verification_attempts (id, bid_id, ip_hash, attempted_at) VALUES (?, ?, ?, ?)`,
+    )
+    .run(randomUUID(), bidId, ipHash, new Date().toISOString());
+}
+
+export function countVerificationAttempts(
+  since: string,
+): { forBid: (bidId: string) => number; forIp: (ipHash: string) => number; lastForBid: (bidId: string) => string | null } {
+  const database = db();
+  return {
+    forBid: (bidId) =>
+      (
+        database
+          .prepare(
+            `SELECT COUNT(*) AS c FROM verification_attempts WHERE bid_id = ? AND attempted_at > ?`,
+          )
+          .get(bidId, since) as { c: number }
+      ).c,
+    forIp: (ipHash) =>
+      (
+        database
+          .prepare(
+            `SELECT COUNT(*) AS c FROM verification_attempts WHERE ip_hash = ? AND attempted_at > ?`,
+          )
+          .get(ipHash, since) as { c: number }
+      ).c,
+    lastForBid: (bidId) =>
+      (
+        database
+          .prepare(
+            `SELECT attempted_at FROM verification_attempts WHERE bid_id = ? ORDER BY attempted_at DESC LIMIT 1`,
+          )
+          .get(bidId) as { attempted_at: string } | undefined
+      )?.attempted_at ?? null,
+  };
+}
+
+/** Drops attempt rows outside the counting window. This is a counter, not a log. */
+export function pruneVerificationAttempts(before: string): void {
+  db().prepare(`DELETE FROM verification_attempts WHERE attempted_at <= ?`).run(before);
 }

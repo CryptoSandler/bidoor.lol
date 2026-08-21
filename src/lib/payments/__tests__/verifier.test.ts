@@ -14,6 +14,11 @@ const SIG = "5".repeat(87);
 const SIG_B = "4".repeat(87);
 
 /** Builds a transaction whose token balance deltas say what we want to test. */
+/** A bid window the fixtures sit inside, so the time check is not the subject. */
+const WINDOW_START = Date.now() - 5 * 60_000;
+const WINDOW_END = WINDOW_START + 30 * 60_000;
+const INSIDE = Math.floor((WINDOW_START + 60_000) / 1000);
+
 function tx(options: {
   err?: unknown;
   owner?: string;
@@ -21,13 +26,15 @@ function tx(options: {
   before?: string;
   after?: string;
   noMeta?: boolean;
+  blockTime?: number | null;
 }): SolanaTransaction {
   const owner = options.owner ?? WALLET;
   const mint = options.mint ?? USDC_MINT;
-  if (options.noMeta) return { slot: 1, meta: null };
+  if (options.noMeta) return { slot: 1, blockTime: INSIDE, meta: null };
 
   return {
     slot: 1,
+    blockTime: options.blockTime === undefined ? INSIDE : options.blockTime,
     meta: {
       err: options.err ?? null,
       preTokenBalances: [
@@ -45,6 +52,8 @@ async function check(transaction: SolanaTransaction, amountUsd = 100, signature 
     signature,
     expectedBaseUnits: BigInt(amountUsd) * 1_000_000n,
     wallet: WALLET,
+    createdAtMs: WINDOW_START,
+    expiresAtMs: WINDOW_END,
     fetchTransaction: async () => transaction,
   });
 }
@@ -65,6 +74,8 @@ describe("a payment that is good", () => {
       signature: SIG,
       expectedBaseUnits: exact,
       wallet: WALLET,
+      createdAtMs: WINDOW_START,
+      expiresAtMs: WINDOW_END,
       fetchTransaction: async () => tx({ after: exact.toString() }),
     });
     expect(result.ok).toBe(true);
@@ -86,6 +97,8 @@ describe("the amount must match exactly, because the amount is the attribution",
       signature: SIG,
       expectedBaseUnits: exact,
       wallet: WALLET,
+      createdAtMs: WINDOW_START,
+      expiresAtMs: WINDOW_END,
       fetchTransaction: async () => tx({ after: received.toString() }),
     });
   }
@@ -179,6 +192,8 @@ describe("transaction state", () => {
       signature: "not-a-signature",
       expectedBaseUnits: 100_000_000n,
       wallet: WALLET,
+      createdAtMs: WINDOW_START,
+      expiresAtMs: WINDOW_END,
       fetchTransaction: async () => {
         called = true;
         return null;
@@ -195,6 +210,8 @@ describe("transaction state", () => {
       signature: SIG,
       expectedBaseUnits: 100_000_000n,
       wallet: WALLET,
+      createdAtMs: WINDOW_START,
+      expiresAtMs: WINDOW_END,
       fetchTransaction: async () => {
         throw new Error("node down");
       },

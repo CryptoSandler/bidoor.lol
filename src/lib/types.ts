@@ -44,6 +44,18 @@ export type Entry = {
    */
   launchpadUrl: string | null;
   launchpadHost: string | null;
+  /**
+   * Where this row's clicks go. Frozen when the entry is created and never
+   * recalculated, including on a top-up.
+   *
+   * It has to be frozen because the fallback source — the token's website on
+   * DexScreener — is edited by whoever deployed the token. Recomputing it would
+   * let a listing that passed review quietly repoint at a drainer later, which
+   * is the exact mutable-destination problem the shortener rule exists to
+   * prevent. An entry created with nowhere to point stays unclickable rather
+   * than adopting a website that appears afterwards.
+   */
+  clickUrl: string | null;
   /** Set with the link on the first bid: the host is one we recognise. */
   launchpadVerified: boolean;
   bids: BidEvent[];

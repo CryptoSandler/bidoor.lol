@@ -9,16 +9,21 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check:layout": "node scripts/check-layout.mjs"
+    "check:layout": "node scripts/check-layout.mjs",
+    "db:migrate": "tsx scripts/migrate.mts",
+    "db:up": "docker compose up -d && npm run db:migrate",
+    "db:reset": "docker compose down -v && docker compose up -d && sleep 3 && npm run db:migrate"
   },
   "dependencies": {
     "next": "16.3.2",
+    "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^26.2.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

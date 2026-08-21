@@ -1,14 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TokenMetadata } from "../../dexscreener";
-import { listRanked, placeBid } from "../../store";
+import { delistEntry, listDelistings, listRanked, placeBid } from "../../store";
 import type { NormalizedBid } from "../../validation";
 import { USDC_MINT } from "../config";
-import { db, resetDbForTests } from "../db";
+import { query } from "../../db";
+import { loadDemoSeed, truncateAll } from "../../seed";
 import {
   createPendingBid,
-  delistEntry,
   listAcceptedBids,
-  listDelistings,
   listUnmatchedPayments,
   recordAcceptedBid,
   recordPayment,
@@ -41,42 +40,42 @@ function bidFor(contract: string, amountUsd: number): NormalizedBid {
   };
 }
 
-function resetAll() {
-  resetDbForTests();
-  delete (globalThis as { __board?: unknown }).__board;
+async function resetAll() {
+  await truncateAll();
+  await loadDemoSeed();
 }
 
 beforeEach(resetAll);
 
 describe("reconciling payments whose entry never landed", () => {
   /** Settles a payment the way the verify route does, but skips the board. */
-  function settledButUnapplied(amountUsd: number, signature = SIG) {
-    const pending = createPendingBid(bidFor(USDC_ADDR, amountUsd));
+  async function settledButUnapplied(amountUsd: number, signature = SIG) {
+    const pending = await createPendingBid(bidFor(USDC_ADDR, amountUsd));
     // The payment is claimed; the DexScreener lookup that follows it failed, so
     // no accepted_bids row was ever written. This is the gap being repaired.
-    recordPayment(pending.id, signature, pending.paymentBaseUnits);
+    await recordPayment(pending.id, signature, pending.paymentBaseUnits);
     return pending;
   }
 
   const resolver: MetadataResolver = async () => metadata;
 
   it("applies a settled payment that never reached the board", async () => {
-    const before = listRanked().length;
-    const pending = settledButUnapplied(120);
+    const before = (await listRanked()).length;
+    const pending = await settledButUnapplied(120);
 
     const outcome = await reconcileSettledPayments(resolver);
 
     expect(outcome.scanned).toBe(1);
     expect(outcome.applied).toHaveLength(1);
     expect(outcome.applied[0].bidId).toBe(pending.id);
-    expect(listRanked()).toHaveLength(before + 1);
+    expect(await listRanked()).toHaveLength(before + 1);
   });
 
   it("is idempotent: running it twice does not double anything", async () => {
-    settledButUnapplied(120);
+    await settledButUnapplied(120);
 
     const first = await reconcileSettledPayments(resolver);
-    const boardAfterFirst = listRanked();
+    const boardAfterFirst = await listRanked();
     const totalAfterFirst = boardAfterFirst.find((e) => e.contract === USDC_ADDR)!.totalUsd;
 
     const second = await reconcileSettledPayments(resolver);
@@ -84,30 +83,30 @@ describe("reconciling payments whose entry never landed", () => {
     expect(first.applied).toHaveLength(1);
     expect(second.scanned).toBe(0);
     expect(second.applied).toHaveLength(0);
-    expect(listRanked()).toHaveLength(boardAfterFirst.length);
-    expect(listRanked().find((e) => e.contract === USDC_ADDR)!.totalUsd).toBe(totalAfterFirst);
-    expect(listAcceptedBids()).toHaveLength(1);
+    expect(await listRanked()).toHaveLength(boardAfterFirst.length);
+    expect((await listRanked()).find((e) => e.contract === USDC_ADDR)!.totalUsd).toBe(totalAfterFirst);
+    expect(await listAcceptedBids()).toHaveLength(1);
   });
 
   it("does nothing when every payment is already applied", async () => {
-    const pending = createPendingBid(bidFor(USDC_ADDR, 50));
-    recordPayment(pending.id, SIG, pending.paymentBaseUnits);
-    placeBid(bidFor(USDC_ADDR, 50), metadata);
-    recordAcceptedBid(pending.id, bidFor(USDC_ADDR, 50), metadata);
+    const pending = await createPendingBid(bidFor(USDC_ADDR, 50));
+    await recordPayment(pending.id, SIG, pending.paymentBaseUnits);
+    await placeBid(bidFor(USDC_ADDR, 50), metadata);
+    await recordAcceptedBid(pending.id, bidFor(USDC_ADDR, 50), metadata);
 
     const outcome = await reconcileSettledPayments(resolver);
     expect(outcome.scanned).toBe(0);
-    expect(listAcceptedBids()).toHaveLength(1);
+    expect(await listAcceptedBids()).toHaveLength(1);
   });
 
   it("leaves a still-unresolvable token alone so the next run retries it", async () => {
-    settledButUnapplied(120);
+    await settledButUnapplied(120);
     const failing: MetadataResolver = async () => null;
 
     const outcome = await reconcileSettledPayments(failing);
     expect(outcome.applied).toHaveLength(0);
     expect(outcome.failed).toHaveLength(1);
-    expect(listAcceptedBids()).toHaveLength(0);
+    expect(await listAcceptedBids()).toHaveLength(0);
 
     // Once the source recovers, the same payment is picked up.
     const retry = await reconcileSettledPayments(resolver);
@@ -115,9 +114,9 @@ describe("reconciling payments whose entry never landed", () => {
   });
 
   it("handles several orphans in one pass", async () => {
-    settledButUnapplied(10, "5".repeat(87));
-    settledButUnapplied(20, "4".repeat(87));
-    settledButUnapplied(30, "3".repeat(87));
+    await settledButUnapplied(10, "5".repeat(87));
+    await settledButUnapplied(20, "4".repeat(87));
+    await settledButUnapplied(30, "3".repeat(87));
 
     const outcome = await reconcileSettledPayments(resolver);
     expect(outcome.applied).toHaveLength(3);
@@ -126,25 +125,24 @@ describe("reconciling payments whose entry never landed", () => {
 });
 
 describe("delisting", () => {
-  it("removes the entry from the board without deleting the record", () => {
-    const target = listRanked()[0];
-    const before = listRanked().length;
+  it("removes the entry from the board without deleting the record", async () => {
+    const target = (await listRanked())[0];
+    const before = (await listRanked()).length;
 
-    delistEntry(target.contractKey, "Confirmed rug");
+    await delistEntry(target.contractKey, "Confirmed rug");
     // Only the in-memory board is dropped: the delisting lives in the database
     // and must survive the rebuild, which is the whole point.
-    delete (globalThis as { __board?: unknown }).__board;
 
-    const after = listRanked();
+    const after = await listRanked();
     expect(after).toHaveLength(before - 1);
     expect(after.some((entry) => entry.contractKey === target.contractKey)).toBe(false);
   });
 
-  it("keeps the delisting and its reason for the audit trail", () => {
-    const target = listRanked()[0];
-    delistEntry(target.contractKey, "Confirmed rug");
+  it("keeps the delisting and its reason for the audit trail", async () => {
+    const target = (await listRanked())[0];
+    await delistEntry(target.contractKey, "Confirmed rug");
 
-    const delistings = listDelistings();
+    const delistings = await listDelistings();
     expect(delistings).toHaveLength(1);
     expect(delistings[0].reason).toBe("Confirmed rug");
     expect(delistings[0].contractKey).toBe(target.contractKey);
@@ -152,46 +150,43 @@ describe("delisting", () => {
 
   it("frees the rank: a relisting starts from zero, not from the old total", async () => {
     // Pay for a token, then delist it.
-    const pending = createPendingBid(bidFor(USDC_ADDR, 5000));
-    recordPayment(pending.id, SIG, pending.paymentBaseUnits);
-    placeBid(bidFor(USDC_ADDR, 5000), metadata);
-    recordAcceptedBid(pending.id, bidFor(USDC_ADDR, 5000), metadata);
+    const pending = await createPendingBid(bidFor(USDC_ADDR, 5000));
+    await recordPayment(pending.id, SIG, pending.paymentBaseUnits);
+    await placeBid(bidFor(USDC_ADDR, 5000), metadata);
+    await recordAcceptedBid(pending.id, bidFor(USDC_ADDR, 5000), metadata);
 
-    expect(listRanked().find((e) => e.contract === USDC_ADDR)!.totalUsd).toBe(5000);
+    expect((await listRanked()).find((e) => e.contract === USDC_ADDR)!.totalUsd).toBe(5000);
 
     // Real time has to pass around the delisting: bids are matched to it by
     // timestamp, and in a test everything otherwise lands in one millisecond.
     await new Promise((resolve) => setTimeout(resolve, 5));
-    delistEntry(`solana:${USDC_ADDR}`, "Rug");
+    await delistEntry(`solana:${USDC_ADDR}`, "Rug");
     await new Promise((resolve) => setTimeout(resolve, 5));
-    delete (globalThis as { __board?: unknown }).__board;
-    expect(listRanked().some((e) => e.contract === USDC_ADDR)).toBe(false);
+    expect((await listRanked()).some((e) => e.contract === USDC_ADDR)).toBe(false);
 
     // Relisting pays again — and the $5,000 does not come back.
-    const relist = createPendingBid(bidFor(USDC_ADDR, 25));
-    recordPayment(relist.id, "4".repeat(87), relist.paymentBaseUnits);
-    placeBid(bidFor(USDC_ADDR, 25), metadata);
-    recordAcceptedBid(relist.id, bidFor(USDC_ADDR, 25), metadata);
-
-    delete (globalThis as { __board?: unknown }).__board;
-    const relisted = listRanked().find((e) => e.contract === USDC_ADDR)!;
+    const relist = await createPendingBid(bidFor(USDC_ADDR, 25));
+    await recordPayment(relist.id, "4".repeat(87), relist.paymentBaseUnits);
+    await placeBid(bidFor(USDC_ADDR, 25), metadata);
+    await recordAcceptedBid(relist.id, bidFor(USDC_ADDR, 25), metadata);
+    const relisted = (await listRanked()).find((e) => e.contract === USDC_ADDR)!;
     expect(relisted.totalUsd).toBe(25);
   });
 
-  it("does not refund: the payment record survives the delisting", () => {
-    const pending = createPendingBid(bidFor(USDC_ADDR, 500));
-    recordPayment(pending.id, SIG, pending.paymentBaseUnits);
-    delistEntry(`solana:${USDC_ADDR}`, "Rug");
+  it("does not refund: the payment record survives the delisting", async () => {
+    const pending = await createPendingBid(bidFor(USDC_ADDR, 500));
+    await recordPayment(pending.id, SIG, pending.paymentBaseUnits);
+    await delistEntry(`solana:${USDC_ADDR}`, "Rug");
 
-    const payments = db().prepare(`SELECT COUNT(*) AS c FROM payments`).get() as { c: number };
-    expect(payments.c).toBe(1);
+    const payments = (await query<{ c: string }>(`SELECT COUNT(*)::text AS c FROM payments`))[0];
+    expect(Number(payments.c)).toBe(1);
   });
 });
 
 describe("the unmatched payment queue", () => {
-  function stray(received: bigint, expected: bigint, signature = SIG) {
-    const pending = createPendingBid(bidFor(BONK, Number(expected / 1_000_000n)));
-    recordUnmatchedPayment({
+  async function stray(received: bigint, expected: bigint, signature = SIG) {
+    const pending = await createPendingBid(bidFor(BONK, Number(expected / 1_000_000n)));
+    await recordUnmatchedPayment({
       signature,
       bidId: pending.id,
       receivedBaseUnits: received,
@@ -201,49 +196,49 @@ describe("the unmatched payment queue", () => {
     return pending;
   }
 
-  it("files a stray payment as open, without consuming the signature", () => {
-    stray(100_005_000n, 100_004_100n);
+  it("files a stray payment as open, without consuming the signature", async () => {
+    await stray(100_005_000n, 100_004_100n);
 
-    const open = listUnmatchedPayments("open");
+    const open = await listUnmatchedPayments("open");
     expect(open).toHaveLength(1);
     expect(open[0].status).toBe("open");
 
     // The signature is still spendable, which is what makes a retry possible.
-    const payments = db().prepare(`SELECT COUNT(*) AS c FROM payments`).get() as { c: number };
-    expect(payments.c).toBe(0);
+    const payments = (await query<{ c: string }>(`SELECT COUNT(*)::text AS c FROM payments`))[0];
+    expect(Number(payments.c)).toBe(0);
   });
 
-  it("records only one row per signature however many times it is retried", () => {
-    stray(100_005_000n, 100_004_100n);
-    recordUnmatchedPayment({
+  it("records only one row per signature however many times it is retried", async () => {
+    await stray(100_005_000n, 100_004_100n);
+    await recordUnmatchedPayment({
       signature: SIG,
       bidId: null,
       receivedBaseUnits: 100_005_000n,
       expectedBaseUnits: 100_004_100n,
       reason: "overpaid",
     });
-    expect(listUnmatchedPayments()).toHaveLength(1);
+    expect(await listUnmatchedPayments()).toHaveLength(1);
   });
 
-  it("moves out of the open queue once resolved, and keeps the reason", () => {
-    stray(100_005_000n, 100_004_100n);
-    const payment = listUnmatchedPayments("open")[0];
+  it("moves out of the open queue once resolved, and keeps the reason", async () => {
+    await stray(100_005_000n, 100_004_100n);
+    const payment = (await listUnmatchedPayments("open"))[0];
 
-    resolveUnmatchedPayment(payment.id, "discarded", "Sender unreachable after 30 days");
+    await resolveUnmatchedPayment(payment.id, "discarded", "Sender unreachable after 30 days");
 
-    expect(listUnmatchedPayments("open")).toHaveLength(0);
-    const resolved = listUnmatchedPayments()[0];
+    expect(await listUnmatchedPayments("open")).toHaveLength(0);
+    const resolved = (await listUnmatchedPayments())[0];
     expect(resolved.status).toBe("discarded");
     expect(resolved.resolutionNote).toMatch(/unreachable/);
     expect(resolved.resolvedAt).toBeTruthy();
   });
 
-  it("still cannot spend one signature on two bids, even via the operator path", () => {
-    const first = stray(100_004_100n, 100_004_100n);
-    const second = createPendingBid(bidFor(BONK, 100));
+  it("still cannot spend one signature on two bids, even via the operator path", async () => {
+    const first = await stray(100_004_100n, 100_004_100n);
+    const second = await createPendingBid(bidFor(BONK, 100));
 
-    expect(recordPayment(first.id, SIG, 100_004_100n).ok).toBe(true);
-    expect(recordPayment(second.id, SIG, 100_004_100n).ok).toBe(false);
+    expect((await recordPayment(first.id, SIG, 100_004_100n)).ok).toBe(true);
+    expect((await recordPayment(second.id, SIG, 100_004_100n)).ok).toBe(false);
   });
 });
 
@@ -279,7 +274,7 @@ describe("RPC resilience", () => {
 });
 
 describe("USDC mint is not configurable", () => {
-  it("is the real mainnet mint", () => {
+  it("is the real mainnet mint", async () => {
     // Anyone can deploy a token called USDC; only this one counts.
     expect(USDC_MINT).toBe("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
   });

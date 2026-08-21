@@ -601,3 +601,31 @@ No los causó el rebrand; los encontré calculando contrastes y los arreglé:
 2. **Dorado y verde positivo fallaban en tema claro** (3.21 y 4.04 sobre el fondo). El dorado
    desapareció con la decisión #68; el positivo se oscureció a `#157a4c` (5.28).
 
+---
+
+## 15. Tanda 9 — migración a Postgres
+
+**Corrección de premisa.** La tanda venía planteada como "hoy la persistencia es en memoria y un
+reinicio borra las firmas consumidas". No era así: desde la tanda de pagos había SQLite en
+`data/bidoor.db` con siete tablas, y las firmas sobrevivían un reinicio. El argumento real para
+migrar es otro, y alcanza solo: **con un archivo por máquina, las constraints UNIQUE son por
+instancia.** Dos servidores aceptarían cada uno la misma firma, y el candado anti-replay valdría
+cero. En Postgres son globales, que es la única versión de esa promesa que vale la pena hacer.
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 70 | **`pg`, no Drizzle ni un ORM** | El SQL de este proyecto se leyó línea por línea en la auditoría; pasarlo a un query builder reescribe cada sentencia y tira esa revisión a la basura. El binding parametrizado quedó idéntico. |
+| 71 | **El board es una tabla real (`entries` + `entry_bids`)** | Decisión de producto tuya. `accepted_bids` y `payments` pasan a ser historial y entrada de reconciliación, no la fuente de la que se deriva el board. Reconstruirlo al arrancar estaba bien cuando era un fixture y estaba mal desde el momento en que un reinicio podía cambiar lo que alguien pagó. |
+| 72 | **El deslistado es un borrado lógico con índice único parcial** | `entries_contract_key_live` cubre solo `delisted_at IS NULL`. Así la fila deslistada conserva su historial, el token se puede relistar, y el relisting arranca de cero porque el total viejo pertenece a la fila vieja. Reemplaza la comparación por timestamp de la tanda 7, que tenía un empate de 1 ms. |
+| 73 | **`TEST_DATABASE_URL` separado de `DATABASE_URL`** | La suite trunca todas las tablas. Que los tests leyeran `DATABASE_URL` sería a una mala variable de entorno de distancia de vaciar producción. Además se rechaza arrancar si son iguales. |
+| 74 | **El seed de demo se carga en `instrumentation.ts`, con doble guarda** | Nunca bajo `NODE_ENV=production`, y `LOAD_DEMO_SEED=false` lo apaga en cualquier lado. Una fila de demo en un board que dice mostrar lo que la gente pagó es una mentira sobre plata. |
+| 75 | **Ranking sigue en la función pura, no en SQL** | Las reglas de desempate y el hook de decaimiento viven ahí; tener dos implementaciones de "quién es #1" es como se desincronizan. Limita el tamaño del board — con miles de filas hay que pasar a una query con ventana, y está anotado en el código. |
+
+### Un bug que apareció migrando
+
+El seed generaba `contract_key` con `.toLowerCase()`. La clave canónica solo baja a minúsculas las
+direcciones **EVM** — en Solana, TON y TRON el case es significativo. Con SQLite el lookup
+compensaba probando ambas formas; con Postgres el match es exacto, así que un top-up sobre un token
+sembrado **creaba una segunda entrada en vez de sumar**. El seed ahora usa `contractKeyFor`, la
+misma función que el validador, y se eliminó el doble lookup.
+

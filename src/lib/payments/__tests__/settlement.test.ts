@@ -3,7 +3,7 @@ import type { TokenMetadata } from "../../dexscreener";
 import { listRanked, placeBid } from "../../store";
 import type { NormalizedBid } from "../../validation";
 import { USDC_MINT } from "../config";
-import { resetDbForTests } from "../db";
+import { loadDemoSeed, truncateAll } from "../../seed";
 import {
   createPendingBid,
   getPendingBid,
@@ -62,7 +62,7 @@ async function settle(
   pay: (exact: bigint) => bigint = (exact) => exact,
   signature = SIG,
 ) {
-  const pending = createPendingBid(bidFor(amountUsd));
+  const pending = await createPendingBid(bidFor(amountUsd));
 
   const verified = await verifyPayment({
     signature,
@@ -74,54 +74,53 @@ async function settle(
   });
   if (!verified.ok) return { pending, applied: false as const, verified };
 
-  const claimed = recordPayment(pending.id, signature, verified.amountBaseUnits);
+  const claimed = await recordPayment(pending.id, signature, verified.amountBaseUnits);
   if (!claimed.ok) return { pending, applied: false as const, claimed };
 
-  const outcome = placeBid(bidFor(amountUsd), metadata);
-  recordAcceptedBid(pending.id, bidFor(amountUsd), metadata);
+  const outcome = await placeBid(bidFor(amountUsd), metadata);
+  await recordAcceptedBid(pending.id, bidFor(amountUsd), metadata);
   return { pending, applied: true as const, outcome };
 }
 
 describe("settling a verified payment", () => {
-  beforeEach(() => {
-    resetDbForTests();
-    delete (globalThis as { __board?: unknown }).__board;
+  beforeEach(async () => {
+    await truncateAll();
+  await loadDemoSeed();
   });
 
   it("puts the bid on the board and marks it paid", async () => {
-    const before = listRanked().find((entry) => entry.contract === BONK)!;
+    const before = (await listRanked()).find((entry) => entry.contract === BONK)!;
 
     const result = await settle(250);
     expect(result.applied).toBe(true);
     if (!result.applied) return;
 
     expect(result.outcome.totalUsd).toBe(before.totalUsd + 250);
-    expect(getPendingBid(result.pending.id)?.status).toBe("paid");
+    expect((await getPendingBid(result.pending.id))?.status).toBe("paid");
   });
 
   it("does not touch the board when the payment is short", async () => {
-    const before = listRanked().find((entry) => entry.contract === BONK)!;
+    const before = (await listRanked()).find((entry) => entry.contract === BONK)!;
 
     // The bid asked for its exact unique amount; $100 arrived instead.
     const result = await settle(250, () => 100_000_000n);
     expect(result.applied).toBe(false);
 
-    const after = listRanked().find((entry) => entry.contract === BONK)!;
+    const after = (await listRanked()).find((entry) => entry.contract === BONK)!;
     expect(after.totalUsd).toBe(before.totalUsd);
   });
 
   it("records the paid bid so it survives a restart", async () => {
     await settle(250);
 
-    const accepted = listAcceptedBids();
+    const accepted = await listAcceptedBids();
     expect(accepted).toHaveLength(1);
     expect(accepted[0].bid.amountUsd).toBe(250);
     expect(accepted[0].metadata.name).toBe("Bonk");
 
     // Rebuilding the in-memory board replays it on top of the seed.
-    const seeded = listRanked().find((entry) => entry.contract === BONK)!.totalUsd;
-    delete (globalThis as { __board?: unknown }).__board;
-    const rebuilt = listRanked().find((entry) => entry.contract === BONK)!.totalUsd;
+    const seeded = (await listRanked()).find((entry) => entry.contract === BONK)!.totalUsd;
+    const rebuilt = (await listRanked()).find((entry) => entry.contract === BONK)!.totalUsd;
     expect(rebuilt).toBe(seeded);
   });
 
@@ -129,14 +128,14 @@ describe("settling a verified payment", () => {
     const first = await settle(250);
     expect(first.applied).toBe(true);
 
-    const boardBefore = listRanked().find((entry) => entry.contract === BONK)!.totalUsd;
+    const boardBefore = (await listRanked()).find((entry) => entry.contract === BONK)!.totalUsd;
 
     // Same signature, second bid: the constraint stops it before the board moves.
     const second = await settle(250);
     expect(second.applied).toBe(false);
 
-    const boardAfter = listRanked().find((entry) => entry.contract === BONK)!.totalUsd;
+    const boardAfter = (await listRanked()).find((entry) => entry.contract === BONK)!.totalUsd;
     expect(boardAfter).toBe(boardBefore);
-    expect(listAcceptedBids()).toHaveLength(1);
+    expect(await listAcceptedBids()).toHaveLength(1);
   });
 });

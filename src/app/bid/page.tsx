@@ -12,7 +12,7 @@ export default async function BidPage({
   searchParams: Promise<{ rank?: string; address?: string }>;
 }) {
   const { rank, address } = await searchParams;
-  const entries = listRanked();
+  const entries = await listRanked();
 
   // Shipped to the client so the form can tell you, as you type the address,
   // that the token is already on the board and your money will stack onto it.

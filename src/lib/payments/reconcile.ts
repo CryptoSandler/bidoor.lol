@@ -2,7 +2,7 @@ import { getChain } from "../chains";
 import { fetchTokenMetadata, type TokenMetadata } from "../dexscreener";
 import { placeBid } from "../store";
 import type { NormalizedBid } from "../validation";
-import { db } from "./db";
+import { query } from "../db";
 import { getPendingBid, recordAcceptedBid } from "./pending";
 
 /**
@@ -40,20 +40,18 @@ export async function reconcileSettledPayments(
 ): Promise<ReconcileOutcome> {
   // A settled payment with no accepted_bids row is, by definition, money we
   // took without giving a rank.
-  const orphans = db()
-    .prepare(
-      `SELECT p.bid_id AS bid_id
-         FROM payments p
-         LEFT JOIN accepted_bids a ON a.bid_id = p.bid_id
-        WHERE a.id IS NULL
-        ORDER BY p.verified_at ASC`,
-    )
-    .all() as { bid_id: string }[];
+  const orphans = await query<{ bid_id: string }>(
+    `SELECT p.bid_id AS bid_id
+       FROM payments p
+       LEFT JOIN accepted_bids a ON a.bid_id = p.bid_id
+      WHERE a.id IS NULL
+      ORDER BY p.verified_at ASC`,
+  );
 
   const outcome: ReconcileOutcome = { scanned: orphans.length, applied: [], failed: [] };
 
   for (const orphan of orphans) {
-    const bid = getPendingBid(orphan.bid_id);
+    const bid = await getPendingBid(orphan.bid_id);
     if (!bid) {
       outcome.failed.push({ bidId: orphan.bid_id, reason: "pending bid no longer exists" });
       continue;
@@ -77,10 +75,10 @@ export async function reconcileSettledPayments(
       strippedParams: [],
     };
 
-    const applied = placeBid(normalized, metadata);
+    const applied = await placeBid(normalized, metadata);
     // Written after the board is updated, so a crash in between leaves the bid
     // orphaned and retryable rather than silently marked done.
-    recordAcceptedBid(bid.id, normalized, metadata);
+    await recordAcceptedBid(bid.id, normalized, metadata, applied.entry.id);
 
     outcome.applied.push({ bidId: bid.id, rank: applied.newRank, name: applied.entry.name });
   }

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { USDC_MINT } from "../config";
-import { db, resetDbForTests } from "../db";
+import { query } from "../../db";
+import { truncateAll } from "../../seed";
 import { createPendingBid, getPendingBid, recordPayment } from "../pending";
 import { verifyPayment, type SolanaTransaction } from "../solana";
 import type { NormalizedBid } from "../../validation";
@@ -222,7 +223,7 @@ describe("transaction state", () => {
   });
 });
 
-function pendingBid(amountUsd = 100) {
+async function pendingBid(amountUsd = 100) {
   const bid: NormalizedBid = {
     chainId: "solana",
     contract: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
@@ -233,80 +234,84 @@ function pendingBid(amountUsd = 100) {
     amountUsd,
     strippedParams: [],
   };
-  return createPendingBid(bid);
+  return await createPendingBid(bid);
 }
 
 describe("a signature can only be spent once", () => {
-  beforeEach(() => resetDbForTests());
-
-  it("accepts a signature the first time", () => {
-    const bid = pendingBid();
-    expect(recordPayment(bid.id, SIG, 100_000_000n).ok).toBe(true);
-    expect(getPendingBid(bid.id)?.status).toBe("paid");
+  beforeEach(async () => {
+    await truncateAll();
   });
 
-  it("refuses to reuse the same signature on a second bid", () => {
-    const first = pendingBid();
-    const second = pendingBid();
+  it("accepts a signature the first time", async () => {
+    const bid = await pendingBid();
+    expect((await recordPayment(bid.id, SIG, 100_000_000n)).ok).toBe(true);
+    expect((await getPendingBid(bid.id))?.status).toBe("paid");
+  });
 
-    expect(recordPayment(first.id, SIG, 100_000_000n).ok).toBe(true);
+  it("refuses to reuse the same signature on a second bid", async () => {
+    const first = await pendingBid();
+    const second = await pendingBid();
 
-    const replay = recordPayment(second.id, SIG, 100_000_000n);
+    expect((await recordPayment(first.id, SIG, 100_000_000n)).ok).toBe(true);
+
+    const replay = await recordPayment(second.id, SIG, 100_000_000n);
     expect(replay.ok).toBe(false);
     if (replay.ok) return;
     expect(replay.reason).toBe("signature_used");
     // The second bid must not have been marked paid off the back of it.
-    expect(getPendingBid(second.id)?.status).toBe("pending");
+    expect((await getPendingBid(second.id))?.status).toBe("pending");
   });
 
-  it("cannot be slipped past with surrounding whitespace", () => {
-    const first = pendingBid();
-    const second = pendingBid();
-    recordPayment(first.id, SIG, 100_000_000n);
-    expect(recordPayment(second.id, `  ${SIG}  `, 100_000_000n).ok).toBe(false);
+  it("cannot be slipped past with surrounding whitespace", async () => {
+    const first = await pendingBid();
+    const second = await pendingBid();
+    await recordPayment(first.id, SIG, 100_000_000n);
+    expect((await recordPayment(second.id, `  ${SIG}  `, 100_000_000n)).ok).toBe(false);
   });
 
-  it("is the database enforcing it, not application code", () => {
-    const bid = pendingBid();
-    recordPayment(bid.id, SIG, 100_000_000n);
+  it("is the database enforcing it, not application code", async () => {
+    const bid = await pendingBid();
+    await recordPayment(bid.id, SIG, 100_000_000n);
     // Going around the helper entirely still fails: the constraint is on the table.
-    expect(() =>
-      db()
-        .prepare(
-          `INSERT INTO payments (id, signature, bid_id, amount_base_units, verified_at)
-           VALUES ('forced', ?, ?, '1', '2026-01-01T00:00:00.000Z')`,
-        )
-        .run(SIG, bid.id),
-    ).toThrow(/UNIQUE/i);
+    await expect(
+      query(
+        `INSERT INTO payments (id, signature, bid_id, amount_base_units, verified_at)
+         VALUES ('forced', $1, $2, '1', '2026-01-01T00:00:00.000Z')`,
+        [SIG, bid.id],
+      ),
+    ).rejects.toThrow(/duplicate key|unique/i);
   });
 
-  it("still allows a different signature", () => {
-    const first = pendingBid();
-    const second = pendingBid();
-    recordPayment(first.id, SIG, 100_000_000n);
-    expect(recordPayment(second.id, SIG_B, 100_000_000n).ok).toBe(true);
+  it("still allows a different signature", async () => {
+    const first = await pendingBid();
+    const second = await pendingBid();
+    await recordPayment(first.id, SIG, 100_000_000n);
+    expect((await recordPayment(second.id, SIG_B, 100_000_000n)).ok).toBe(true);
   });
 });
 
 describe("expiry", () => {
-  beforeEach(() => resetDbForTests());
+  beforeEach(async () => {
+    await truncateAll();
+  });
 
-  it("expires a bid whose window has closed, with a visible reason", () => {
-    const bid = pendingBid();
-    expect(getPendingBid(bid.id)?.status).toBe("pending");
+  it("expires a bid whose window has closed, with a visible reason", async () => {
+    const bid = await pendingBid();
+    expect((await getPendingBid(bid.id))?.status).toBe("pending");
 
     // Wind the deadline back rather than waiting 30 minutes.
-    db()
-      .prepare("UPDATE pending_bids SET expires_at = ? WHERE id = ?")
-      .run(new Date(Date.now() - 1000).toISOString(), bid.id);
+    await query("UPDATE pending_bids SET expires_at = $1 WHERE id = $2", [
+      new Date(Date.now() - 1000),
+      bid.id,
+    ]);
 
-    const expired = getPendingBid(bid.id);
+    const expired = await getPendingBid(bid.id);
     expect(expired?.status).toBe("expired");
     expect(expired?.failureReason).toMatch(/expired/i);
   });
 
-  it("gives a fresh bid the full window", () => {
-    const bid = pendingBid();
+  it("gives a fresh bid the full window", async () => {
+    const bid = await pendingBid();
     const window = Date.parse(bid.expiresAt) - Date.parse(bid.createdAt);
     expect(window).toBe(30 * 60_000);
   });

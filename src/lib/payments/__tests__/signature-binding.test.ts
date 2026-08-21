@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { NormalizedBid } from "../../validation";
 import { USDC_MINT, paymentWallet } from "../config";
-import { resetDbForTests } from "../db";
+import { truncateAll } from "../../seed";
 import {
   claimSignature,
   createPendingBid,
@@ -61,7 +61,9 @@ function check(transaction: SolanaTransaction, signature = SIG) {
   });
 }
 
-beforeEach(() => resetDbForTests());
+beforeEach(async () => {
+  await truncateAll();
+});
 
 describe("a transaction must belong to the bid's own window", () => {
   it("accepts a transfer made during the bid", async () => {
@@ -120,7 +122,7 @@ describe("a transaction must belong to the bid's own window", () => {
 });
 
 describe("a signature is spent by being evaluated", () => {
-  function pending(amountUsd = 100) {
+  async function pending(amountUsd = 100) {
     const bid: NormalizedBid = {
       chainId: "solana",
       contract: BONK,
@@ -131,37 +133,37 @@ describe("a signature is spent by being evaluated", () => {
       amountUsd,
       strippedParams: [],
     };
-    return createPendingBid(bid);
+    return await createPendingBid(bid);
   }
 
-  it("cannot be presented twice, even when the amount matches perfectly", () => {
-    const first = pending();
-    const second = pending();
+  it("cannot be presented twice, even when the amount matches perfectly", async () => {
+    const first = await pending();
+    const second = await pending();
 
-    expect(claimSignature(SIG, first.id, "applied").ok).toBe(true);
+    expect((await claimSignature(SIG, first.id, "applied")).ok).toBe(true);
 
-    const replay = claimSignature(SIG, second.id, "applied");
+    const replay = await claimSignature(SIG, second.id, "applied");
     expect(replay.ok).toBe(false);
     if (replay.ok) return;
     expect(replay.reason).toBe("signature_used");
   });
 
-  it("burns the signature on a MISMATCH too, not only on success", () => {
+  it("burns the signature on a MISMATCH too, not only on success", async () => {
     // This is the change from decision #42. A mismatched transfer used to stay
     // claimable, which left real money on the pavement for the next passer-by.
-    const bid = pending();
-    expect(claimSignature(SIG, bid.id, "overpaid").ok).toBe(true);
-    expect(signatureWasConsumed(SIG)).toBe(true);
+    const bid = await pending();
+    expect((await claimSignature(SIG, bid.id, "overpaid")).ok).toBe(true);
+    expect(await signatureWasConsumed(SIG)).toBe(true);
 
     // A stranger cannot now spend it on their own bid.
-    const attacker = pending();
-    expect(claimSignature(SIG, attacker.id, "applied").ok).toBe(false);
+    const attacker = await pending();
+    expect((await claimSignature(SIG, attacker.id, "applied")).ok).toBe(false);
   });
 
-  it("still files the unmatched payment for support after burning it", () => {
-    const bid = pending();
-    claimSignature(SIG, bid.id, "overpaid");
-    recordUnmatchedPayment({
+  it("still files the unmatched payment for support after burning it", async () => {
+    const bid = await pending();
+    await claimSignature(SIG, bid.id, "overpaid");
+    await recordUnmatchedPayment({
       signature: SIG,
       bidId: bid.id,
       receivedBaseUnits: 100_005_000n,
@@ -169,29 +171,29 @@ describe("a signature is spent by being evaluated", () => {
       reason: "overpaid",
     });
 
-    const open = listUnmatchedPayments("open");
+    const open = await listUnmatchedPayments("open");
     expect(open).toHaveLength(1);
     expect(open[0].signature).toBe(SIG);
     // Recorded for a person to resolve, but no longer a race anyone can win.
-    expect(signatureWasConsumed(SIG)).toBe(true);
+    expect(await signatureWasConsumed(SIG)).toBe(true);
   });
 
-  it("cannot be slipped past with surrounding whitespace", () => {
-    const first = pending();
-    const second = pending();
-    claimSignature(SIG, first.id, "applied");
-    expect(claimSignature(`  ${SIG}  `, second.id, "applied").ok).toBe(false);
+  it("cannot be slipped past with surrounding whitespace", async () => {
+    const first = await pending();
+    const second = await pending();
+    await claimSignature(SIG, first.id, "applied");
+    expect((await claimSignature(`  ${SIG}  `, second.id, "applied")).ok).toBe(false);
   });
 
-  it("leaves a different signature usable", () => {
-    const first = pending();
-    const second = pending();
-    claimSignature(SIG, first.id, "applied");
-    expect(claimSignature(SIG_B, second.id, "applied").ok).toBe(true);
+  it("leaves a different signature usable", async () => {
+    const first = await pending();
+    const second = await pending();
+    await claimSignature(SIG, first.id, "applied");
+    expect((await claimSignature(SIG_B, second.id, "applied")).ok).toBe(true);
   });
 
-  it("reports an unseen signature as unconsumed", () => {
-    expect(signatureWasConsumed(SIG)).toBe(false);
+  it("reports an unseen signature as unconsumed", async () => {
+    expect(await signatureWasConsumed(SIG)).toBe(false);
   });
 });
 
@@ -212,7 +214,7 @@ describe("what is deliberately NOT burned", () => {
     if (result.ok) return;
     expect(result.reason).toBe("rpc_unavailable");
     // The route treats this as inconclusive and does not claim.
-    expect(signatureWasConsumed(SIG)).toBe(false);
+    expect(await signatureWasConsumed(SIG)).toBe(false);
   });
 
   it("leaves it intact when the transaction is not confirmed yet", async () => {
@@ -220,7 +222,7 @@ describe("what is deliberately NOT burned", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("not_confirmed");
-    expect(signatureWasConsumed(SIG)).toBe(false);
+    expect(await signatureWasConsumed(SIG)).toBe(false);
   });
 });
 
@@ -230,14 +232,14 @@ describe("payments only ever count for the configured wallet", () => {
    * no default in the code, so a misconfigured deploy refuses to take bids
    * rather than collecting to an address nobody controls.
    */
-  it("reads the wallet from the environment, with no fallback", () => {
+  it("reads the wallet from the environment, with no fallback", async () => {
     const configured = paymentWallet();
     expect(configured.ok).toBe(true);
     if (!configured.ok) return;
     expect(configured.wallet).toBe(process.env.PAYMENT_WALLET);
   });
 
-  it("refuses to take bids when the wallet is unset", () => {
+  it("refuses to take bids when the wallet is unset", async () => {
     const original = process.env.PAYMENT_WALLET;
     delete process.env.PAYMENT_WALLET;
     try {

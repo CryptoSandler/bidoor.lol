@@ -4,7 +4,7 @@
 // board boots without a network call while live bids still resolve against the
 // API. Bid amounts and click counts are invented: nothing here says any of
 // these projects paid for anything.
-import type { SeedSpec } from "./store";
+import type { SeedSpec } from "./seed-types";
 
 export const SEED: SeedSpec[] = [
   {

@@ -1,131 +1,67 @@
 # BIDOOR
 
-A pay-to-rank leaderboard for crypto tokens. A *bidoor* is someone who bids. One board, eight chains, one number that decides
-everything: the total paid on a contract address.
-
-The board seed is demo data. Payments are real: bids settle against USDC transfers on Solana.
-
-## The mechanic
-
-- Rank is the accumulated total paid on a token. Not the last bid, not engagement, not votes.
-- A token is identified by its **contract address**, never by its name. Bidding on an address that
-  is already listed adds to that entry's total instead of creating a duplicate row.
-- All chains compete in a single ranked list. Chain is a badge on the row, not a section.
-- Equal totals break by age: whoever got there first keeps the higher rank.
-- Taking #1 costs $5 more than the leader's total; any other rank costs $1 more than its occupant.
-
-## Rules the code actually enforces
-
-| Rule | Where |
-|---|---|
-| Address format must match the selected chain | `src/lib/addresses.ts` |
-| Recognised launchpad earns a verified mark (not a gate) | `src/lib/chains.ts`, `src/lib/validation.ts` |
-| No URL shorteners or link-in-bio pages | `src/lib/links.ts` |
-| Query parameters stripped from every link | `src/lib/links.ts` |
-| Chat/invite links only in their own fields | `src/lib/links.ts` |
-| Same contract = one entry, always | `src/lib/store.ts` |
-| Any token tradeable on DexScreener can be listed — and only those | `src/lib/dexscreener.ts` |
-| Name, ticker, logo and socials come from DexScreener, not the bidder | `src/lib/dexscreener.ts` |
-| Launchpad link frozen by the first bid | `src/lib/store.ts` |
-| A rank only exists once a payment is confirmed on-chain | `src/lib/payments/solana.ts` |
-| One transaction signature pays for exactly one bid | `src/lib/payments/db.ts` |
-
-## Payments
-
-Bids are paid in **USDC on Solana**, to one fixed wallet, whatever chain the listed token lives on.
-
-1. The bid form creates a *pending* bid with an id and a 30-minute deadline. Nothing reaches the
-   board at this point.
-2. The payment screen shows the wallet and the exact amount, and takes a transaction signature.
-3. The server checks that signature against a public Solana RPC: the transaction is confirmed, it
-   moved the real USDC mint, it arrived at our wallet, and it covers the bid.
-4. Only then is the bid applied to the leaderboard. Failures and expiries are shown with a reason.
-
-A signature can pay for exactly one bid. That is a `UNIQUE` constraint on the payments table, not a
-check in application code, so two requests racing with the same signature cannot both win.
-
-**This project only ever receives.** It holds no private key, does no signing, and has no withdrawal
-path. The wallet is operated entirely outside it.
+A live auction board for tokens across chains — the top spot goes to the highest bidder.
 
 ## Running it
 
 ```bash
 npm install
-cp .env.example .env.local     # then set PAYMENT_WALLET
+cp .env.example .env.local     # then fill in the values
+
+docker compose up -d           # Postgres on localhost:55432
+npm run db:migrate             # create the schema
 npm run dev                    # http://localhost:3000
 ```
 
-`PAYMENT_WALLET` has no default on purpose — without it the app refuses to take bids rather than
-collecting to some other address.
+`npm run db:reset` throws the local database away and rebuilds it from scratch.
+
+## Database
+
+State lives in Postgres — the board, the payment history, and the constraints that make the
+payment flow safe. It is not a local file on purpose: every guarantee here is a UNIQUE
+constraint, and on a file-per-machine database those are per instance, so two app servers would
+each accept the same transaction signature. The client is `pg` rather than an ORM, because the
+SQL was read line by line in a security audit and a query builder would rewrite all of it.
+
+Migrations are plain SQL in `migrations/`, applied in filename order by `npm run db:migrate`.
+Each is idempotent and records itself in `schema_migrations`.
+
+**Two connection strings, deliberately separate:**
+
+| Variable | Used by | Points at |
+|---|---|---|
+| `DATABASE_URL` | The app, in every environment | Dev: local Docker. Production: the production database. |
+| `TEST_DATABASE_URL` | The test suite, and nothing else | A throwaway database. **Never one with real data.** |
+
+The suite truncates every table between tests, so it reads its own variable and refuses to start
+if the two are equal. Both live in `.env.local`, which is gitignored; in production
+`DATABASE_URL` is set in the host's environment, never in a file. With Neon, use a **separate
+branch** for tests and keep `?sslmode=require` on both.
+
+## Payments
+
+Bids are paid in USDC on Solana to one fixed wallet, set in `PAYMENT_WALLET`. There is no default
+and no address in the code: without it the app refuses to take bids. This project only ever
+receives — it holds no private key, does no signing, and has no withdrawal path.
+
+## Demo data
+
+An empty board is filled with a demo fixture in development. It never runs under
+`NODE_ENV=production`, and `LOAD_DEMO_SEED=false` switches it off anywhere. The production board
+starts empty and fills only with real, paid bids.
+
+## Checks
 
 ```bash
-npm test             # 60 unit tests
-npm run check:layout # asserts the top 3 fit one phone screen (needs the dev server up)
+npm test               # unit tests, against a real Postgres
+npm run check:layout   # asserts the top 3 fit one phone screen (needs the dev server up)
 npm run build
 npm run lint
-
-npx tsx scripts/generate-seed.mts   # refresh the seed snapshot from DexScreener
 ```
-
-## Design
-
-All styling comes from one file: `src/app/tokens.css`. Colours, type scale, spacing, radii, row
-densities and the container width live there and nowhere else — components consume them through
-Tailwind's `@theme` mapping and never hardcode a value. Re-skinning is editing that file.
-
-`DESIGN.md` records the patterns the current look is based on and what was deliberately changed.
-
-## Layout
-
-The product's distribution channel is a screenshot pasted into X or Telegram, so the top three
-rows must be fully visible on a phone without scrolling. That is a checked invariant, not a hope —
-`npm run check:layout` drives a real browser at iPhone SE, iPhone 14 and Pixel 7 viewports and
-fails the build if it regresses.
-
-## Chains
-
-Solana · BNB Chain · Robinhood Chain · Base · Ethereum · TON · TRON · Hyperliquid
-
-Each chain carries its own address family and its own launchpad allowlist. See `src/lib/chains.ts`.
-
-## Rate limits
-
-Creating a pending bid is free and reserves a payment amount, so it is capped three ways — all in
-`RATE_LIMITS` in `src/lib/payments/config.ts`: live pending bids per caller, bids started per caller
-per hour, and how many pending bids may share one base amount. That last cap sits at 5% of the
-available fractions so allocation never approaches saturation.
-
-Expired bids are swept inside the limit check itself, on both the allow and the deny path, so a
-caller who fills a limit is released by expiry alone with no cleanup job. Raw IPs are never stored,
-only a salted hash used as a counting key.
-
-## Operations
-
-`/admin`, protected by `ADMIN_TOKEN` and linked from nowhere, is the console for the two things the
-product promises but cannot do automatically:
-
-- **Unmatched payments.** A confirmed transfer that reached the wallet without matching any bid's
-  exact amount is queued here with the closest candidate bids. Applying one goes through the same
-  signature claim as a normal settlement, so one transfer still cannot pay for two bids. Discarding
-  requires a reason.
-- **Delisting.** Any entry can be removed with a reason. Nothing is deleted: the delisting, the
-  payments and the bid history all stay. The board simply stops counting bids from before it, which
-  is what makes a relisting start from zero. No refund — bids are non-refundable, and a delisting is
-  a consequence rather than a cancelled order.
-
-`POST /api/reconcile`, with the same token, retries payments that settled but whose entry never
-reached the board (the case where DexScreener was down at the wrong moment). Call it from any
-external scheduler; it derives its work from state, so running it twice does nothing twice.
-
-## Not built yet
-
-No accounts, and so no "my entries", no recovery and no way to settle a dispute over who controls a
-row — an explicit call for launch, recorded in `DECISIONES.md` §13. Also: no automatic refunds, no
-per-token link previews, and rate limiting that is per-IP and so does not stop rotating addresses.
-See `DECISIONES.md` §12 for the full list of what is still open.
 
 ## Documents
 
-- `REFERENCIA.md` — analysis of the reference product's mechanics and rules (Spanish).
-- `DESIGN.md` — design tokens and layout patterns, and what we changed (Spanish).
-- `DECISIONES.md` — design critique, risks, and open product questions (Spanish).
+- `DESIGN.md` — design tokens and layout patterns.
+- `REFERENCIA.md` — analysis of the reference product's mechanics (Spanish).
+- `DECISIONES.md` — design critique, decisions and open questions (Spanish).
+- `AUDITORIA-SEGURIDAD.md` — security audit and remediation status (Spanish).

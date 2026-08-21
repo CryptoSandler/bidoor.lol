@@ -2,13 +2,9 @@ import { AdminActions } from "./AdminActions";
 import { isAdminSession } from "@/lib/admin";
 import { usd } from "@/lib/format";
 import { adminToken } from "@/lib/payments/config";
-import {
-  candidateBidsForAmount,
-  listDelistings,
-  listUnmatchedPayments,
-} from "@/lib/payments/pending";
+import { candidateBidsForAmount, listUnmatchedPayments } from "@/lib/payments/pending";
 import { formatUsdc } from "@/lib/payments/solana";
-import { listRanked } from "@/lib/store";
+import { listDelistings, listRanked } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin — BIDOOR", robots: { index: false, follow: false } };
@@ -58,29 +54,31 @@ export default async function AdminPage({
     );
   }
 
-  const open = listUnmatchedPayments("open");
-  const resolved = listUnmatchedPayments().filter((payment) => payment.status !== "open");
-  const delistings = listDelistings();
-  const entries = listRanked();
+  const open = await listUnmatchedPayments("open");
+  const resolved = (await listUnmatchedPayments()).filter((payment) => payment.status !== "open");
+  const delistings = await listDelistings();
+  const entries = await listRanked();
 
-  const queue = open.map((payment) => ({
-    payment: {
-      id: payment.id,
-      signature: payment.signature,
-      received: formatUsdc(payment.receivedBaseUnits),
-      expected: formatUsdc(payment.expectedBaseUnits),
-      reason: payment.reason,
-      createdAt: payment.createdAt,
-    },
-    candidates: candidateBidsForAmount(payment.receivedBaseUnits).map((bid) => ({
-      id: bid.id,
-      amount: formatUsdc(bid.paymentBaseUnits),
-      amountUsd: bid.amountUsd,
-      contract: bid.contract,
-      chainId: bid.chainId,
-      status: bid.status,
+  const queue = await Promise.all(
+    open.map(async (payment) => ({
+      payment: {
+        id: payment.id,
+        signature: payment.signature,
+        received: formatUsdc(payment.receivedBaseUnits),
+        expected: formatUsdc(payment.expectedBaseUnits),
+        reason: payment.reason,
+        createdAt: payment.createdAt,
+      },
+      candidates: (await candidateBidsForAmount(payment.receivedBaseUnits)).map((bid) => ({
+        id: bid.id,
+        amount: formatUsdc(bid.paymentBaseUnits),
+        amountUsd: bid.amountUsd,
+        contract: bid.contract,
+        chainId: bid.chainId,
+        status: bid.status,
+      })),
     })),
-  }));
+  );
 
   return (
     <Shell>

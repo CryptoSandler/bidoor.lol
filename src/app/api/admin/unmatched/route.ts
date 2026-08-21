@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     note?: string;
   };
 
-  const payment = body.id ? getUnmatchedPayment(body.id) : null;
+  const payment = body.id ? await getUnmatchedPayment(body.id) : null;
   if (!payment) {
     return NextResponse.json({ ok: false, message: "Unknown payment." }, { status: 404 });
   }
@@ -51,11 +51,11 @@ export async function POST(request: Request) {
         { status: 422 },
       );
     }
-    resolveUnmatchedPayment(payment.id, "discarded", note);
+    await resolveUnmatchedPayment(payment.id, "discarded", note);
     return NextResponse.json({ ok: true, status: "discarded" });
   }
 
-  const bid = body.bidId ? getPendingBid(body.bidId) : null;
+  const bid = body.bidId ? await getPendingBid(body.bidId) : null;
   if (!bid) {
     return NextResponse.json({ ok: false, message: "Unknown bid." }, { status: 404 });
   }
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "That bid is already paid." }, { status: 409 });
   }
 
-  const claimed = recordPayment(bid.id, payment.signature, payment.receivedBaseUnits);
+  const claimed = await recordPayment(bid.id, payment.signature, payment.receivedBaseUnits);
   if (!claimed.ok) {
     return NextResponse.json(
       { ok: false, message: "That signature has already been used to pay for a bid." },
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   if (!metadata || !metadata.ok) {
     // The payment is claimed; reconcile will finish the job once the token
     // resolves. Recorded as applied so it leaves the operator's queue.
-    resolveUnmatchedPayment(payment.id, "applied", note || "Applied; awaiting reconcile.", bid.id);
+    await resolveUnmatchedPayment(payment.id, "applied", note || "Applied; awaiting reconcile.", bid.id);
     return NextResponse.json({
       ok: true,
       status: "applied",
@@ -96,9 +96,9 @@ export async function POST(request: Request) {
     strippedParams: [],
   };
 
-  const outcome = placeBid(normalized, metadata.metadata);
-  recordAcceptedBid(bid.id, normalized, metadata.metadata);
-  resolveUnmatchedPayment(payment.id, "applied", note || "Applied by operator.", bid.id);
+  const outcome = await placeBid(normalized, metadata.metadata);
+  await recordAcceptedBid(bid.id, normalized, metadata.metadata, outcome.entry.id);
+  await resolveUnmatchedPayment(payment.id, "applied", note || "Applied by operator.", bid.id);
 
   return NextResponse.json({ ok: true, status: "applied", rank: outcome.newRank });
 }

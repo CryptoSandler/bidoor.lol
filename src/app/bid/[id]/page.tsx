@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PaymentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const bid = getPendingBid(id);
+  const bid = await getPendingBid(id);
   if (!bid) notFound();
 
   const wallet = paymentWallet();

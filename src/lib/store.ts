@@ -1,132 +1,118 @@
+import { randomUUID } from "node:crypto";
+import type { PoolClient } from "pg";
 import { getChain, isKnownLaunchpad } from "./chains";
-import { rankEntries } from "./ranking";
-import { SEED } from "./seed-data";
-import { delistingsByKey, listAcceptedBids } from "./payments/pending";
+import { isUniqueViolation, query, transaction } from "./db";
 import type { TokenMetadata } from "./dexscreener";
+import { rankEntries } from "./ranking";
 import type { BidEvent, Entry, EntryLinks, RankedEntry } from "./types";
 import type { NormalizedBid } from "./validation";
 
 /**
- * Mock in-memory store. No database and no payments yet — a bid is accepted the
- * moment it validates. Everything is shaped so that swapping this for a real
- * store means implementing the same four functions against a table.
+ * The board, in Postgres.
  *
- * Held on globalThis so the dev server's hot reload does not wipe the board.
+ * The `entries` table IS the board — it is not rebuilt at boot by replaying the
+ * payment history. `accepted_bids` and `payments` are the audit trail and the
+ * input to reconciliation; nothing derives the live board from them at runtime.
+ * That was the right shape when the board was a demo fixture in memory and the
+ * wrong one the moment a restart could change what people had paid for.
  */
-type Store = { entries: Map<string, Entry>; seq: number };
 
-const globalRef = globalThis as unknown as { __board?: Store };
-
-/**
- * Seed rows use real contract addresses with a metadata snapshot captured from
- * DexScreener (see scripts/generate-seed.ts). The board therefore boots without
- * a network call, while every live bid still resolves against the API. Bid
- * amounts and click counts are invented — this is a demo board, not a claim
- * that any of these projects paid for anything.
- */
-export type SeedSpec = {
-  chainId: Entry["chainId"];
+type EntryRow = {
+  id: string;
+  chain_id: string;
   contract: string;
+  contract_key: string;
   name: string;
   ticker: string;
-  logoUrl?: string;
-  /** Optional: a token can be listed without saying where it came from. */
-  launchpadUrl?: string;
+  logo_url: string | null;
   links: EntryLinks;
+  metadata_fetched_at: Date;
+  launchpad_url: string | null;
+  launchpad_host: string | null;
+  launchpad_verified: boolean;
+  click_url: string | null;
   clicks: number;
-  /** [amount, how long ago it landed] — several entries built their total up. */
-  bids: [number, number][];
+  created_at: Date;
+  last_bid_at: Date;
 };
 
+type BidRow = { id: string; entry_id: string; amount_usd: number; created_at: Date };
 
-function buildSeed(): Store {
-  const now = Date.now();
-  const store: Store = { entries: new Map(), seq: 0 };
+const ENTRY_COLUMNS = `
+  id, chain_id, contract, contract_key, name, ticker, logo_url, links,
+  metadata_fetched_at, launchpad_url, launchpad_host, launchpad_verified,
+  click_url, clicks, created_at, last_bid_at
+`;
 
-  for (const spec of SEED) {
-    const bids: BidEvent[] = spec.bids
-      .map(([amountUsd, ago]) => ({
-        id: `bid_${++store.seq}`,
-        amountUsd,
-        createdAt: new Date(now - ago).toISOString(),
-      }))
-      .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-
-    const key = `${spec.chainId}:${spec.contract.toLowerCase()}`;
-    store.entries.set(key, {
-      id: `entry_${store.entries.size + 1}`,
-      chainId: spec.chainId,
-      contract: spec.contract,
-      contractKey: key,
-      name: spec.name,
-      ticker: spec.ticker,
-      logoUrl: spec.logoUrl,
-      metadataFetchedAt: new Date(now).toISOString(),
-      launchpadUrl: spec.launchpadUrl ?? null,
-      clickUrl: spec.launchpadUrl ?? spec.links.website ?? null,
-      launchpadHost: spec.launchpadUrl ? new URL(spec.launchpadUrl).hostname : null,
-      launchpadVerified: spec.launchpadUrl
-        ? isKnownLaunchpad(getChain(spec.chainId)!, new URL(spec.launchpadUrl).hostname)
-        : false,
-      links: spec.links,
-      bids,
-      clicks: spec.clicks,
-      createdAt: bids[0].createdAt,
-      lastBidAt: bids[bids.length - 1].createdAt,
-    });
-  }
-
-  // Replay bids that were actually paid for, on top of the demo seed. A settled
-  // payment must survive a restart; only the seed is disposable.
-  try {
-    const delisted = delistingsByKey();
-
-    // A delisted entry leaves the board entirely, seed included.
-    for (const [key, entry] of [...store.entries]) {
-      if (delisted.has(entry.contractKey) || delisted.has(key)) store.entries.delete(key);
-    }
-
-    for (const accepted of listAcceptedBids()) {
-      // Bids from before a delisting do not come back: relisting starts at zero.
-      //
-      // Ties go to the delisting: a bid stamped at exactly the delisting's
-      // millisecond is dropped. That is the conservative side of a race that
-      // cannot really happen — delisting is a human action, and a payment
-      // settling in the same millisecond as one would be a coincidence, not a
-      // pattern — and erring the other way would let a rug survive its own
-      // removal.
-      const delisting = delisted.get(accepted.bid.contractKey);
-      if (delisting && accepted.createdAt <= delisting.delistedAt) continue;
-      applyBid(store, accepted.bid, accepted.metadata, accepted.createdAt);
-    }
-  } catch {
-    // No database available (or not readable). The seed alone is still a valid
-    // board, so this must never take the whole page down.
-  }
-
-  return store;
+function toEntry(row: EntryRow, bids: BidEvent[]): Entry {
+  return {
+    id: row.id,
+    chainId: row.chain_id as Entry["chainId"],
+    contract: row.contract,
+    contractKey: row.contract_key,
+    name: row.name,
+    ticker: row.ticker,
+    logoUrl: row.logo_url ?? undefined,
+    links: row.links ?? {},
+    metadataFetchedAt: row.metadata_fetched_at.toISOString(),
+    launchpadUrl: row.launchpad_url,
+    launchpadHost: row.launchpad_host,
+    launchpadVerified: row.launchpad_verified,
+    clickUrl: row.click_url,
+    clicks: row.clicks,
+    createdAt: row.created_at.toISOString(),
+    lastBidAt: row.last_bid_at.toISOString(),
+    bids,
+  };
 }
 
-function store(): Store {
-  globalRef.__board ??= buildSeed();
-  return globalRef.__board;
+/** Attaches each entry's dated bid events, which ranking and decay both need. */
+async function withBids(rows: EntryRow[]): Promise<Entry[]> {
+  if (rows.length === 0) return [];
+
+  const bidRows = await query<BidRow>(
+    `SELECT id, entry_id, amount_usd, created_at
+       FROM entry_bids
+      WHERE entry_id = ANY($1::text[])
+      ORDER BY created_at ASC`,
+    [rows.map((row) => row.id)],
+  );
+
+  const byEntry = new Map<string, BidEvent[]>();
+  for (const bid of bidRows) {
+    const list = byEntry.get(bid.entry_id) ?? [];
+    list.push({ id: bid.id, amountUsd: bid.amount_usd, createdAt: bid.created_at.toISOString() });
+    byEntry.set(bid.entry_id, list);
+  }
+
+  return rows.map((row) => toEntry(row, byEntry.get(row.id) ?? []));
 }
 
-export function listRanked(): RankedEntry[] {
-  return rankEntries([...store().entries.values()]);
+async function liveEntries(): Promise<Entry[]> {
+  const rows = await query<EntryRow>(
+    `SELECT ${ENTRY_COLUMNS} FROM entries WHERE delisted_at IS NULL`,
+  );
+  return withBids(rows);
+}
+
+export async function listRanked(): Promise<RankedEntry[]> {
+  // Ranking stays in the tested pure function rather than being re-expressed in
+  // SQL: the tie-break rules and the decay hook live there, and having two
+  // implementations of "who is #1" is how they drift. Fine at this board size;
+  // if the board reaches thousands of rows this becomes a windowed query.
+  return rankEntries(await liveEntries());
 }
 
 export type Board = {
   entries: RankedEntry[];
   /** One timestamp for the whole page, so no two rows disagree about "now". */
   now: number;
-  /** Everything ever bid on the board. */
   potUsd: number;
 };
 
-export function getBoard(): Board {
+export async function getBoard(): Promise<Board> {
   const now = Date.now();
-  const entries = rankEntries([...store().entries.values()], now);
+  const entries = rankEntries(await liveEntries(), now);
   return {
     entries,
     now,
@@ -134,20 +120,24 @@ export function getBoard(): Board {
   };
 }
 
-export function findByContractKey(contractKey: string): Entry | undefined {
-  // Seed keys are lowercased; canonical Solana/TRON/TON keys are case-sensitive,
-  // so check both forms rather than assuming one casing.
-  const entries = store().entries;
-  return entries.get(contractKey) ?? entries.get(contractKey.toLowerCase());
+export async function findByContractKey(contractKey: string): Promise<Entry | undefined> {
+  const rows = await query<EntryRow>(
+    `SELECT ${ENTRY_COLUMNS} FROM entries WHERE contract_key = $1 AND delisted_at IS NULL`,
+    [contractKey],
+  );
+  return (await withBids(rows))[0];
 }
 
-export function findById(id: string): Entry | undefined {
-  return [...store().entries.values()].find((entry) => entry.id === id);
+export async function findById(id: string): Promise<Entry | undefined> {
+  const rows = await query<EntryRow>(
+    `SELECT ${ENTRY_COLUMNS} FROM entries WHERE id = $1 AND delisted_at IS NULL`,
+    [id],
+  );
+  return (await withBids(rows))[0];
 }
 
 export type BidOutcome = {
   entry: Entry;
-  /** True when the payment added to a token that was already on the board. */
   toppedUp: boolean;
   previousRank: number | null;
   newRank: number;
@@ -155,103 +145,198 @@ export type BidOutcome = {
 };
 
 /**
- * The whole point of keying on the contract address: a bid for a token that is
- * already listed adds to its running total. It never creates a second row.
+ * Applies a paid bid to the board.
  *
- * `metadata` always comes from DexScreener, never from the payer, and is
- * re-applied on every top-up. That is what makes a rank un-hijackable: buying
- * into an entry moves its total and nothing else.
+ * Keying on the contract address is what makes a second bid a top-up rather
+ * than a duplicate row. `metadata` always comes from DexScreener, never from
+ * the payer, and is re-applied on every top-up — so buying into an entry moves
+ * its total and nothing else.
  */
-export function placeBid(bid: NormalizedBid, metadata: TokenMetadata): BidOutcome {
-  return applyBid(store(), bid, metadata, new Date().toISOString());
+export async function placeBid(bid: NormalizedBid, metadata: TokenMetadata): Promise<BidOutcome> {
+  const before = await listRanked();
+  const previousRank = before.find((row) => row.contractKey === bid.contractKey)?.rank ?? null;
+
+  const entryId = await transaction(async (client) => {
+    const existing = await client.query<{ id: string }>(
+      `SELECT id FROM entries WHERE contract_key = $1 AND delisted_at IS NULL FOR UPDATE`,
+      [bid.contractKey],
+    );
+
+    if (existing.rows[0]) {
+      return topUp(client, existing.rows[0].id, bid, metadata);
+    }
+
+    try {
+      return await createEntry(client, bid, metadata);
+    } catch (error) {
+      // Lost a race to another first bid on the same contract. The partial
+      // unique index is the arbiter; the loser becomes a top-up, which is what
+      // it would have been a millisecond later anyway.
+      if (!isUniqueViolation(error)) throw error;
+      throw new ConcurrentFirstBid();
+    }
+  }).catch(async (error) => {
+    if (!(error instanceof ConcurrentFirstBid)) throw error;
+    return transaction(async (client) => {
+      const row = await client.query<{ id: string }>(
+        `SELECT id FROM entries WHERE contract_key = $1 AND delisted_at IS NULL FOR UPDATE`,
+        [bid.contractKey],
+      );
+      if (!row.rows[0]) throw error;
+      return topUp(client, row.rows[0].id, bid, metadata);
+    });
+  });
+
+  const after = await listRanked();
+  const row = after.find((item) => item.id === entryId)!;
+
+  return {
+    entry: row,
+    toppedUp: previousRank !== null,
+    previousRank,
+    newRank: row.rank,
+    totalUsd: row.totalUsd,
+  };
 }
 
-function applyBid(
-  state: Store,
+class ConcurrentFirstBid extends Error {}
+
+async function createEntry(
+  client: PoolClient,
   bid: NormalizedBid,
   metadata: TokenMetadata,
-  at: string,
-): BidOutcome {
-  const ranked = rankEntries([...state.entries.values()]);
-  const entries = state.entries;
-  const existing = entries.get(bid.contractKey) ?? entries.get(bid.contractKey.toLowerCase());
-  const now = at;
+): Promise<string> {
+  const id = `entry_${randomUUID()}`;
+  const now = new Date();
 
-  const event: BidEvent = {
-    id: `bid_${++state.seq}`,
-    amountUsd: bid.amountUsd,
-    createdAt: now,
-  };
+  await client.query(
+    `INSERT INTO entries
+       (id, chain_id, contract, contract_key, name, ticker, logo_url, links,
+        metadata_fetched_at, launchpad_url, launchpad_host, launchpad_verified,
+        click_url, clicks, created_at, last_bid_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,0,$14,$14)`,
+    [
+      id,
+      bid.chainId,
+      bid.contract,
+      bid.contractKey,
+      metadata.name,
+      metadata.ticker,
+      metadata.logoUrl ?? null,
+      JSON.stringify(metadata.links),
+      new Date(metadata.fetchedAt),
+      bid.launchpadUrl,
+      bid.launchpadHost,
+      bid.launchpadVerified,
+      // Fixed here, at creation, and never recomputed. The fallback source is
+      // the token's website on DexScreener, which its deployer edits.
+      bid.launchpadUrl ?? metadata.links.website ?? null,
+      now,
+    ],
+  );
 
-  if (existing) {
-    const previousRank = ranked.find((row) => row.id === existing.id)?.rank ?? null;
-    existing.bids.push(event);
-    existing.lastBidAt = now;
-
-    // Refreshed from DexScreener, so a rebrand or a new logo follows the token
-    // automatically. Replaced wholesale rather than merged: if the token drops
-    // a social link, the board should drop it too.
-    existing.name = metadata.name;
-    existing.ticker = metadata.ticker;
-    existing.logoUrl = metadata.logoUrl;
-    existing.links = metadata.links;
-    existing.metadataFetchedAt = metadata.fetchedAt;
-
-    // launchpadUrl, launchpadHost, launchpadVerified and clickUrl are
-    // deliberately untouched: frozen by the first bid, so neither a later bidder
-    // nor the token's own deployer can repoint where the row sends clicks or
-    // talk it into a verified mark.
-
-    const after = rankEntries([...state.entries.values()]);
-    const row = after.find((item) => item.id === existing.id)!;
-    return { entry: existing, toppedUp: true, previousRank, newRank: row.rank, totalUsd: row.totalUsd };
-  }
-
-  const entry: Entry = {
-    id: `entry_${state.entries.size + 1}`,
-    chainId: bid.chainId,
-    contract: bid.contract,
-    contractKey: bid.contractKey,
-    name: metadata.name,
-    ticker: metadata.ticker,
-    logoUrl: metadata.logoUrl,
-    links: metadata.links,
-    metadataFetchedAt: metadata.fetchedAt,
-    launchpadUrl: bid.launchpadUrl,
-    launchpadHost: bid.launchpadHost,
-    launchpadVerified: bid.launchpadVerified,
-    // Fixed here, at creation, and never touched again. See Entry.clickUrl.
-    clickUrl: bid.launchpadUrl ?? metadata.links.website ?? null,
-    bids: [event],
-    clicks: 0,
-    createdAt: now,
-    lastBidAt: now,
-  };
-  state.entries.set(bid.contractKey, entry);
-
-  const after = rankEntries([...state.entries.values()]);
-  const row = after.find((item) => item.id === entry.id)!;
-  return { entry, toppedUp: false, previousRank: null, newRank: row.rank, totalUsd: row.totalUsd };
+  await insertBid(client, id, bid.amountUsd, now);
+  return id;
 }
 
-export function registerClick(id: string): Entry | undefined {
-  const entry = findById(id);
-  if (entry) entry.clicks += 1;
-  return entry;
+async function topUp(
+  client: PoolClient,
+  entryId: string,
+  bid: NormalizedBid,
+  metadata: TokenMetadata,
+): Promise<string> {
+  const now = new Date();
+  await insertBid(client, entryId, bid.amountUsd, now);
+
+  // Identity is refreshed from DexScreener, so a rebrand follows the token.
+  // Replaced wholesale rather than merged: if the token drops a social link,
+  // the board drops it too.
+  //
+  // launchpad_url, launchpad_host, launchpad_verified and click_url are
+  // deliberately absent: frozen by the first bid, so neither a later bidder nor
+  // the token's deployer can repoint where the row sends clicks.
+  await client.query(
+    `UPDATE entries
+        SET name = $2, ticker = $3, logo_url = $4, links = $5,
+            metadata_fetched_at = $6, last_bid_at = $7
+      WHERE id = $1`,
+    [
+      entryId,
+      metadata.name,
+      metadata.ticker,
+      metadata.logoUrl ?? null,
+      JSON.stringify(metadata.links),
+      new Date(metadata.fetchedAt),
+      now,
+    ],
+  );
+
+  return entryId;
 }
+
+async function insertBid(
+  client: PoolClient,
+  entryId: string,
+  amountUsd: number,
+  at: Date,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO entry_bids (id, entry_id, amount_usd, created_at) VALUES ($1,$2,$3,$4)`,
+    [`bid_${randomUUID()}`, entryId, amountUsd, at],
+  );
+}
+
+export async function registerClick(id: string): Promise<Entry | undefined> {
+  await query(`UPDATE entries SET clicks = clicks + 1 WHERE id = $1 AND delisted_at IS NULL`, [id]);
+  return findById(id);
+}
+
+// --- Moderation --------------------------------------------------------------
+
+export type Delisting = { contractKey: string; reason: string; delistedAt: string };
 
 /**
- * Drops an entry from the in-memory board immediately, so a delisting takes
- * effect without waiting for a restart. The database record is what makes it
- * durable; this is what makes it instant.
+ * Removes an entry from the board without deleting anything.
+ *
+ * A soft delete, so the row and its bids stay for audit. Relisting inserts a
+ * fresh row — the partial unique index only covers live entries — and it starts
+ * from zero, because the old total belongs to the old row.
  */
-export function removeEntryFromBoard(contractKey: string): boolean {
-  const entries = store().entries;
-  for (const [key, entry] of entries) {
-    if (entry.contractKey === contractKey || key === contractKey) {
-      entries.delete(key);
-      return true;
-    }
-  }
-  return false;
+export async function delistEntry(contractKey: string, reason: string): Promise<Delisting | null> {
+  const rows = await query<{ contract_key: string; delisted_reason: string; delisted_at: Date }>(
+    `UPDATE entries
+        SET delisted_at = now(), delisted_reason = $2
+      WHERE contract_key = $1 AND delisted_at IS NULL
+      RETURNING contract_key, delisted_reason, delisted_at`,
+    [contractKey, reason],
+  );
+
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    contractKey: row.contract_key,
+    reason: row.delisted_reason,
+    delistedAt: row.delisted_at.toISOString(),
+  };
+}
+
+export async function listDelistings(): Promise<Delisting[]> {
+  const rows = await query<{ contract_key: string; delisted_reason: string; delisted_at: Date }>(
+    `SELECT contract_key, delisted_reason, delisted_at
+       FROM entries
+      WHERE delisted_at IS NOT NULL
+      ORDER BY delisted_at DESC`,
+  );
+  return rows.map((row) => ({
+    contractKey: row.contract_key,
+    reason: row.delisted_reason,
+    delistedAt: row.delisted_at.toISOString(),
+  }));
+}
+
+/** Recomputes the verified mark for a seeded entry. Used only by the fixture. */
+export function launchpadVerifiedFor(chainId: string, launchpadUrl: string | null): boolean {
+  const chain = getChain(chainId);
+  if (!chain || !launchpadUrl) return false;
+  return isKnownLaunchpad(chain, new URL(launchpadUrl).hostname);
 }

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   // The current total decides whether this is a new listing (board minimum) or
   // a top-up (smaller minimum).
   const key = contractKeyFor(body.chainId, body.contract ?? "");
-  const current = key ? findByContractKey(key) : undefined;
+  const current = key ? await findByContractKey(key) : undefined;
   const existing = current
     ? { contractKey: current.contractKey, totalUsd: rankEntries([current])[0].totalUsd }
     : null;
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   // Checked before the DexScreener lookup: a caller who is over their limit
   // should not be able to make us do outbound work on every request.
   const ipHash = hashIp(identity.ip);
-  const limit = checkBidCreationLimits(ipHash, result.value.amountUsd);
+  const limit = await checkBidCreationLimits(ipHash, result.value.amountUsd);
   if (!limit.ok) {
     return NextResponse.json(
       { ok: false, errors: { amountUsd: limit.message }, reason: limit.reason, retryAt: limit.retryAt },
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const pending = createPendingBid(result.value, ipHash);
+  const pending = await createPendingBid(result.value, ipHash);
 
   return NextResponse.json({
     ok: true,

@@ -1,13 +1,8 @@
 import { randomInt, randomUUID } from "node:crypto";
+import { execute, isUniqueViolation, query, queryOne, violatedConstraint } from "../db";
 import type { TokenMetadata } from "../dexscreener";
 import type { NormalizedBid } from "../validation";
-import {
-  FRACTION_MAX,
-  FRACTION_MIN,
-  PAYMENT_WINDOW_MINUTES,
-  paymentBaseUnits,
-} from "./config";
-import { db } from "./db";
+import { FRACTION_MAX, FRACTION_MIN, PAYMENT_WINDOW_MINUTES, paymentBaseUnits } from "./config";
 
 export type PendingStatus = "pending" | "paid" | "expired" | "failed";
 
@@ -16,7 +11,6 @@ export type PendingBid = {
   chainId: string;
   contract: string;
   contractKey: string;
-  /** Empty in the database, null here: the launch link is optional. */
   launchpadUrl: string | null;
   launchpadHost: string | null;
   launchpadVerified: boolean;
@@ -39,16 +33,16 @@ type Row = {
   chain_id: string;
   contract: string;
   contract_key: string;
-  launchpad_url: string;
-  launchpad_host: string;
-  launchpad_verified: number;
+  launchpad_url: string | null;
+  launchpad_host: string | null;
+  launchpad_verified: boolean;
   amount_usd: number;
-  payment_micros: number | null;
+  payment_micros: string | null;
   status: string;
   failure_reason: string | null;
-  created_at: string;
-  expires_at: string;
-  paid_at: string | null;
+  created_at: Date;
+  expires_at: Date;
+  paid_at: Date | null;
 };
 
 function toBid(row: Row): PendingBid {
@@ -57,17 +51,18 @@ function toBid(row: Row): PendingBid {
     chainId: row.chain_id,
     contract: row.contract,
     contractKey: row.contract_key,
-    launchpadUrl: row.launchpad_url || null,
-    launchpadHost: row.launchpad_host || null,
-    launchpadVerified: row.launchpad_verified === 1,
+    launchpadUrl: row.launchpad_url,
+    launchpadHost: row.launchpad_host,
+    launchpadVerified: row.launchpad_verified,
     amountUsd: row.amount_usd,
-    // Legacy rows predate unique amounts; fall back to the plain bid amount.
+    // BIGINT comes back from pg as a string on purpose: the amount is in USDC
+    // base units and has to stay exact.
     paymentBaseUnits: BigInt(row.payment_micros ?? row.amount_usd * 1_000_000),
     status: row.status as PendingStatus,
     failureReason: row.failure_reason,
-    createdAt: row.created_at,
-    expiresAt: row.expires_at,
-    paidAt: row.paid_at,
+    createdAt: row.created_at.toISOString(),
+    expiresAt: row.expires_at.toISOString(),
+    paidAt: row.paid_at ? row.paid_at.toISOString() : null,
   };
 }
 
@@ -76,19 +71,15 @@ function toBid(row: Row): PendingBid {
  *
  * Run before allocating a new payment amount: the uniqueness index only covers
  * 'pending' rows, so sweeping first is what releases the fractions held by bids
- * nobody ever paid. Without this, abandoned bids would slowly consume the
- * fraction space for their amount.
+ * nobody ever paid.
  */
-export function expireStalePendingBids(): number {
-  const result = db()
-    .prepare(
-      `UPDATE pending_bids
-         SET status = 'expired',
-             failure_reason = 'This bid expired before a payment was confirmed.'
-       WHERE status = 'pending' AND expires_at <= ?`,
-    )
-    .run(new Date().toISOString());
-  return Number(result.changes ?? 0);
+export async function expireStalePendingBids(): Promise<number> {
+  return execute(
+    `UPDATE pending_bids
+        SET status = 'expired',
+            failure_reason = 'This bid expired before a payment was confirmed.'
+      WHERE status = 'pending' AND expires_at <= now()`,
+  );
 }
 
 export class PaymentAmountUnavailable extends Error {
@@ -101,19 +92,15 @@ export class PaymentAmountUnavailable extends Error {
 /** How many fractions we try before giving up rather than looping forever. */
 const FRACTION_ATTEMPTS = 40;
 
-export function createPendingBid(bid: NormalizedBid, ipHash: string | null = null): PendingBid {
-  expireStalePendingBids();
+export async function createPendingBid(
+  bid: NormalizedBid,
+  ipHash: string | null = null,
+): Promise<PendingBid> {
+  await expireStalePendingBids();
 
   const id = randomUUID();
   const now = new Date();
   const expires = new Date(now.getTime() + PAYMENT_WINDOW_MINUTES * 60_000);
-
-  const insert = db().prepare(
-    `INSERT INTO pending_bids
-       (id, chain_id, contract, contract_key, launchpad_url, launchpad_host,
-        launchpad_verified, amount_usd, ip_hash, payment_micros, status, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
-  );
 
   // The fraction is drawn at random and offered to the database. If another
   // pending bid already holds that exact amount the unique index rejects it and
@@ -122,21 +109,28 @@ export function createPendingBid(bid: NormalizedBid, ipHash: string | null = nul
   for (let attempt = 0; attempt < FRACTION_ATTEMPTS; attempt++) {
     const fraction = randomInt(FRACTION_MIN, FRACTION_MAX + 1);
     try {
-      insert.run(
-        id,
-        bid.chainId,
-        bid.contract,
-        bid.contractKey,
-        bid.launchpadUrl ?? "",
-        bid.launchpadHost ?? "",
-        bid.launchpadVerified ? 1 : 0,
-        bid.amountUsd,
-        ipHash,
-        paymentBaseUnits(bid.amountUsd, fraction),
-        now.toISOString(),
-        expires.toISOString(),
+      await execute(
+        `INSERT INTO pending_bids
+           (id, chain_id, contract, contract_key, launchpad_url, launchpad_host,
+            launchpad_verified, amount_usd, ip_hash, payment_micros, status,
+            created_at, expires_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',$11,$12)`,
+        [
+          id,
+          bid.chainId,
+          bid.contract,
+          bid.contractKey,
+          bid.launchpadUrl,
+          bid.launchpadHost,
+          bid.launchpadVerified,
+          bid.amountUsd,
+          ipHash,
+          paymentBaseUnits(bid.amountUsd, fraction),
+          now,
+          expires,
+        ],
       );
-      return getPendingBid(id)!;
+      return (await getPendingBid(id))!;
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
     }
@@ -145,43 +139,42 @@ export function createPendingBid(bid: NormalizedBid, ipHash: string | null = nul
   throw new PaymentAmountUnavailable();
 }
 
-function isUniqueViolation(error: unknown): boolean {
-  const code = (error as { code?: string }).code ?? "";
-  const message = (error as Error)?.message ?? "";
-  return code === "ERR_SQLITE_ERROR" && /UNIQUE/i.test(message);
-}
-
 /**
  * Reads a bid, expiring it on the way out if its window has closed. Expiry is
  * evaluated on read rather than by a background job: there is no scheduler here,
  * and a bid nobody looks at does not need to have expired yet.
  */
-export function getPendingBid(id: string): PendingBid | null {
-  const row = db().prepare(`SELECT * FROM pending_bids WHERE id = ?`).get(id) as Row | undefined;
+export async function getPendingBid(id: string): Promise<PendingBid | null> {
+  const row = await queryOne<Row>(`SELECT * FROM pending_bids WHERE id = $1`, [id]);
   if (!row) return null;
 
   const bid = toBid(row);
   if (bid.status === "pending" && Date.parse(bid.expiresAt) <= Date.now()) {
-    markFailed(id, "expired", "This bid expired before a payment was confirmed.");
+    await markFailed(id, "expired", "This bid expired before a payment was confirmed.");
     return getPendingBid(id);
   }
   return bid;
 }
 
-export function markFailed(id: string, status: "expired" | "failed", reason: string): void {
-  db()
-    .prepare(`UPDATE pending_bids SET status = ?, failure_reason = ? WHERE id = ?`)
-    .run(status, reason, id);
+export async function markFailed(
+  id: string,
+  status: "expired" | "failed",
+  reason: string,
+): Promise<void> {
+  await execute(`UPDATE pending_bids SET status = $1, failure_reason = $2 WHERE id = $3`, [
+    status,
+    reason,
+    id,
+  ]);
 }
 
-/** Puts a failed bid back in play so the payer can paste a different signature. */
-export function reopen(id: string): void {
-  db()
-    .prepare(
-      `UPDATE pending_bids SET status = 'pending', failure_reason = NULL
-       WHERE id = ? AND status = 'failed' AND expires_at > ?`,
-    )
-    .run(id, new Date().toISOString());
+/** Puts a failed bid back in play so the payer can present a different payment. */
+export async function reopen(id: string): Promise<void> {
+  await execute(
+    `UPDATE pending_bids SET status = 'pending', failure_reason = NULL
+      WHERE id = $1 AND status = 'failed' AND expires_at > now()`,
+    [id],
+  );
 }
 
 export type RecordPaymentResult =
@@ -189,132 +182,105 @@ export type RecordPaymentResult =
   | { ok: false; reason: "signature_used" | "bid_already_paid" };
 
 /**
- * Claims a signature for a bid. The UNIQUE constraint on payments.signature is
- * what actually prevents one transaction from paying for two bids — this is a
- * database guarantee, not a check-then-act in application code, so two requests
- * racing with the same signature cannot both win.
+ * Records a settled payment against a bid.
+ *
+ * Two UNIQUE constraints guard this: payments.signature, so one transaction
+ * cannot pay for two bids, and payments_bid_unique, so one bid cannot take two
+ * payments. Both are database guarantees rather than check-then-act in
+ * application code — and in Postgres they hold across every instance, which is
+ * the whole reason for being here rather than on a local file.
  */
-export function recordPayment(
+export async function recordPayment(
   bidId: string,
   signature: string,
   amountBaseUnits: bigint,
-): RecordPaymentResult {
+): Promise<RecordPaymentResult> {
   try {
-    db()
-      .prepare(
-        `INSERT INTO payments (id, signature, bid_id, amount_base_units, verified_at)
-         VALUES (?, ?, ?, ?, ?)`,
-      )
-      .run(randomUUID(), signature.trim(), bidId, amountBaseUnits.toString(), new Date().toISOString());
+    await execute(
+      `INSERT INTO payments (id, signature, bid_id, amount_base_units, verified_at)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [randomUUID(), signature.trim(), bidId, amountBaseUnits.toString(), new Date()],
+    );
   } catch (error) {
     if (isUniqueViolation(error)) {
-      // Two UNIQUE constraints can fire here: the signature, and payments.bid_id
-      // which stops one bid ever having two payments applied to it.
-      const message = (error as Error).message ?? "";
       return {
         ok: false,
-        reason: /bid_id|payments_bid_unique/i.test(message) ? "bid_already_paid" : "signature_used",
+        reason: /bid/i.test(violatedConstraint(error)) ? "bid_already_paid" : "signature_used",
       };
     }
     throw error;
   }
 
-  db()
-    .prepare(`UPDATE pending_bids SET status = 'paid', paid_at = ? WHERE id = ?`)
-    .run(new Date().toISOString(), bidId);
+  await execute(`UPDATE pending_bids SET status = 'paid', paid_at = $1 WHERE id = $2`, [
+    new Date(),
+    bidId,
+  ]);
 
   return { ok: true };
 }
 
-/** Records a paid bid so the board can be rebuilt after a restart. */
-export function recordAcceptedBid(
+/** Records a paid bid as history. The board is not derived from this. */
+export async function recordAcceptedBid(
   bidId: string,
   bid: NormalizedBid,
   metadata: TokenMetadata,
-): void {
-  db()
-    .prepare(
-      `INSERT INTO accepted_bids
-       (id, bid_id, chain_id, contract, contract_key, launchpad_url, launchpad_host,
-        launchpad_verified, amount_usd, metadata_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
+  entryId: string | null = null,
+): Promise<void> {
+  await execute(
+    `INSERT INTO accepted_bids
+       (id, bid_id, entry_id, chain_id, contract, contract_key, launchpad_url,
+        launchpad_host, launchpad_verified, amount_usd, metadata, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     ON CONFLICT (bid_id) DO NOTHING`,
+    [
       randomUUID(),
       bidId,
+      entryId,
       bid.chainId,
       bid.contract,
       bid.contractKey,
-      bid.launchpadUrl ?? "",
-      bid.launchpadHost ?? "",
-      bid.launchpadVerified ? 1 : 0,
+      bid.launchpadUrl,
+      bid.launchpadHost,
+      bid.launchpadVerified,
       bid.amountUsd,
       JSON.stringify(metadata),
-      new Date().toISOString(),
-    );
+      new Date(),
+    ],
+  );
 }
 
 export type AcceptedBid = { bid: NormalizedBid; metadata: TokenMetadata; createdAt: string };
 
-export function listAcceptedBids(): AcceptedBid[] {
-  const rows = db()
-    .prepare(`SELECT * FROM accepted_bids ORDER BY created_at ASC`)
-    .all() as Record<string, string | number>[];
+export async function listAcceptedBids(): Promise<AcceptedBid[]> {
+  const rows = await query<{
+    chain_id: string;
+    contract: string;
+    contract_key: string;
+    launchpad_url: string | null;
+    launchpad_host: string | null;
+    launchpad_verified: boolean;
+    amount_usd: number;
+    metadata: TokenMetadata;
+    created_at: Date;
+  }>(`SELECT * FROM accepted_bids ORDER BY created_at ASC`);
 
   return rows.map((row) => ({
     bid: {
       chainId: row.chain_id as NormalizedBid["chainId"],
-      contract: row.contract as string,
-      contractKey: row.contract_key as string,
-      launchpadUrl: (row.launchpad_url as string) || null,
-      launchpadHost: (row.launchpad_host as string) || null,
-      launchpadVerified: row.launchpad_verified === 1,
-      amountUsd: row.amount_usd as number,
+      contract: row.contract,
+      contractKey: row.contract_key,
+      launchpadUrl: row.launchpad_url,
+      launchpadHost: row.launchpad_host,
+      launchpadVerified: row.launchpad_verified,
+      amountUsd: row.amount_usd,
       strippedParams: [],
     },
-    metadata: JSON.parse(row.metadata_json as string) as TokenMetadata,
-    createdAt: row.created_at as string,
+    metadata: row.metadata,
+    createdAt: row.created_at.toISOString(),
   }));
 }
 
-/**
- * Records a confirmed transfer that reached our wallet but matched no bid's
- * exact amount.
- *
- * Deliberately does NOT consume the signature in `payments`: the money is real
- * and the payer should be able to be made whole, and locking the signature here
- * would also block a legitimate retry. This table is the queue support works
- * from.
- */
-export function recordUnmatchedPayment(params: {
-  signature: string;
-  bidId: string | null;
-  receivedBaseUnits: bigint;
-  expectedBaseUnits: bigint;
-  reason: string;
-}): void {
-  try {
-    db()
-      .prepare(
-        `INSERT INTO unmatched_payments
-           (id, signature, bid_id, received_base_units, expected_base_units, reason, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        randomUUID(),
-        params.signature.trim(),
-        params.bidId,
-        params.receivedBaseUnits.toString(),
-        params.expectedBaseUnits.toString(),
-        params.reason,
-        new Date().toISOString(),
-      );
-  } catch (error) {
-    // Already logged from an earlier attempt with the same signature; one row
-    // per stray transfer is enough.
-    if (!isUniqueViolation(error)) throw error;
-  }
-}
+// --- Unmatched payments ------------------------------------------------------
 
 export type UnmatchedStatus = "open" | "applied" | "discarded";
 
@@ -332,109 +298,110 @@ export type UnmatchedPayment = {
   appliedBidId: string | null;
 };
 
-export function listUnmatchedPayments(status?: UnmatchedStatus): UnmatchedPayment[] {
-  const rows = (
-    status
-      ? db()
-          .prepare(`SELECT * FROM unmatched_payments WHERE status = ? ORDER BY created_at DESC`)
-          .all(status)
-      : db().prepare(`SELECT * FROM unmatched_payments ORDER BY created_at DESC`).all()
-  ) as Record<string, string | null>[];
+type UnmatchedRow = {
+  id: string;
+  signature: string;
+  bid_id: string | null;
+  received_base_units: string;
+  expected_base_units: string;
+  reason: string;
+  created_at: Date;
+  status: string;
+  resolved_at: Date | null;
+  resolution_note: string | null;
+  applied_bid_id: string | null;
+};
 
-  return rows.map((row) => ({
-    id: row.id as string,
-    signature: row.signature as string,
+function toUnmatched(row: UnmatchedRow): UnmatchedPayment {
+  return {
+    id: row.id,
+    signature: row.signature,
     bidId: row.bid_id,
-    receivedBaseUnits: BigInt(row.received_base_units as string),
-    expectedBaseUnits: BigInt(row.expected_base_units as string),
-    reason: row.reason as string,
-    createdAt: row.created_at as string,
-    status: (row.status ?? "open") as UnmatchedStatus,
-    resolvedAt: row.resolved_at,
+    receivedBaseUnits: BigInt(row.received_base_units),
+    expectedBaseUnits: BigInt(row.expected_base_units),
+    reason: row.reason,
+    createdAt: row.created_at.toISOString(),
+    status: row.status as UnmatchedStatus,
+    resolvedAt: row.resolved_at ? row.resolved_at.toISOString() : null,
     resolutionNote: row.resolution_note,
     appliedBidId: row.applied_bid_id,
-  }));
+  };
 }
 
-export function getUnmatchedPayment(id: string): UnmatchedPayment | null {
-  return listUnmatchedPayments().find((payment) => payment.id === id) ?? null;
+/**
+ * Records a confirmed transfer that reached our wallet but matched no bid's
+ * exact amount. The signature is burned separately, by claimSignature, so this
+ * is purely the queue support works from.
+ */
+export async function recordUnmatchedPayment(params: {
+  signature: string;
+  bidId: string | null;
+  receivedBaseUnits: bigint;
+  expectedBaseUnits: bigint;
+  reason: string;
+}): Promise<void> {
+  await execute(
+    `INSERT INTO unmatched_payments
+       (id, signature, bid_id, received_base_units, expected_base_units, reason, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (signature) DO NOTHING`,
+    [
+      randomUUID(),
+      params.signature.trim(),
+      params.bidId,
+      params.receivedBaseUnits.toString(),
+      params.expectedBaseUnits.toString(),
+      params.reason,
+      new Date(),
+    ],
+  );
 }
 
-export function resolveUnmatchedPayment(
+export async function listUnmatchedPayments(status?: UnmatchedStatus): Promise<UnmatchedPayment[]> {
+  const rows = status
+    ? await query<UnmatchedRow>(
+        `SELECT * FROM unmatched_payments WHERE status = $1 ORDER BY created_at DESC`,
+        [status],
+      )
+    : await query<UnmatchedRow>(`SELECT * FROM unmatched_payments ORDER BY created_at DESC`);
+  return rows.map(toUnmatched);
+}
+
+export async function getUnmatchedPayment(id: string): Promise<UnmatchedPayment | null> {
+  const row = await queryOne<UnmatchedRow>(`SELECT * FROM unmatched_payments WHERE id = $1`, [id]);
+  return row ? toUnmatched(row) : null;
+}
+
+export async function resolveUnmatchedPayment(
   id: string,
   status: "applied" | "discarded",
   note: string,
   appliedBidId: string | null = null,
-): void {
-  db()
-    .prepare(
-      `UPDATE unmatched_payments
-          SET status = ?, resolved_at = ?, resolution_note = ?, applied_bid_id = ?
-        WHERE id = ?`,
-    )
-    .run(status, new Date().toISOString(), note, appliedBidId, id);
+): Promise<void> {
+  await execute(
+    `UPDATE unmatched_payments
+        SET status = $2, resolved_at = $3, resolution_note = $4, applied_bid_id = $5
+      WHERE id = $1`,
+    [id, status, new Date(), note, appliedBidId],
+  );
 }
 
 /**
  * Bids whose amount is closest to what actually arrived — the shortlist an
  * operator picks from when reuniting a stray transfer with its bid.
  */
-export function candidateBidsForAmount(receivedBaseUnits: bigint, limit = 8): PendingBid[] {
-  const rows = db()
-    .prepare(
-      `SELECT * FROM pending_bids
-        WHERE status IN ('pending', 'expired', 'failed')
-        ORDER BY ABS(COALESCE(payment_micros, amount_usd * 1000000) - ?) ASC
-        LIMIT ?`,
-    )
-    .all(Number(receivedBaseUnits), limit) as Row[];
+export async function candidateBidsForAmount(
+  receivedBaseUnits: bigint,
+  limit = 8,
+): Promise<PendingBid[]> {
+  const rows = await query<Row>(
+    `SELECT * FROM pending_bids
+      WHERE status IN ('pending', 'expired', 'failed')
+      ORDER BY ABS(COALESCE(payment_micros, amount_usd * 1000000) - $1) ASC
+      LIMIT $2`,
+    [receivedBaseUnits.toString(), limit],
+  );
   return rows.map(toBid);
-}
-
-// --- Moderation -------------------------------------------------------------
-
-export type Delisting = { contractKey: string; reason: string; delistedAt: string };
-
-/**
- * Removes an entry from the board without deleting anything.
- *
- * The delisting is recorded with a timestamp, and the board rebuild ignores
- * every bid that predates it. That is what makes a relisting start from zero:
- * the old total is not erased, it simply no longer counts. Money is not
- * returned — the rules say bids are non-refundable, and a delisting is the
- * consequence of behaviour, not a cancelled order.
- */
-export function delistEntry(contractKey: string, reason: string): Delisting {
-  const delisting: Delisting = {
-    contractKey,
-    reason,
-    delistedAt: new Date().toISOString(),
-  };
-  db()
-    .prepare(`INSERT INTO delistings (id, contract_key, reason, delisted_at) VALUES (?, ?, ?, ?)`)
-    .run(randomUUID(), delisting.contractKey, delisting.reason, delisting.delistedAt);
-  return delisting;
-}
-
-/** Latest delisting per contract key. */
-export function delistingsByKey(): Map<string, Delisting> {
-  const rows = db()
-    .prepare(`SELECT contract_key, reason, delisted_at FROM delistings ORDER BY delisted_at ASC`)
-    .all() as { contract_key: string; reason: string; delisted_at: string }[];
-
-  const latest = new Map<string, Delisting>();
-  for (const row of rows) {
-    latest.set(row.contract_key, {
-      contractKey: row.contract_key,
-      reason: row.reason,
-      delistedAt: row.delisted_at,
-    });
-  }
-  return latest;
-}
-
-export function listDelistings(): Delisting[] {
-  return [...delistingsByKey().values()].sort((a, b) => b.delistedAt.localeCompare(a.delistedAt));
 }
 
 // --- Signature consumption ---------------------------------------------------
@@ -445,26 +412,25 @@ export type ClaimResult = { ok: true } | { ok: false; reason: "signature_used" }
  * Burns a signature, whatever the verdict was.
  *
  * A signature is spent by being *evaluated*, not by matching. Leaving a
- * mismatched one reusable — which is what we did before — meant every stray
- * transfer to our wallet stayed claimable by whoever pasted it next, which is
- * the same thing as leaving cash on the pavement.
+ * mismatched one reusable meant every stray transfer to our wallet stayed
+ * claimable by whoever pasted it next, which is the same thing as leaving cash
+ * on the pavement.
  *
  * Deliberately NOT called when the chain could not be reached or the
  * transaction is not confirmed yet: those are not verdicts, and burning on them
  * would let a flaky RPC destroy a legitimate payment.
  */
-export function claimSignature(
+export async function claimSignature(
   signature: string,
   bidId: string | null,
   outcome: string,
-): ClaimResult {
+): Promise<ClaimResult> {
   try {
-    db()
-      .prepare(
-        `INSERT INTO consumed_signatures (signature, bid_id, outcome, consumed_at)
-         VALUES (?, ?, ?, ?)`,
-      )
-      .run(signature.trim(), bidId, outcome, new Date().toISOString());
+    await execute(
+      `INSERT INTO consumed_signatures (signature, bid_id, outcome, consumed_at)
+       VALUES ($1,$2,$3,$4)`,
+      [signature.trim(), bidId, outcome, new Date()],
+    );
     return { ok: true };
   } catch (error) {
     if (isUniqueViolation(error)) return { ok: false, reason: "signature_used" };
@@ -472,56 +438,54 @@ export function claimSignature(
   }
 }
 
-export function signatureWasConsumed(signature: string): boolean {
-  const row = db()
-    .prepare(`SELECT 1 AS hit FROM consumed_signatures WHERE signature = ?`)
-    .get(signature.trim()) as { hit: number } | undefined;
-  return row !== undefined;
+export async function signatureWasConsumed(signature: string): Promise<boolean> {
+  const row = await queryOne<{ signature: string }>(
+    `SELECT signature FROM consumed_signatures WHERE signature = $1`,
+    [signature.trim()],
+  );
+  return row !== null;
 }
 
 // --- Verification attempts (rate limiting) -----------------------------------
 
-export function recordVerificationAttempt(bidId: string, ipHash: string | null): void {
-  db()
-    .prepare(
-      `INSERT INTO verification_attempts (id, bid_id, ip_hash, attempted_at) VALUES (?, ?, ?, ?)`,
-    )
-    .run(randomUUID(), bidId, ipHash, new Date().toISOString());
+export async function recordVerificationAttempt(
+  bidId: string,
+  ipHash: string | null,
+): Promise<void> {
+  await execute(
+    `INSERT INTO verification_attempts (id, bid_id, ip_hash, attempted_at) VALUES ($1,$2,$3,$4)`,
+    [randomUUID(), bidId, ipHash, new Date()],
+  );
 }
 
-export function countVerificationAttempts(
-  since: string,
-): { forBid: (bidId: string) => number; forIp: (ipHash: string) => number; lastForBid: (bidId: string) => string | null } {
-  const database = db();
-  return {
-    forBid: (bidId) =>
-      (
-        database
-          .prepare(
-            `SELECT COUNT(*) AS c FROM verification_attempts WHERE bid_id = ? AND attempted_at > ?`,
-          )
-          .get(bidId, since) as { c: number }
-      ).c,
-    forIp: (ipHash) =>
-      (
-        database
-          .prepare(
-            `SELECT COUNT(*) AS c FROM verification_attempts WHERE ip_hash = ? AND attempted_at > ?`,
-          )
-          .get(ipHash, since) as { c: number }
-      ).c,
-    lastForBid: (bidId) =>
-      (
-        database
-          .prepare(
-            `SELECT attempted_at FROM verification_attempts WHERE bid_id = ? ORDER BY attempted_at DESC LIMIT 1`,
-          )
-          .get(bidId) as { attempted_at: string } | undefined
-      )?.attempted_at ?? null,
-  };
+export async function countVerificationAttemptsForBid(bidId: string, since: Date): Promise<number> {
+  const row = await queryOne<{ count: string }>(
+    `SELECT COUNT(*)::text AS count FROM verification_attempts
+      WHERE bid_id = $1 AND attempted_at > $2`,
+    [bidId, since],
+  );
+  return Number(row?.count ?? 0);
+}
+
+export async function countVerificationAttemptsForIp(ipHash: string, since: Date): Promise<number> {
+  const row = await queryOne<{ count: string }>(
+    `SELECT COUNT(*)::text AS count FROM verification_attempts
+      WHERE ip_hash = $1 AND attempted_at > $2`,
+    [ipHash, since],
+  );
+  return Number(row?.count ?? 0);
+}
+
+export async function lastVerificationAttemptForBid(bidId: string): Promise<string | null> {
+  const row = await queryOne<{ attempted_at: Date }>(
+    `SELECT attempted_at FROM verification_attempts
+      WHERE bid_id = $1 ORDER BY attempted_at DESC LIMIT 1`,
+    [bidId],
+  );
+  return row ? row.attempted_at.toISOString() : null;
 }
 
 /** Drops attempt rows outside the counting window. This is a counter, not a log. */
-export function pruneVerificationAttempts(before: string): void {
-  db().prepare(`DELETE FROM verification_attempts WHERE attempted_at <= ?`).run(before);
+export async function pruneVerificationAttempts(before: Date): Promise<void> {
+  await execute(`DELETE FROM verification_attempts WHERE attempted_at <= $1`, [before]);
 }

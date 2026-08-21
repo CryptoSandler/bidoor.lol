@@ -15,7 +15,7 @@ export default async function LeaderboardPage({
   searchParams: Promise<{ show?: string }>;
 }) {
   const { show } = await searchParams;
-  const { entries: allEntries, now, potUsd } = getBoard();
+  const { entries: allEntries, now, potUsd } = await getBoard();
 
   // Top 50, then more on request. Server-rendered, so the board still works
   // without JavaScript and a shared link to "?show=100" shows what it says.

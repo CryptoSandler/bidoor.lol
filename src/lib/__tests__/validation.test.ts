@@ -15,7 +15,7 @@ function bid(overrides: Partial<BidInput> = {}): BidInput {
 }
 
 describe("the bidder supplies only address, chain, launchpad and amount", () => {
-  it("has no field for name, ticker or socials", () => {
+  it("has no field for name, ticker or socials", async () => {
     // Identity is read from DexScreener, so there is nothing here to hijack.
     const result = validateBid(bid(), null);
     expect(result.ok).toBe(true);
@@ -34,14 +34,14 @@ describe("the bidder supplies only address, chain, launchpad and amount", () => 
 });
 
 describe("address must match the selected chain", () => {
-  it("rejects an EVM address submitted as Solana", () => {
+  it("rejects an EVM address submitted as Solana", async () => {
     const result = validateBid(bid({ contract: EVM_ADDR }), null);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors.contract).toMatch(/Solana/);
   });
 
-  it("rejects a Solana mint submitted as Base", () => {
+  it("rejects a Solana mint submitted as Base", async () => {
     const result = validateBid(
       bid({ chainId: "base", contract: SOL_MINT, launchpadUrl: "https://clanker.world/clanker/0x1" }),
       null,
@@ -49,7 +49,7 @@ describe("address must match the selected chain", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("accepts the same EVM address on any EVM chain as a distinct entry", () => {
+  it("accepts the same EVM address on any EVM chain as a distinct entry", async () => {
     const onBase = validateBid(
       bid({ chainId: "base", contract: EVM_ADDR, launchpadUrl: "https://clanker.world/clanker/0x1" }),
       null,
@@ -63,7 +63,7 @@ describe("address must match the selected chain", () => {
     expect(onBase.value.contractKey).not.toBe(onBnb.value.contractKey);
   });
 
-  it("keys an EVM entry case-insensitively", () => {
+  it("keys an EVM entry case-insensitively", async () => {
     const upper = validateBid(
       bid({ chainId: "base", contract: EVM_ADDR, launchpadUrl: "https://clanker.world/c/1" }),
       null,
@@ -77,7 +77,7 @@ describe("address must match the selected chain", () => {
 });
 
 describe("the launchpad list marks trust, it does not gate listing", () => {
-  it("accepts a known launchpad and marks the entry verified", () => {
+  it("accepts a known launchpad and marks the entry verified", async () => {
     const result = validateBid(
       bid({ chainId: "bnb", contract: EVM_ADDR, launchpadUrl: "https://four.meme/token/0xabc" }),
       null,
@@ -87,7 +87,7 @@ describe("the launchpad list marks trust, it does not gate listing", () => {
     expect(result.value.launchpadVerified).toBe(true);
   });
 
-  it("accepts hood.fun for a Robinhood Chain token", () => {
+  it("accepts hood.fun for a Robinhood Chain token", async () => {
     const result = validateBid(
       bid({ chainId: "robinhood", contract: EVM_ADDR, launchpadUrl: "https://hood.fun/token/0xabc" }),
       null,
@@ -95,7 +95,7 @@ describe("the launchpad list marks trust, it does not gate listing", () => {
     expect(result.ok && result.value.launchpadVerified).toBe(true);
   });
 
-  it("accepts a launchpad we have never heard of, without the mark", () => {
+  it("accepts a launchpad we have never heard of, without the mark", async () => {
     // A token that launched somewhere unknown is still a real token. Refusing
     // it taught us nothing and kept real listings off the board.
     const result = validateBid(bid({ launchpadUrl: "https://some-new-launchpad.xyz/t/abc" }), null);
@@ -105,7 +105,7 @@ describe("the launchpad list marks trust, it does not gate listing", () => {
     expect(result.value.launchpadHost).toBe("some-new-launchpad.xyz");
   });
 
-  it("no longer rejects pump.fun on BNB — it just does not mark it", () => {
+  it("no longer rejects pump.fun on BNB — it just does not mark it", async () => {
     const result = validateBid(
       bid({ chainId: "bnb", contract: EVM_ADDR, launchpadUrl: "https://pump.fun/coin/abc" }),
       null,
@@ -115,12 +115,12 @@ describe("the launchpad list marks trust, it does not gate listing", () => {
     expect(result.value.launchpadVerified).toBe(false);
   });
 
-  it("marks subdomains of a known launchpad", () => {
+  it("marks subdomains of a known launchpad", async () => {
     const result = validateBid(bid({ launchpadUrl: "https://www.pump.fun/coin/abc" }), null);
     expect(result.ok && result.value.launchpadVerified).toBe(true);
   });
 
-  it("does not mark a lookalike domain", () => {
+  it("does not mark a lookalike domain", async () => {
     // pump.fun.evil.com must never earn the mark.
     const result = validateBid(bid({ launchpadUrl: "https://pump.fun.evil.com/coin/abc" }), null);
     expect(result.ok).toBe(true);
@@ -130,7 +130,7 @@ describe("the launchpad list marks trust, it does not gate listing", () => {
 });
 
 describe("basic link hygiene still applies to the launchpad link", () => {
-  it("does not require the link at all", () => {
+  it("does not require the link at all", async () => {
     // Listing needs a contract on a chain DexScreener knows, and nothing else.
     const omitted = validateBid(bid({ launchpadUrl: undefined }), null);
     expect(omitted.ok).toBe(true);
@@ -143,23 +143,23 @@ describe("basic link hygiene still applies to the launchpad link", () => {
     expect(validateBid(bid({ launchpadUrl: "   " }), null).ok).toBe(true);
   });
 
-  it("rejects a shortener, known launchpad behind it or not", () => {
+  it("rejects a shortener, known launchpad behind it or not", async () => {
     expect(validateBid(bid({ launchpadUrl: "https://bit.ly/pumpfun-abc" }), null).ok).toBe(false);
   });
 
-  it("rejects a link-in-bio page", () => {
+  it("rejects a link-in-bio page", async () => {
     expect(validateBid(bid({ launchpadUrl: "https://linktr.ee/sometoken" }), null).ok).toBe(false);
   });
 
-  it("requires https", () => {
+  it("requires https", async () => {
     expect(validateBid(bid({ launchpadUrl: "http://pump.fun/coin/abc" }), null).ok).toBe(false);
   });
 
-  it("rejects a chat invite", () => {
+  it("rejects a chat invite", async () => {
     expect(validateBid(bid({ launchpadUrl: "https://t.me/somegroup" }), null).ok).toBe(false);
   });
 
-  it("strips query parameters from an unknown launchpad too", () => {
+  it("strips query parameters from an unknown launchpad too", async () => {
     const result = validateBid(
       bid({ launchpadUrl: "https://some-new-launchpad.xyz/t/abc?ref=me" }),
       null,
@@ -172,25 +172,25 @@ describe("basic link hygiene still applies to the launchpad link", () => {
 });
 
 describe("amounts", () => {
-  it("enforces the new-listing floor of $1", () => {
+  it("enforces the new-listing floor of $1", async () => {
     expect(validateBid(bid({ amountUsd: 0 }), null).ok).toBe(false);
     expect(validateBid(bid({ amountUsd: 1 }), null).ok).toBe(true);
   });
 
-  it("lets an already-listed token top up by a smaller amount", () => {
+  it("lets an already-listed token top up by a smaller amount", async () => {
     const existing = { contractKey: "solana:" + SOL_MINT, totalUsd: 800 };
     expect(validateBid(bid({ amountUsd: 1 }), existing).ok).toBe(true);
     expect(validateBid(bid({ amountUsd: 0 }), existing).ok).toBe(false);
   });
 
-  it("rejects fractional and negative amounts", () => {
+  it("rejects fractional and negative amounts", async () => {
     expect(validateBid(bid({ amountUsd: 10.5 }), null).ok).toBe(false);
     expect(validateBid(bid({ amountUsd: -100 }), null).ok).toBe(false);
   });
 });
 
 describe("normalization", () => {
-  it("strips params from the launchpad link and reports what it removed", () => {
+  it("strips params from the launchpad link and reports what it removed", async () => {
     const result = validateBid(bid({ launchpadUrl: "https://pump.fun/coin/abc?ref=me&utm_source=x" }), null);
     expect(result.ok).toBe(true);
     if (!result.ok) return;

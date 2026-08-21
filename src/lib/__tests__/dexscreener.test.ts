@@ -29,7 +29,7 @@ function serve(scoped: Pair[], wide: Pair[] = []) {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   delete (globalThis as { __dexCache?: unknown }).__dexCache;
 });
 afterEach(() => vi.unstubAllGlobals());

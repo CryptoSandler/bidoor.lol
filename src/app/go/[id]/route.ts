@@ -8,7 +8,7 @@ import { registerClick } from "@/lib/store";
  */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const entry = registerClick(id);
+  const entry = await registerClick(id);
 
   // Frozen at creation. Deliberately NOT recomputed from the entry's current
   // links: the token's deployer controls those, and following them would let a

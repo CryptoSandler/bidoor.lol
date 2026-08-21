@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/admin";
-import { delistEntry } from "@/lib/payments/pending";
-import { removeEntryFromBoard } from "@/lib/store";
+import { delistEntry } from "@/lib/store";
 
 /**
  * Removes an entry from the board. Nothing is deleted: the delisting is
@@ -28,8 +27,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const delisting = delistEntry(contractKey, reason);
-  const removed = removeEntryFromBoard(contractKey);
+  const delisting = await delistEntry(contractKey, reason);
+  if (!delisting) {
+    return NextResponse.json(
+      { ok: false, message: "No live entry with that contract." },
+      { status: 404 },
+    );
+  }
 
-  return NextResponse.json({ ok: true, removed, delistedAt: delisting.delistedAt });
+  return NextResponse.json({ ok: true, removed: true, delistedAt: delisting.delistedAt });
 }

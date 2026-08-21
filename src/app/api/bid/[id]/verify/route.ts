@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: false, message: "Malformed request." }, { status: 400 });
   }
 
-  const bid = getPendingBid(id);
+  const bid = await getPendingBid(id);
   if (!bid) {
     return NextResponse.json({ ok: false, message: "Unknown bid." }, { status: 404 });
   }
@@ -67,14 +67,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // Before any outbound work: verification used to be unlimited, so one bid id
   // was enough to drive unbounded RPC calls and drain the node quota.
-  const limit = checkVerificationLimits(id, ipHash);
+  const limit = await checkVerificationLimits(id, ipHash);
   if (!limit.ok) {
     return NextResponse.json(
       { ok: false, message: limit.message, reason: limit.reason, status: "failed" },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
     );
   }
-  recordVerificationAttempt(id, ipHash);
+  await recordVerificationAttempt(id, ipHash);
 
   const verified = await verifyPayment({
     signature,
@@ -94,7 +94,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       verified.reason === "invalid_signature");
 
   if (inconclusive) {
-    if (!verified.ok) markFailed(id, "failed", verified.message);
+    if (!verified.ok) await markFailed(id, "failed", verified.message);
     return NextResponse.json(
       { ok: false, message: (verified as { message: string }).message, status: "failed" },
       { status: 422 },
@@ -104,10 +104,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // The chain gave a definitive answer, so the signature is spent either way.
   // Claimed before anything is acted on, so two concurrent requests cannot both
   // proceed and the loser is told plainly.
-  const claimed = claimSignature(signature, id, verified.ok ? "applied" : verified.reason);
+  const claimed = await claimSignature(signature, id, verified.ok ? "applied" : verified.reason);
   if (!claimed.ok) {
     const message = "That transaction has already been used. A payment can only be presented once.";
-    markFailed(id, "failed", message);
+    await markFailed(id, "failed", message);
     return NextResponse.json(
       { ok: false, message, reason: "signature_used", status: "failed" },
       { status: 409 },
@@ -119,7 +119,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // The signature is now spent, so nobody else can claim it — recovering it is
     // an operator decision, not a race.
     if (verified.receivedBaseUnits !== undefined) {
-      recordUnmatchedPayment({
+      await recordUnmatchedPayment({
         signature,
         bidId: id,
         receivedBaseUnits: verified.receivedBaseUnits,
@@ -135,14 +135,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         ? `${verified.message} To have it applied, contact ${contact} with the transaction signature.`
         : verified.message;
 
-    markFailed(id, "failed", message);
+    await markFailed(id, "failed", message);
     return NextResponse.json(
       { ok: false, message, reason: verified.reason, status: "failed" },
       { status: 422 },
     );
   }
 
-  const payment = recordPayment(id, signature, verified.amountBaseUnits);
+  const payment = await recordPayment(id, signature, verified.amountBaseUnits);
   if (!payment.ok) {
     // payments.bid_id is UNIQUE, so this is the concurrent-settlement case: the
     // bid already has a payment applied.
@@ -178,8 +178,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     strippedParams: [],
   };
 
-  const outcome = placeBid(normalized, metadata.metadata);
-  recordAcceptedBid(id, normalized, metadata.metadata);
+  const outcome = await placeBid(normalized, metadata.metadata);
+  await recordAcceptedBid(id, normalized, metadata.metadata, outcome.entry.id);
 
   return NextResponse.json({
     ok: true,

@@ -6,10 +6,12 @@ import {
   rateLimitSalt,
   trustedProxyHops,
 } from "./config";
-import { db } from "./db";
+import { query } from "../db";
 import {
-  countVerificationAttempts,
+  countVerificationAttemptsForBid,
+  countVerificationAttemptsForIp,
   expireStalePendingBids,
+  lastVerificationAttemptForBid,
   pruneVerificationAttempts,
 } from "./pending";
 
@@ -103,9 +105,9 @@ function minutesFromNow(minutes: number): string {
   return new Date(Date.now() + minutes * 60_000).toISOString();
 }
 
-function soonestExpiry(rows: { expires_at: string }[]): string {
+function soonestExpiry(rows: { expires_at: Date }[]): string {
   const earliest = rows
-    .map((row) => Date.parse(row.expires_at))
+    .map((row) => row.expires_at.getTime())
     .filter((time) => Number.isFinite(time))
     .sort((a, b) => a - b)[0];
   return earliest ? new Date(earliest).toISOString() : minutesFromNow(1);
@@ -116,18 +118,18 @@ function humanDelay(retryAt: string): string {
   return minutes === 1 ? "a minute" : `${minutes} minutes`;
 }
 
-export function checkBidCreationLimits(ipHash: string, amountUsd: number): LimitDecision {
+export async function checkBidCreationLimits(
+  ipHash: string,
+  amountUsd: number,
+): Promise<LimitDecision> {
   // Always first, on every path: a caller that hit a limit must be released by
   // expiry alone.
-  expireStalePendingBids();
+  await expireStalePendingBids();
 
-  const database = db();
-
-  const live = database
-    .prepare(
-      `SELECT expires_at FROM pending_bids WHERE ip_hash = ? AND status = 'pending'`,
-    )
-    .all(ipHash) as { expires_at: string }[];
+  const live = await query<{ expires_at: Date }>(
+    `SELECT expires_at FROM pending_bids WHERE ip_hash = $1 AND status = 'pending'`,
+    [ipHash],
+  );
 
   if (live.length >= RATE_LIMITS.livePendingPerIp) {
     const retryAt = soonestExpiry(live);
@@ -139,17 +141,17 @@ export function checkBidCreationLimits(ipHash: string, amountUsd: number): Limit
     };
   }
 
-  const since = new Date(Date.now() - RATE_LIMITS.windowMinutes * 60_000).toISOString();
-  const recent = database
-    .prepare(
-      `SELECT created_at FROM pending_bids WHERE ip_hash = ? AND created_at > ? ORDER BY created_at ASC`,
-    )
-    .all(ipHash, since) as { created_at: string }[];
+  const since = new Date(Date.now() - RATE_LIMITS.windowMinutes * 60_000);
+  const recent = await query<{ created_at: Date }>(
+    `SELECT created_at FROM pending_bids
+      WHERE ip_hash = $1 AND created_at > $2 ORDER BY created_at ASC`,
+    [ipHash, since],
+  );
 
   if (recent.length >= RATE_LIMITS.createdPerIpPerWindow) {
     // The window frees up when the oldest bid in it falls out.
     const retryAt = new Date(
-      Date.parse(recent[0].created_at) + RATE_LIMITS.windowMinutes * 60_000,
+      recent[0].created_at.getTime() + RATE_LIMITS.windowMinutes * 60_000,
     ).toISOString();
     return {
       ok: false,
@@ -159,11 +161,10 @@ export function checkBidCreationLimits(ipHash: string, amountUsd: number): Limit
     };
   }
 
-  const sharing = database
-    .prepare(
-      `SELECT expires_at FROM pending_bids WHERE amount_usd = ? AND status = 'pending'`,
-    )
-    .all(amountUsd) as { expires_at: string }[];
+  const sharing = await query<{ expires_at: Date }>(
+    `SELECT expires_at FROM pending_bids WHERE amount_usd = $1 AND status = 'pending'`,
+    [amountUsd],
+  );
 
   if (sharing.length >= RATE_LIMITS.livePendingPerAmount) {
     // Every pending bid at one amount holds one of that amount's fractions.
@@ -193,13 +194,14 @@ export type VerifyLimitDecision =
  * outbound requests, so an attacker could exhaust the node quota and take down
  * the only path that collects money.
  */
-export function checkVerificationLimits(bidId: string, ipHash: string): VerifyLimitDecision {
-  const windowStart = new Date(Date.now() - VERIFY_LIMITS.windowMinutes * 60_000).toISOString();
-  pruneVerificationAttempts(windowStart);
+export async function checkVerificationLimits(
+  bidId: string,
+  ipHash: string,
+): Promise<VerifyLimitDecision> {
+  const windowStart = new Date(Date.now() - VERIFY_LIMITS.windowMinutes * 60_000);
+  await pruneVerificationAttempts(windowStart);
 
-  const counts = countVerificationAttempts(windowStart);
-
-  const last = counts.lastForBid(bidId);
+  const last = await lastVerificationAttemptForBid(bidId);
   if (last) {
     const elapsed = (Date.now() - Date.parse(last)) / 1000;
     if (elapsed < VERIFY_LIMITS.minIntervalSeconds) {
@@ -213,7 +215,7 @@ export function checkVerificationLimits(bidId: string, ipHash: string): VerifyLi
     }
   }
 
-  if (counts.forBid(bidId) >= VERIFY_LIMITS.perBid) {
+  if ((await countVerificationAttemptsForBid(bidId, windowStart)) >= VERIFY_LIMITS.perBid) {
     return {
       ok: false,
       reason: "too_many_for_bid",
@@ -222,7 +224,7 @@ export function checkVerificationLimits(bidId: string, ipHash: string): VerifyLi
     };
   }
 
-  if (counts.forIp(ipHash) >= VERIFY_LIMITS.perIp) {
+  if ((await countVerificationAttemptsForIp(ipHash, windowStart)) >= VERIFY_LIMITS.perIp) {
     return {
       ok: false,
       reason: "too_many_for_ip",

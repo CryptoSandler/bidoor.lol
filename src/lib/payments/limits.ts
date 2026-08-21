@@ -24,7 +24,11 @@ import {
  * caller unblocks itself simply by waiting, with no cleanup job involved.
  */
 
-export type LimitReason = "too_many_live" | "too_many_recent" | "amount_saturated";
+export type LimitReason =
+  | "too_many_live"
+  | "too_many_recent"
+  | "amount_saturated"
+  | "amount_hogged";
 
 export type LimitDecision =
   | { ok: true }
@@ -158,6 +162,24 @@ export async function checkBidCreationLimits(
       reason: "too_many_recent",
       retryAt,
       message: `You have started ${RATE_LIMITS.createdPerIpPerWindow} bids in the last ${RATE_LIMITS.windowMinutes} minutes. Try again in ${humanDelay(retryAt)}.`,
+    };
+  }
+
+  // Per caller first: the global cap below is a shared resource, and without
+  // this one caller could take all of it and deny the amount to everyone.
+  const mine = await query<{ expires_at: Date }>(
+    `SELECT expires_at FROM pending_bids
+      WHERE amount_usd = $1 AND ip_hash = $2 AND status = 'pending'`,
+    [amountUsd, ipHash],
+  );
+
+  if (mine.length >= RATE_LIMITS.livePendingPerAmountPerCaller) {
+    const retryAt = soonestExpiry(mine);
+    return {
+      ok: false,
+      reason: "amount_hogged",
+      retryAt,
+      message: `You already have ${RATE_LIMITS.livePendingPerAmountPerCaller} unpaid bids of exactly $${amountUsd}. Pay one, bid a different amount, or wait ${humanDelay(retryAt)}.`,
     };
   }
 

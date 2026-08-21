@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { isAdminRequest } from "@/lib/admin";
+import {
+  authenticateAdmin,
+  checkStepUp,
+  recordAdminAction,
+  stepUpConfigured,
+} from "@/lib/admin";
+import { clientIp, hashIp } from "@/lib/payments/limits";
 import { getChain } from "@/lib/chains";
 import { fetchTokenMetadata } from "@/lib/dexscreener";
 import {
@@ -20,7 +26,8 @@ import type { NormalizedBid } from "@/lib/validation";
  * two bids by going through the console.
  */
 export async function POST(request: Request) {
-  if (!isAdminRequest(request)) {
+  const admin = await authenticateAdmin(request);
+  if (!admin.ok) {
     return NextResponse.json({ ok: false, message: "Not authorised." }, { status: 401 });
   }
 
@@ -29,7 +36,19 @@ export async function POST(request: Request) {
     action?: "apply" | "discard";
     bidId?: string;
     note?: string;
+    stepUp?: string;
   };
+
+  // Moving somebody else's money, so it sits behind the second secret too.
+  if (stepUpConfigured() && !checkStepUp(String(body.stepUp ?? ""))) {
+    return NextResponse.json(
+      { ok: false, message: "This action needs the step-up secret." },
+      { status: 403 },
+    );
+  }
+
+  const identity = clientIp(request);
+  const ipHash = identity.ok ? hashIp(identity.ip) : null;
 
   const payment = body.id ? await getUnmatchedPayment(body.id) : null;
   if (!payment) {
@@ -52,6 +71,14 @@ export async function POST(request: Request) {
       );
     }
     await resolveUnmatchedPayment(payment.id, "discarded", note);
+    await recordAdminAction({
+      actor: admin.label,
+      action: "payment.discard",
+      targetType: "unmatched_payment",
+      targetId: payment.id,
+      details: { note, signature: payment.signature, received: payment.receivedBaseUnits.toString() },
+      ipHash,
+    });
     return NextResponse.json({ ok: true, status: "discarded" });
   }
 
@@ -99,6 +126,20 @@ export async function POST(request: Request) {
   const outcome = await placeBid(normalized, metadata.metadata);
   await recordAcceptedBid(bid.id, normalized, metadata.metadata, outcome.entry.id);
   await resolveUnmatchedPayment(payment.id, "applied", note || "Applied by operator.", bid.id);
+  await recordAdminAction({
+    actor: admin.label,
+    action: "payment.apply",
+    targetType: "unmatched_payment",
+    targetId: payment.id,
+    details: {
+      bidId: bid.id,
+      entryId: outcome.entry.id,
+      signature: payment.signature,
+      received: payment.receivedBaseUnits.toString(),
+      note,
+    },
+    ipHash,
+  });
 
   return NextResponse.json({ ok: true, status: "applied", rank: outcome.newRank });
 }

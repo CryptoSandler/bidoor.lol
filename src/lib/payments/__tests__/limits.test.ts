@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { NormalizedBid } from "../../validation";
-import { RATE_LIMITS } from "../config";
+import { FRACTION_MAX, RATE_LIMITS } from "../config";
 import { query } from "../../db";
 import { truncateAll } from "../../seed";
 import { checkBidCreationLimits, clientIp, hashIp } from "../limits";
@@ -21,23 +21,6 @@ function bidFor(amountUsd: number): NormalizedBid {
     amountUsd,
     strippedParams: [],
   };
-}
-
-/** Inserts a pending bid directly, to fill a limit without paying for it. */
-async function insertPending(
-  id: string,
-  ipHash: string,
-  micros: number,
-  createdAt: Date,
-  expiresAt: Date,
-) {
-  await query(
-    `INSERT INTO pending_bids
-       (id, chain_id, contract, contract_key, launchpad_url, launchpad_host,
-        launchpad_verified, amount_usd, ip_hash, payment_micros, status, created_at, expires_at)
-     VALUES ($1, 'solana', $2, $3, 'https://pump.fun/coin/x', 'pump.fun', true, 50, $4, $5, 'pending', $6, $7)`,
-    [id, BONK, `solana:${BONK}`, ipHash, micros, createdAt, expiresAt],
-  );
 }
 
 /** Winds a bid's deadline into the past without waiting 30 minutes. */
@@ -143,12 +126,14 @@ describe("caller identity is read from the right of x-forwarded-for", () => {
 
 describe("live pending bids per caller", () => {
   it("allows up to the limit and then refuses", async () => {
+    // Distinct amounts, so this exercises the live-bids-per-caller cap rather
+    // than the per-amount one.
     for (let i = 0; i < RATE_LIMITS.livePendingPerIp; i++) {
-      expect((await checkBidCreationLimits(IP, 50)).ok).toBe(true);
-      await createPendingBid(bidFor(50), IP);
+      expect((await checkBidCreationLimits(IP, 50 + i)).ok).toBe(true);
+      await createPendingBid(bidFor(50 + i), IP);
     }
 
-    const blocked = await checkBidCreationLimits(IP, 50);
+    const blocked = await checkBidCreationLimits(IP, 900);
     expect(blocked.ok).toBe(false);
     if (blocked.ok) return;
     expect(blocked.reason).toBe("too_many_live");
@@ -157,37 +142,41 @@ describe("live pending bids per caller", () => {
   });
 
   it("does not let one caller's bids block another", async () => {
-    for (let i = 0; i < RATE_LIMITS.livePendingPerIp; i++) await createPendingBid(bidFor(50), IP);
+    for (let i = 0; i < RATE_LIMITS.livePendingPerIp; i++) {
+      await createPendingBid(bidFor(50 + i), IP);
+    }
 
-    expect((await checkBidCreationLimits(IP, 50)).ok).toBe(false);
-    expect((await checkBidCreationLimits(OTHER_IP, 50)).ok).toBe(true);
+    expect((await checkBidCreationLimits(IP, 900)).ok).toBe(false);
+    expect((await checkBidCreationLimits(OTHER_IP, 900)).ok).toBe(true);
   });
 
   it("releases the caller as soon as a bid expires, with no cleanup job", async () => {
     const ids: string[] = [];
     for (let i = 0; i < RATE_LIMITS.livePendingPerIp; i++) {
-      ids.push((await createPendingBid(bidFor(50), IP)).id);
+      ids.push((await createPendingBid(bidFor(50 + i), IP)).id);
     }
-    expect((await checkBidCreationLimits(IP, 50)).ok).toBe(false);
+    expect((await checkBidCreationLimits(IP, 900)).ok).toBe(false);
 
     await expire(ids[0]);
 
     // The check itself sweeps, so the caller unblocks by waiting alone.
-    expect((await checkBidCreationLimits(IP, 50)).ok).toBe(true);
+    expect((await checkBidCreationLimits(IP, 900)).ok).toBe(true);
     expect((await getPendingBid(ids[0]))?.status).toBe("expired");
   });
 
   it("sweeps on the rejection path too, not only when it allows", async () => {
     const ids: string[] = [];
     for (let i = 0; i < RATE_LIMITS.livePendingPerIp; i++) {
-      ids.push((await createPendingBid(bidFor(50), IP)).id);
+      ids.push((await createPendingBid(bidFor(50 + i), IP)).id);
     }
     // Fill a second caller's slots so the next check still rejects, while the
     // first caller's bids are all expired.
     for (const id of ids) await expire(id);
-    for (let i = 0; i < RATE_LIMITS.livePendingPerIp; i++) await createPendingBid(bidFor(50), OTHER_IP);
+    for (let i = 0; i < RATE_LIMITS.livePendingPerIp; i++) {
+      await createPendingBid(bidFor(50 + i), OTHER_IP);
+    }
 
-    const rejected = await checkBidCreationLimits(OTHER_IP, 50);
+    const rejected = await checkBidCreationLimits(OTHER_IP, 900);
     expect(rejected.ok).toBe(false);
 
     // The rejected call still cleaned up the stale rows.
@@ -239,39 +228,63 @@ describe("bids started per caller per window", () => {
 
 describe("fraction space for a single amount", () => {
   it("caps well below the number of fractions available", async () => {
-    // 9,999 fractions exist per amount; the cap must not flirt with that.
-    expect(RATE_LIMITS.livePendingPerAmount).toBeLessThan(9999 / 4);
+    // 999,999 fractions exist per amount; the cap must not flirt with that,
+    // because near saturation the random draw starts colliding.
+    expect(RATE_LIMITS.livePendingPerAmount).toBeLessThan(FRACTION_MAX / 4);
   });
 
-  it("refuses once too many bids share one base amount", async () => {
-    const now = new Date();
-    const soon = new Date(Date.now() + 600_000);
-    for (let i = 0; i < RATE_LIMITS.livePendingPerAmount; i++) {
-      await insertPending(`bid_${i}`, `ip_${i}`, 50_000_000 + i * 100, now, soon);
+  it("makes cornering an amount cost tens of thousands of callers", async () => {
+    // This is the A-2 fix expressed as the property that matters. The global cap
+    // alone was a shared resource: 500 bids from ~100 IPs denied every $1 bid.
+    const callersNeeded =
+      RATE_LIMITS.livePendingPerAmount / RATE_LIMITS.livePendingPerAmountPerCaller;
+    expect(callersNeeded).toBeGreaterThanOrEqual(10_000);
+  });
+
+  it("stops one caller taking more than its share of an amount", async () => {
+    const ip = hashIp("203.0.113.99");
+
+    for (let i = 0; i < RATE_LIMITS.livePendingPerAmountPerCaller; i++) {
+      expect((await checkBidCreationLimits(ip, 1)).ok).toBe(true);
+      await createPendingBid(bidFor(1), ip);
     }
 
-    const blocked = await checkBidCreationLimits(hashIp("1.2.3.4"), 50);
+    const blocked = await checkBidCreationLimits(ip, 1);
     expect(blocked.ok).toBe(false);
     if (blocked.ok) return;
-    expect(blocked.reason).toBe("amount_saturated");
-    expect(blocked.message).toMatch(/\$50/);
-    expect(blocked.message).toMatch(/different amount/i);
+    expect(blocked.reason).toBe("amount_hogged");
+    expect(blocked.message).toMatch(/\$1\b/);
+  });
 
-    // A different amount is unaffected: this is not a global outage.
-    expect((await checkBidCreationLimits(hashIp("1.2.3.4"), 51)).ok).toBe(true);
+  it("leaves the same caller free to bid a different amount", async () => {
+    const ip = hashIp("203.0.113.99");
+    for (let i = 0; i < RATE_LIMITS.livePendingPerAmountPerCaller; i++) {
+      await createPendingBid(bidFor(1), ip);
+    }
+    expect((await checkBidCreationLimits(ip, 1)).ok).toBe(false);
+    expect((await checkBidCreationLimits(ip, 2)).ok).toBe(true);
+  });
+
+  it("leaves other callers unaffected by one caller's share", async () => {
+    const mine = hashIp("203.0.113.99");
+    for (let i = 0; i < RATE_LIMITS.livePendingPerAmountPerCaller; i++) {
+      await createPendingBid(bidFor(1), mine);
+    }
+    expect((await checkBidCreationLimits(mine, 1)).ok).toBe(false);
+    expect((await checkBidCreationLimits(hashIp("198.51.100.4"), 1)).ok).toBe(true);
   });
 
   it("frees the amount as its bids expire", async () => {
-    const now = new Date();
-    const past = new Date(Date.now() - 1000);
-    const soon = new Date(Date.now() + 600_000);
-
-    for (let i = 0; i < RATE_LIMITS.livePendingPerAmount; i++) {
-      // All but one already past their deadline.
-      await insertPending(`bid_${i}`, `ip_${i}`, 50_000_000 + i * 100, now, i === 0 ? soon : past);
+    const ip = hashIp("203.0.113.99");
+    const ids: string[] = [];
+    for (let i = 0; i < RATE_LIMITS.livePendingPerAmountPerCaller; i++) {
+      ids.push((await createPendingBid(bidFor(1), ip)).id);
     }
+    expect((await checkBidCreationLimits(ip, 1)).ok).toBe(false);
+
+    for (const id of ids) await expire(id);
 
     // The sweep inside the check reclaims them, so the amount is usable again.
-    expect((await checkBidCreationLimits(hashIp("1.2.3.4"), 50)).ok).toBe(true);
+    expect((await checkBidCreationLimits(ip, 1)).ok).toBe(true);
   });
 });

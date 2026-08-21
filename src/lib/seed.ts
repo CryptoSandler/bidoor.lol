@@ -85,8 +85,18 @@ export async function truncateAll(): Promise<void> {
   if (process.env.NODE_ENV === "production") {
     throw new Error("truncateAll must never run in production");
   }
-  await query(`
-    TRUNCATE entry_bids, entries, payments, consumed_signatures, unmatched_payments,
-             accepted_bids, verification_attempts, pending_bids RESTART IDENTITY CASCADE
-  `);
+  // admin_audit_log refuses TRUNCATE by trigger — that is the point of it. Tests
+  // still need a clean slate, so the trigger is lifted for this one statement
+  // and put straight back. The production guard above is what keeps this honest.
+  await query(`ALTER TABLE admin_audit_log DISABLE TRIGGER admin_audit_log_no_mutation`);
+  try {
+    await query(`
+      TRUNCATE entry_bids, entries, payments, consumed_signatures, unmatched_payments,
+               accepted_bids, verification_attempts, pending_bids,
+               admin_sessions, admin_login_attempts, admin_audit_log
+      RESTART IDENTITY CASCADE
+    `);
+  } finally {
+    await query(`ALTER TABLE admin_audit_log ENABLE TRIGGER admin_audit_log_no_mutation`);
+  }
 }

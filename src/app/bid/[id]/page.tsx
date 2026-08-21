@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentPanel } from "./PaymentPanel";
+import { CopyButton } from "@/components/CopyButton";
 import { getChain } from "@/lib/chains";
 import { usd } from "@/lib/format";
 import { PAYMENT_WINDOW_MINUTES, paymentWallet, supportContact } from "@/lib/payments/config";
@@ -36,19 +37,31 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
           <span className="ml-2 text-xs text-muted">on {chain?.name ?? bid.chainId}</span>
         </Cell>
         <Cell label="Amount to send">
-          <span className="money text-xl font-bold text-accent">
-            ${formatUsdc(bid.paymentBaseUnits)}
+          <span className="flex w-full flex-wrap items-center gap-2">
+            {/* Monospace, because this is a value to be copied character for
+                character rather than read. Every digit carries meaning: the
+                fraction is what identifies the payment. */}
+            <span className="num text-xl font-bold text-accent">
+              ${formatUsdc(bid.paymentBaseUnits)}
+            </span>
+            <CopyButton value={formatUsdc(bid.paymentBaseUnits)} label="the payment amount" />
+            <span className="text-xs text-muted">USDC on Solana</span>
           </span>
-          <span className="ml-2 text-xs text-muted">USDC on Solana</span>
-          <span className="mt-1.5 w-full text-xs leading-snug text-muted">
-            <span className="font-bold text-text">Send exactly this amount</span> — it&apos;s how we
-            match your payment to your bid. The odd fraction is intentional and unique to this bid;
-            your rank is still counted as {usd(bid.amountUsd)}.
+          <span className="mt-2 w-full text-xs leading-snug text-muted">
+            <span className="font-bold text-text">
+              Send this exact amount. Do not round it.
+            </span>{" "}
+            All six decimals matter — the fraction is unique to this bid and is how we match your
+            payment to it. Rounding to {usd(bid.amountUsd)}, or to any other figure, will not match.
+            Your rank is still counted as {usd(bid.amountUsd)}.
           </span>
         </Cell>
         <Cell label="Send to">
           {wallet.ok ? (
-            <span className="num text-xs break-all">{wallet.wallet}</span>
+            <span className="flex w-full flex-wrap items-center gap-2">
+              <span className="num min-w-0 flex-1 text-xs break-all">{wallet.wallet}</span>
+              <CopyButton value={wallet.wallet} label="the payment address" />
+            </span>
           ) : (
             <span className="text-xs text-danger">{wallet.message}</span>
           )}

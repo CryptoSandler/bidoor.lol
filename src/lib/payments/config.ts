@@ -26,16 +26,22 @@ export const PAYMENT_WINDOW_MINUTES = 30;
  * random four-decimal fraction of a dollar. A $50 bid becomes "send exactly
  * $50.0041", and that fraction is what identifies it.
  *
- * USDC has six decimals, so a four-decimal fraction leaves two decimal places
- * of headroom and keeps the number short enough to read and re-type. The
- * fraction is drawn from 1..9999 ten-thousandths — never zero, because a round
- * amount is exactly the one we cannot attribute.
+ * The fraction uses USDC's full six decimals, drawn from 1..999,999 — never
+ * zero, because a round amount is exactly the one we cannot attribute.
+ *
+ * It was four decimals, which read better ($50.0041 rather than $50.481302) but
+ * left only 9,999 fractions per base amount. That made the space cheap to
+ * corner: 500 pending bids were enough to deny every $1 bid, and $1 is the
+ * floor and so the most common amount. Six decimals multiplies the space by a
+ * hundred, and the per-caller cap below means cornering it now takes tens of
+ * thousands of distinct callers rather than a hundred. Legibility was the right
+ * thing to trade: the amount is copied, not memorised.
  */
 export const FRACTION_MIN = 1;
-export const FRACTION_MAX = 9999;
+export const FRACTION_MAX = 999_999;
 
-/** One ten-thousandth of a dollar, in USDC base units. */
-export const FRACTION_UNIT_BASE = 100;
+/** One micro-dollar: USDC's smallest unit. */
+export const FRACTION_UNIT_BASE = 1;
 
 /** The exact amount a bid must be paid with, in USDC base units. */
 export function paymentBaseUnits(amountUsd: number, fraction: number): number {
@@ -58,14 +64,22 @@ export const RATE_LIMITS = {
   /** Length of that rolling window, in minutes. */
   windowMinutes: 60,
   /**
-   * Unpaid bids that may share a base amount at once.
-   *
-   * There are 9,999 fractions per amount, so this sits at 5% of the space. The
-   * point is not to ration it but to keep allocation far away from the edge:
-   * near saturation the random draw starts colliding repeatedly and creation
-   * gets slow before it gets impossible.
+   * Unpaid bids that may share a base amount at once. 5% of the 999,999
+   * fractions available: not rationing, just keeping allocation far from the
+   * edge, where the random draw starts colliding and creation gets slow before
+   * it gets impossible.
    */
-  livePendingPerAmount: 500,
+  livePendingPerAmount: 50_000,
+
+  /**
+   * Unpaid bids one caller may hold at a single base amount.
+   *
+   * This is what actually makes the space expensive to corner. The global cap
+   * on its own is a shared resource, so one attacker could take all of it;
+   * with this, filling it needs livePendingPerAmount / this many distinct
+   * callers.
+   */
+  livePendingPerAmountPerCaller: 2,
 } as const;
 
 /**
@@ -154,6 +168,20 @@ export function supportContact(): string | null {
 export function adminToken(): string | null {
   return process.env.ADMIN_TOKEN?.trim() || null;
 }
+
+/** How long an admin session lasts before it has to be established again. */
+export const ADMIN_SESSION_HOURS = 8;
+
+/**
+ * Lockout on admin authentication. Without this, any endpoint that answers
+ * "is this the token?" is an unlimited brute-force oracle — and one of them,
+ * /api/reconcile, answers in a single request with no side effects.
+ */
+export const ADMIN_LOGIN_LIMITS = {
+  maxFailures: 5,
+  windowMinutes: 15,
+  lockoutMinutes: 15,
+} as const;
 
 export type WalletConfig =
   | { ok: true; wallet: string }

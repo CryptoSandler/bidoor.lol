@@ -629,3 +629,44 @@ compensaba probando ambas formas; con Postgres el match es exacto, así que un t
 sembrado **creaba una segunda entrada en vez de sumar**. El seed ahora usa `contractKeyFor`, la
 misma función que el validador, y se eliminó el doble lookup.
 
+---
+
+## 16. Tanda 10 — endurecimiento de admin y mitigación de A-2
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 76 | **La cookie lleva un id de sesión, no el token** | Era el secreto maestro viajando en cada request al origen y sin forma de revocarlo salvo rotar la env var en todos los deploys. Ahora una cookie filtrada es una fila para revocar. Expira a las 8 h. |
+| 77 | **`secure` se decide por protocolo, no por `NODE_ENV`** | Un staging que se olvidó de setear `NODE_ENV=production` mandaba la sesión en claro. Ahora depende de si la request llegó por https. |
+| 78 | **Lockout también en el camino del header `x-admin-token`** | `/api/reconcile` respondía "¿es este el token?" en un request sin efectos secundarios: era el oráculo de fuerza bruta más cómodo del sistema. Poner el límite solo en el formulario no servía de nada. |
+| 79 | **La racha de fallos se corta con un éxito** | Si no, un operador legítimo que se equivoca cuatro veces queda a un error de bloquearse a sí mismo para siempre. |
+| 80 | **Comparación sobre digests SHA-256** | El retorno temprano por longitud distinta filtraba el largo del secreto. Con digests los dos lados miden siempre 32 bytes. Además se comparan **todos** los tokens configurados aunque uno haya matcheado, para no revelar cuál por tiempo. |
+| 81 | **Log de auditoría append-only forzado por un trigger de Postgres** | Un log que la aplicación puede reescribir en silencio no es un log. El trigger rechaza UPDATE, DELETE y TRUNCATE; hay tres tests que lo prueban contra la base real. `truncateAll` lo levanta por una sentencia y lo repone, y solo corre fuera de producción. |
+| 82 | **`ADMIN_TOKENS` con pares `label:secret`** | Para que el trail pueda decir *quién* actuó. `ADMIN_TOKEN` sigue siendo la forma de un solo operador. |
+| 83 | **Segundo factor opcional, no obligatorio** | `ADMIN_STEP_UP_SECRET` protege aplicar pago y deslistar **si está seteado**. Forzarlo metía fricción en un setup de un solo operador sin ganar nada. |
+
+### A-2 — seis decimales y sub-límite por caller
+
+| | Antes | Ahora |
+|---|---|---|
+| Espacio de fracciones por monto | 9.999 | 999.999 |
+| Techo global por monto | 500 | 50.000 |
+| Callers distintos para acapararlo | ~100 | **25.000** |
+
+Dos cambios que se necesitan mutuamente. Ampliar el espacio solo no alcanzaba: el techo global es un
+recurso compartido y un atacante podía tomarlo entero. El sub-límite por caller (2 pujas impagas por
+monto) es lo que convierte el techo en un costo repartido.
+
+**El trade-off es legibilidad.** El monto pasó de `$50.0041` a `$50.328991`. Se aceptó porque el
+monto se copia, no se memoriza — y la UI ahora lo acompaña: monospace, botón de copiar al lado, y
+copy explícito de que hay que mandar el monto exacto **sin redondear**, con los seis decimales.
+
+### Lo que sigue abierto
+
+**A-3** sin cambios: la cola de pagos no coincidentes todavía no muestra el remitente on-chain, así
+que un operador puede ser inducido a aplicar plata ajena. Mitigado en parte desde la tanda 6 —la
+firma ya está quemada, así que el atacante no puede además reclamarla— y ahora también por el log de
+auditoría, que deja rastro de quién aplicó qué. Sigue faltando mostrar el remitente.
+
+**M-6** (salt de IP con default vacío) y **B-3/B-4** siguen abiertos. Y la tanda de infra —cabeceras
+de seguridad y cifrado en reposo— sigue siendo **bloqueante de deploy**.
+

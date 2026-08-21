@@ -1,7 +1,6 @@
 import { AdminActions } from "./AdminActions";
-import { isAdminSession } from "@/lib/admin";
+import { adminConfigured, adminSessionLabel, listAdminAudit } from "@/lib/admin";
 import { usd } from "@/lib/format";
-import { adminToken } from "@/lib/payments/config";
 import { candidateBidsForAmount, listUnmatchedPayments } from "@/lib/payments/pending";
 import { formatUsdc } from "@/lib/payments/solana";
 import { listDelistings, listRanked } from "@/lib/store";
@@ -16,7 +15,7 @@ export default async function AdminPage({
 }) {
   const { error } = await searchParams;
 
-  if (!adminToken()) {
+  if (!adminConfigured()) {
     return (
       <Shell>
         <p className="text-sm text-danger">
@@ -27,7 +26,8 @@ export default async function AdminPage({
     );
   }
 
-  if (!(await isAdminSession())) {
+  const actor = await adminSessionLabel();
+  if (!actor) {
     return (
       <Shell>
         <form method="POST" action="/api/admin/session" className="max-w-sm">
@@ -42,7 +42,13 @@ export default async function AdminPage({
               className="num mt-1.5 w-full rounded-sm border border-line bg-surface px-3 py-2.5 text-sm"
             />
           </label>
-          {error && <p className="mt-2 text-xs text-danger">That token was not accepted.</p>}
+          {error === "locked" ? (
+            <p className="mt-2 text-xs text-danger">
+              Too many failed attempts from here. Try again shortly.
+            </p>
+          ) : error ? (
+            <p className="mt-2 text-xs text-danger">That token was not accepted.</p>
+          ) : null}
           <button
             type="submit"
             className="mt-3 w-full rounded-pill bg-accent py-2.5 text-sm font-bold text-accent-ink"
@@ -58,6 +64,7 @@ export default async function AdminPage({
   const resolved = (await listUnmatchedPayments()).filter((payment) => payment.status !== "open");
   const delistings = await listDelistings();
   const entries = await listRanked();
+  const audit = await listAdminAudit(40);
 
   const queue = await Promise.all(
     open.map(async (payment) => ({
@@ -131,6 +138,32 @@ export default async function AdminPage({
           </ul>
         </section>
       )}
+
+      <section className="mt-9">
+        <h2 className="text-2xs font-bold tracking-widest text-faint uppercase">Audit trail</h2>
+        <p className="mt-1.5 text-xs text-faint">
+          Append-only. The database refuses UPDATE, DELETE and TRUNCATE on this table, so nothing
+          here can be edited away from the console or from application code.
+        </p>
+        {audit.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">No admin actions recorded yet.</p>
+        ) : (
+          <ul className="mt-2.5">
+            {audit.map((entry) => (
+              <li key={entry.id} className="border-b border-line py-2 text-xs text-muted">
+                <span className="num text-faint">
+                  {new Date(entry.createdAt).toISOString().replace("T", " ").slice(0, 19)}
+                </span>{" "}
+                <span className="font-bold text-text">{entry.actor}</span>{" "}
+                <span className="text-accent">{entry.action}</span>
+                {entry.targetId && (
+                  <span className="num block truncate text-faint">{entry.targetId}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <p className="mt-9 border-t border-line pt-4 text-xs leading-relaxed text-faint">
         Board total across {entries.length} entries:{" "}

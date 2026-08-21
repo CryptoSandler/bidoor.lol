@@ -3,8 +3,8 @@
 **Fecha:** 2026-08-21 · **Commit auditado:** `5a05cbb` · **Alcance:** todo `src/`, esquema SQLite,
 configuración de entorno.
 
-> **Estado de remediación (2026-08-21).** Se corrigieron **C-1, C-2, A-1, A-4 y M-5**, cada uno con
-> tests. El estado de cada hallazgo está marcado en su título. Lo pendiente está resumido en
+> **Estado de remediación (2026-08-21).** Se corrigieron **C-1, C-2, A-1, A-2, A-4, M-1, M-2, M-3,
+> M-5 y B-1**, cada uno con tests. Ver DECISIONES.md §11, §15 y §16 para el detalle. El estado de cada hallazgo está marcado en su título. Lo pendiente está resumido en
 > §"Estado de remediación" al final, junto con una tanda de deploy que sigue **bloqueante**.
 
 **Modelo de amenaza asumido:** adversario activo, con incentivo económico, capacidad de leer la
@@ -156,7 +156,7 @@ dejar la fila sin link cuando no hay launch link. Adicionalmente: interstitial d
 dominio destino antes de redirigir, que es barato y corta el uso del dominio como blanqueador de
 reputación.
 
-## A-2 · ⚠️ ABIERTO · El techo por monto es un recurso compartido: 500 pujas bloquean a todo el mundo en el monto más popular
+## A-2 · ✅ CORREGIDO · El techo por monto es un recurso compartido: 500 pujas bloquean a todo el mundo en el monto más popular
 
 **Archivos:** `src/lib/payments/config.ts:68` (`livePendingPerAmount: 500`),
 `src/lib/payments/limits.ts:106-120`.
@@ -234,7 +234,7 @@ más tiempo.
 
 # MEDIO
 
-## M-1 · ⚠️ ABIERTO · La cookie de admin **es** el secreto maestro, y `secure` es condicional
+## M-1 · ✅ CORREGIDO · La cookie de admin **es** el secreto maestro, y `secure` es condicional
 
 **Archivos:** `src/app/api/admin/session/route.ts:20-29`, `src/lib/admin.ts:23-27`.
 
@@ -251,7 +251,7 @@ La cookie guarda el `ADMIN_TOKEN` **en crudo**. Es `httpOnly` ✓ y `sameSite: "
 embebida) en vez del token; `secure: true` siempre salvo en `localhost`; `path` acotado a `/admin` y
 `/api/admin`; tabla de sesiones revocables.
 
-## M-2 · ⚠️ ABIERTO · Sin límite ni registro de intentos en el login de admin
+## M-2 · ✅ CORREGIDO · Sin límite ni registro de intentos en el login de admin
 
 **Archivos:** `src/app/api/admin/session/route.ts`, `src/app/api/reconcile/route.ts`.
 
@@ -262,7 +262,7 @@ sin límite de intentos, sin bloqueo y sin log. Si `ADMIN_TOKEN` es una frase co
 **Fix.** Rate limit agresivo + backoff en cualquier ruta que valide el token; registrar los fallos;
 documentar en `.env.example` que debe ser ≥32 bytes aleatorios; considerar restringir `/admin` por IP.
 
-## M-3 · ⚠️ ABIERTO · `checkToken` filtra la longitud del token por timing
+## M-3 · ✅ CORREGIDO · `checkToken` filtra la longitud del token por timing
 
 **Archivo:** `src/lib/admin.ts:11-20`.
 

@@ -26,9 +26,9 @@ function bidFor(amountUsd: number): NormalizedBid {
   };
 }
 
-/** The fraction, in ten-thousandths of a dollar, that a bid was given. */
+/** The fraction, in micro-dollars, that a bid was given. */
 function fractionOf(paymentBaseUnits: bigint, amountUsd: number): number {
-  return Number(paymentBaseUnits - BigInt(amountUsd) * 10n ** BigInt(USDC_DECIMALS)) / 100;
+  return Number(paymentBaseUnits - BigInt(amountUsd) * 10n ** BigInt(USDC_DECIMALS));
 }
 
 async function expire(id: string) {
@@ -43,7 +43,7 @@ beforeEach(async () => {
 });
 
 describe("every pending bid gets its own amount", () => {
-  it("adds a non-zero four-decimal fraction to the bid", async () => {
+  it("adds a non-zero six-decimal fraction to the bid", async () => {
     const bid = await createPendingBid(bidFor(50));
     const fraction = fractionOf(bid.paymentBaseUnits, 50);
 
@@ -54,9 +54,9 @@ describe("every pending bid gets its own amount", () => {
     expect(fraction).not.toBe(0);
   });
 
-  it("renders as a short, re-typeable amount", async () => {
+  it("renders as an exact amount inside the dollar", async () => {
     const bid = await createPendingBid(bidFor(50));
-    expect(formatUsdc(bid.paymentBaseUnits)).toMatch(/^50\.\d{1,4}$/);
+    expect(formatUsdc(bid.paymentBaseUnits)).toMatch(/^50\.\d{1,6}$/);
   });
 
   it("keeps the bid amount itself round, because ranking uses that", async () => {

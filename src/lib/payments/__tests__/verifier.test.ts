@@ -212,6 +212,7 @@ function pendingBid(amountUsd = 100) {
     contractKey: "solana:DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
     launchpadUrl: "https://pump.fun/coin/x",
     launchpadHost: "pump.fun",
+    launchpadVerified: true,
     amountUsd,
     strippedParams: [],
   };

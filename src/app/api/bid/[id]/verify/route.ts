@@ -109,6 +109,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     contractKey: bid.contractKey,
     launchpadUrl: bid.launchpadUrl,
     launchpadHost: bid.launchpadHost,
+    launchpadVerified: bid.launchpadVerified,
     amountUsd: bid.amountUsd,
     strippedParams: [],
   };

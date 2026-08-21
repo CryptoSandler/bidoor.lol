@@ -31,9 +31,14 @@ export type Chain = {
   tint: string;
   ink: string;
   /**
-   * Hosts that count as an official launchpad for this chain. A submission is
-   * rejected when the launchpad link does not sit on one of these — that is the
-   * cheapest signal we have that the token really launched where it claims.
+   * Hosts we recognise as launchpads on this chain.
+   *
+   * NOT a gate. DexScreener decides whether a token can be listed; this list
+   * only decides whether the entry earns a "verified launchpad" mark. A token
+   * that launched somewhere we have never heard of is still a real token, and
+   * refusing it taught us nothing — it just kept real listings off the board.
+   * Adding a domain here is one line, and costs nothing if we are late.
+   *
    * Matching is on the registrable host and covers subdomains.
    */
   launchpads: string[];
@@ -81,11 +86,10 @@ export const CHAINS: Chain[] = [
     //
     // hood.fun is verified: a live memecoin launchpad on this chain. "RobinPad"
     // is deliberately NOT here: the name is used by several unrelated products
-    // and none has a verifiable official domain. Candidates checked, none added:
-    //   robinpad.xyz — AI-agent launchpad, self-described demo software, zero launches
-    //   rpad.fun     — no substantive content to verify against
-    //   robinpad.fi  — returns HTTP 402, likely parked
-    // Add one here only once product confirms which is official.
+    // and none has a verifiable official domain (robinpad.xyz self-describes as
+    // demo software with zero launches; rpad.fun has nothing to verify against;
+    // robinpad.fi returns HTTP 402). Since this list no longer gates anything,
+    // leaving it out only means those listings show without the verified mark.
     launchpads: ["hood.fun"],
     addressHint: "0x plus 40 hex characters.",
     addressPlaceholder: "0x0000000000000000000000000000000000000000",
@@ -160,4 +164,11 @@ export function getChain(id: string): Chain | undefined {
 
 export function isChainId(value: string): value is ChainId {
   return BY_ID.has(value as ChainId);
+}
+
+/** True when a host is a launchpad we recognise on this chain. */
+export function isKnownLaunchpad(chain: Chain, host: string): boolean {
+  return chain.launchpads.some(
+    (allowed) => host === allowed || host.endsWith(`.${allowed}`),
+  );
 }

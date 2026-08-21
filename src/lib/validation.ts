@@ -1,7 +1,7 @@
 import { checkAddress } from "./addresses";
-import { getChain, isChainId, type Chain } from "./chains";
+import { getChain, isChainId, isKnownLaunchpad, type Chain } from "./chains";
 import { BOARD } from "./config";
-import { hostMatches, normalizeLink } from "./links";
+import { normalizeLink } from "./links";
 import { minimumBidFor } from "./ranking";
 
 /**
@@ -22,6 +22,12 @@ export type NormalizedBid = {
   contractKey: string;
   launchpadUrl: string;
   launchpadHost: string;
+  /**
+   * Whether the launchpad host is one we recognise for this chain. Purely a
+   * display signal — an unrecognised launchpad is accepted, it just does not
+   * earn the mark.
+   */
+  launchpadVerified: boolean;
   amountUsd: number;
   /** Params we removed from the launchpad link, so the UI can say so out loud. */
   strippedParams: string[];
@@ -66,17 +72,21 @@ export function validateBid(input: BidInput, existing: ExistingEntry): Validatio
     errors.contract = `${address.reason} You selected ${chain.name}.`;
   }
 
-  // --- Launchpad link: must be a real launchpad for THIS chain -------------
+  // --- Launchpad link -----------------------------------------------------
+  // Required, and held to the same link hygiene as everything else, but NOT
+  // checked against a list of approved domains. Whether the token exists is
+  // DexScreener's call; this link is context, and a launchpad we have not heard
+  // of is not a reason to refuse a real token.
   let launchpadUrl = "";
   let launchpadHost = "";
+  let launchpadVerified = false;
   const launchpad = normalizeLink(input.launchpadUrl ?? "", "launchpad");
   if (!launchpad.ok) {
     errors.launchpadUrl = launchpad.reason;
-  } else if (!chain.launchpads.some((allowed) => hostMatches(launchpad.host, allowed))) {
-    errors.launchpadUrl = `${launchpad.host} is not a ${chain.name} launchpad. Accepted for ${chain.name}: ${chain.launchpads.join(", ")}.`;
   } else {
     launchpadUrl = launchpad.url;
     launchpadHost = launchpad.host;
+    launchpadVerified = isKnownLaunchpad(chain, launchpad.host);
     strippedParams.push(...launchpad.strippedParams);
   }
 
@@ -108,6 +118,7 @@ export function validateBid(input: BidInput, existing: ExistingEntry): Validatio
       contractKey: `${chain.id}:${address.ok ? address.canonical : ""}`,
       launchpadUrl,
       launchpadHost,
+      launchpadVerified,
       amountUsd: amountUsd as number,
       strippedParams: [...new Set(strippedParams)],
     },

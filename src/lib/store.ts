@@ -1,3 +1,4 @@
+import { getChain, isKnownLaunchpad } from "./chains";
 import { rankEntries } from "./ranking";
 import { SEED } from "./seed-data";
 import { listAcceptedBids } from "./payments/pending";
@@ -62,6 +63,10 @@ function buildSeed(): Store {
       metadataFetchedAt: new Date(now).toISOString(),
       launchpadUrl: spec.launchpadUrl,
       launchpadHost: new URL(spec.launchpadUrl).hostname,
+      launchpadVerified: isKnownLaunchpad(
+        getChain(spec.chainId)!,
+        new URL(spec.launchpadUrl).hostname,
+      ),
       links: spec.links,
       bids,
       clicks: spec.clicks,
@@ -174,8 +179,9 @@ function applyBid(
     existing.links = metadata.links;
     existing.metadataFetchedAt = metadata.fetchedAt;
 
-    // launchpadUrl and launchpadHost are deliberately untouched: frozen by the
-    // first bid, so later bidders cannot repoint where the row sends clicks.
+    // launchpadUrl, launchpadHost and launchpadVerified are deliberately
+    // untouched: frozen by the first bid, so later bidders cannot repoint where
+    // the row sends clicks or talk it into a verified mark.
 
     const after = rankEntries([...state.entries.values()]);
     const row = after.find((item) => item.id === existing.id)!;
@@ -194,6 +200,7 @@ function applyBid(
     metadataFetchedAt: metadata.fetchedAt,
     launchpadUrl: bid.launchpadUrl,
     launchpadHost: bid.launchpadHost,
+    launchpadVerified: bid.launchpadVerified,
     bids: [event],
     clicks: 0,
     createdAt: now,

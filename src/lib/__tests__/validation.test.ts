@@ -20,9 +20,16 @@ describe("the bidder supplies only address, chain, launchpad and amount", () => 
     const result = validateBid(bid(), null);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(Object.keys(result.value).sort()).toEqual(
-      ["amountUsd", "chainId", "contract", "contractKey", "launchpadHost", "launchpadUrl", "strippedParams"],
-    );
+    expect(Object.keys(result.value).sort()).toEqual([
+      "amountUsd",
+      "chainId",
+      "contract",
+      "contractKey",
+      "launchpadHost",
+      "launchpadUrl",
+      "launchpadVerified",
+      "strippedParams",
+    ]);
   });
 });
 
@@ -69,41 +76,89 @@ describe("address must match the selected chain", () => {
   });
 });
 
-describe("launchpad must match the chain", () => {
-  it("rejects pump.fun for a BNB token", () => {
+describe("the launchpad list marks trust, it does not gate listing", () => {
+  it("accepts a known launchpad and marks the entry verified", () => {
+    const result = validateBid(
+      bid({ chainId: "bnb", contract: EVM_ADDR, launchpadUrl: "https://four.meme/token/0xabc" }),
+      null,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.launchpadVerified).toBe(true);
+  });
+
+  it("accepts hood.fun for a Robinhood Chain token", () => {
+    const result = validateBid(
+      bid({ chainId: "robinhood", contract: EVM_ADDR, launchpadUrl: "https://hood.fun/token/0xabc" }),
+      null,
+    );
+    expect(result.ok && result.value.launchpadVerified).toBe(true);
+  });
+
+  it("accepts a launchpad we have never heard of, without the mark", () => {
+    // A token that launched somewhere unknown is still a real token. Refusing
+    // it taught us nothing and kept real listings off the board.
+    const result = validateBid(bid({ launchpadUrl: "https://some-new-launchpad.xyz/t/abc" }), null);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.launchpadVerified).toBe(false);
+    expect(result.value.launchpadHost).toBe("some-new-launchpad.xyz");
+  });
+
+  it("no longer rejects pump.fun on BNB — it just does not mark it", () => {
     const result = validateBid(
       bid({ chainId: "bnb", contract: EVM_ADDR, launchpadUrl: "https://pump.fun/coin/abc" }),
       null,
     );
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.launchpadUrl).toMatch(/four\.meme/);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.launchpadVerified).toBe(false);
   });
 
-  it("accepts four.meme for a BNB token", () => {
-    expect(
-      validateBid(
-        bid({ chainId: "bnb", contract: EVM_ADDR, launchpadUrl: "https://four.meme/token/0xabc" }),
-        null,
-      ).ok,
-    ).toBe(true);
+  it("marks subdomains of a known launchpad", () => {
+    const result = validateBid(bid({ launchpadUrl: "https://www.pump.fun/coin/abc" }), null);
+    expect(result.ok && result.value.launchpadVerified).toBe(true);
   });
 
-  it("accepts hood.fun for a Robinhood Chain token", () => {
-    expect(
-      validateBid(
-        bid({ chainId: "robinhood", contract: EVM_ADDR, launchpadUrl: "https://hood.fun/token/0xabc" }),
-        null,
-      ).ok,
-    ).toBe(true);
+  it("does not mark a lookalike domain", () => {
+    // pump.fun.evil.com must never earn the mark.
+    const result = validateBid(bid({ launchpadUrl: "https://pump.fun.evil.com/coin/abc" }), null);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.launchpadVerified).toBe(false);
+  });
+});
+
+describe("basic link hygiene still applies to the launchpad link", () => {
+  it("requires the link at all", () => {
+    expect(validateBid(bid({ launchpadUrl: "" }), null).ok).toBe(false);
   });
 
-  it("rejects a random domain dressed up as a launchpad", () => {
-    expect(validateBid(bid({ launchpadUrl: "https://my-token-site.xyz" }), null).ok).toBe(false);
-  });
-
-  it("rejects a shortener pointing at a launchpad", () => {
+  it("rejects a shortener, known launchpad behind it or not", () => {
     expect(validateBid(bid({ launchpadUrl: "https://bit.ly/pumpfun-abc" }), null).ok).toBe(false);
+  });
+
+  it("rejects a link-in-bio page", () => {
+    expect(validateBid(bid({ launchpadUrl: "https://linktr.ee/sometoken" }), null).ok).toBe(false);
+  });
+
+  it("requires https", () => {
+    expect(validateBid(bid({ launchpadUrl: "http://pump.fun/coin/abc" }), null).ok).toBe(false);
+  });
+
+  it("rejects a chat invite", () => {
+    expect(validateBid(bid({ launchpadUrl: "https://t.me/somegroup" }), null).ok).toBe(false);
+  });
+
+  it("strips query parameters from an unknown launchpad too", () => {
+    const result = validateBid(
+      bid({ launchpadUrl: "https://some-new-launchpad.xyz/t/abc?ref=me" }),
+      null,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.launchpadUrl).toBe("https://some-new-launchpad.xyz/t/abc");
+    expect(result.value.strippedParams).toEqual(["ref"]);
   });
 });
 

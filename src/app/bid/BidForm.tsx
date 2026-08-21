@@ -192,7 +192,7 @@ export function BidForm({
         hint={
           existing
             ? "This entry's launchpad link was frozen by its first bid and will not be changed."
-            : `Where this token launched. For ${chain.name}: ${chain.launchpads.join(", ")}.`
+            : `Where this token launched. Any https link works. Launchpads we recognise on ${chain.name} — ${chain.launchpads.join(", ")} — also earn a verified mark on your row.`
         }
         error={errors.launchpadUrl}
       >

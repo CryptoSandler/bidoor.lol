@@ -18,6 +18,7 @@ export type PendingBid = {
   contractKey: string;
   launchpadUrl: string;
   launchpadHost: string;
+  launchpadVerified: boolean;
   amountUsd: number;
   /**
    * The exact amount that must be transferred, in USDC base units. Differs from
@@ -39,6 +40,7 @@ type Row = {
   contract_key: string;
   launchpad_url: string;
   launchpad_host: string;
+  launchpad_verified: number;
   amount_usd: number;
   payment_micros: number | null;
   status: string;
@@ -56,6 +58,7 @@ function toBid(row: Row): PendingBid {
     contractKey: row.contract_key,
     launchpadUrl: row.launchpad_url,
     launchpadHost: row.launchpad_host,
+    launchpadVerified: row.launchpad_verified === 1,
     amountUsd: row.amount_usd,
     // Legacy rows predate unique amounts; fall back to the plain bid amount.
     paymentBaseUnits: BigInt(row.payment_micros ?? row.amount_usd * 1_000_000),
@@ -107,8 +110,8 @@ export function createPendingBid(bid: NormalizedBid): PendingBid {
   const insert = db().prepare(
     `INSERT INTO pending_bids
        (id, chain_id, contract, contract_key, launchpad_url, launchpad_host,
-        amount_usd, payment_micros, status, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+        launchpad_verified, amount_usd, payment_micros, status, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
   );
 
   // The fraction is drawn at random and offered to the database. If another
@@ -125,6 +128,7 @@ export function createPendingBid(bid: NormalizedBid): PendingBid {
         bid.contractKey,
         bid.launchpadUrl,
         bid.launchpadHost,
+        bid.launchpadVerified ? 1 : 0,
         bid.amountUsd,
         paymentBaseUnits(bid.amountUsd, fraction),
         now.toISOString(),
@@ -222,8 +226,8 @@ export function recordAcceptedBid(
     .prepare(
       `INSERT INTO accepted_bids
        (id, bid_id, chain_id, contract, contract_key, launchpad_url, launchpad_host,
-        amount_usd, metadata_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        launchpad_verified, amount_usd, metadata_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       randomUUID(),
@@ -233,6 +237,7 @@ export function recordAcceptedBid(
       bid.contractKey,
       bid.launchpadUrl,
       bid.launchpadHost,
+      bid.launchpadVerified ? 1 : 0,
       bid.amountUsd,
       JSON.stringify(metadata),
       new Date().toISOString(),
@@ -253,6 +258,7 @@ export function listAcceptedBids(): AcceptedBid[] {
       contractKey: row.contract_key as string,
       launchpadUrl: row.launchpad_url as string,
       launchpadHost: row.launchpad_host as string,
+      launchpadVerified: row.launchpad_verified === 1,
       amountUsd: row.amount_usd as number,
       strippedParams: [],
     },

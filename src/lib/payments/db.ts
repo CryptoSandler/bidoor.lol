@@ -36,6 +36,7 @@ export function db(): DatabaseSync {
       contract_key   TEXT    NOT NULL,
       launchpad_url  TEXT    NOT NULL,
       launchpad_host TEXT    NOT NULL,
+      launchpad_verified INTEGER NOT NULL DEFAULT 0,
       amount_usd     INTEGER NOT NULL,
       -- The exact amount, in USDC base units, that this bid must be paid with:
       -- the bid plus its own random fraction. This is what ties an incoming
@@ -76,6 +77,7 @@ export function db(): DatabaseSync {
       contract_key   TEXT    NOT NULL,
       launchpad_url  TEXT    NOT NULL,
       launchpad_host TEXT    NOT NULL,
+      launchpad_verified INTEGER NOT NULL DEFAULT 0,
       amount_usd     INTEGER NOT NULL,
       metadata_json  TEXT    NOT NULL,
       created_at     TEXT    NOT NULL
@@ -113,6 +115,11 @@ function migrate(database: DatabaseSync): void {
   const columns = database.prepare(`PRAGMA table_info(pending_bids)`).all() as { name: string }[];
   if (!columns.some((column) => column.name === "payment_micros")) {
     database.exec(`ALTER TABLE pending_bids ADD COLUMN payment_micros INTEGER`);
+  }
+  if (!columns.some((column) => column.name === "launchpad_verified")) {
+    database.exec(
+      `ALTER TABLE pending_bids ADD COLUMN launchpad_verified INTEGER NOT NULL DEFAULT 0`,
+    );
   }
 }
 

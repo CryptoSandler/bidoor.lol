@@ -57,7 +57,7 @@ arregla con nada que no sea consultar la chain.
 > "Token not found on any DEX". El test que documentaba el límite sigue ahí a propósito, para dejar
 > constancia de por qué la validación de formato **sola** nunca alcanzó.
 
-### 2.2 El allowlist de launchpads es la regla más frágil que tenemos
+### 2.2 El allowlist de launchpads es la regla más frágil que tenemos — SUPERADO en §10
 
 La regla "el dominio del launchpad tiene que ser coherente con la chain" es correcta y la
 implementé, pero descansa en una lista que **envejece sola**. Sale un launchpad nuevo en Solana
@@ -407,4 +407,40 @@ las reglas: *"your rank is still counted as $50"*.
 - **El usuario tiene que tipear un monto raro.** Es fricción real, y la pantalla la compensa con
   copy explícito, pero un botón de copiar al portapapeles o un deep link de pago lo haría mucho
   mejor. No está.
+
+---
+
+## 10. Tanda 5 — el launchpad deja de ser un gate
+
+Revierte la regla original ("el dominio del launchpad debe ser coherente con la chain") a la luz de
+lo que aprendimos en §2.2: esa lista envejece sola y cada launchpad nuevo la convierte en un
+rechazo de listados legítimos.
+
+**Ahora DexScreener es el único gate de existencia.** Cualquier token que DexScreener conozca en la
+chain declarada se puede listar. El link de launchpad sigue siendo obligatorio y sigue pasando por
+la higiene de siempre (https, sin acortadores, sin link-in-bio, sin invitaciones de chat, params
+strippeados), pero el dominio ya no decide si entrás: decide si tu fila muestra un ✓.
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 44 | **La lista pasa de gate a señal visual** | Rechazar por dominio desconocido no enseñaba nada: un token que lanzó en un launchpad nuevo es igual de real. El costo del falso negativo (listado legítimo bloqueado) es mucho mayor que el del falso positivo (fila sin ✓). |
+| 45 | **`launchpadVerified` se congela con el link, en la primera puja** | Si se recalculara en cada top-up, agregar un dominio a la lista le daría el ✓ retroactivo a filas que no lo tenían — y, peor, un top-up podría negociarlo. Va con el link, que ya estaba congelado. |
+| 46 | **El ✓ dice exactamente una cosa** | "Este link apunta a un launchpad que conocemos para esta chain". No es una review del token, y las reglas lo dicen con esas palabras. Un ✓ que la gente lea como "token seguro" sería peor que no tenerlo. |
+| 47 | **Se exige https, ya no se acepta http** | El link se sirve a todos los visitantes. Con la lista fuera del camino, la higiene del link es lo único que queda, así que se endureció. |
+| 48 | **Un subdominio de un launchpad conocido marca; un lookalike no** | `www.pump.fun` sí, `pump.fun.evil.com` no. Hay test — es exactamente el error que haría al ✓ peligroso. |
+| 49 | **pump.fun en BNB ya no se rechaza** | Antes era el ejemplo insignia de la regla. Ahora entra sin ✓. Es coherente: el token existe en BNB según DexScreener, y el link raro es información para el que mira, no motivo de rechazo. |
+
+### Lo que esto cambia en el balance de riesgo
+
+- **Baja la fricción y sube el spam.** El piso de $5 y la existencia en DexScreener pasan a ser los
+  únicos filtros. Cualquier token con un par en cualquier DEX puede entrar. Es la decisión correcta
+  para un producto que vive de listados, pero hay que asumir que la cola del board va a ser más
+  ruidosa.
+- **El ✓ es ahora una superficie de confianza, y por lo tanto un objetivo.** Si alguien nos convence
+  de agregar un dominio suyo a la lista, compra credibilidad barata. Agregar dominios tiene que
+  tener el mismo cuidado que tuvo no agregar "RobinPad" (§2.2).
+- **Queda desalineado un supuesto viejo:** el link de launchpad ya no es evidencia de nada
+  verificable en el caso general. Sigue siendo el destino de los clicks de la fila, así que su
+  higiene importa igual — pero llamarlo "official launchpad link" en la UI es ahora un poco
+  generoso. Lo dejé como "Official launchpad link" por continuidad; vale discutir renombrarlo.
 

@@ -44,6 +44,8 @@ export type Entry = {
    */
   launchpadUrl: string;
   launchpadHost: string;
+  /** Set with the link on the first bid: the host is one we recognise. */
+  launchpadVerified: boolean;
   bids: BidEvent[];
   clicks: number;
   createdAt: string;

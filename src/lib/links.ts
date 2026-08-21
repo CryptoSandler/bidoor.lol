@@ -47,8 +47,11 @@ export function normalizeLink(input: string, kind: LinkKind): LinkCheck {
     return { ok: false, reason: "That is not a valid URL." };
   }
 
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    return { ok: false, reason: "Only http and https links are accepted." };
+  if (url.protocol !== "https:") {
+    return {
+      ok: false,
+      reason: "Only https links are accepted.",
+    };
   }
 
   const host = registrableHost(url.hostname);

@@ -121,8 +121,11 @@ export default function RulesPage() {
           else&apos;s token to rewrite its name or repoint its links.
         </Rule>
         <Rule>
-          A token DexScreener has never seen cannot be listed. If no DEX knows the address, the bid
-          is rejected rather than creating a nameless row.
+          <span className="font-bold text-text">
+            Any token tradeable on DexScreener can be listed.
+          </span>{" "}
+          That is the only gate. If no DEX knows the address on the chain you picked, the bid is
+          rejected rather than creating a nameless row.
         </Rule>
         <Rule>
           The launchpad link is the one field a bidder supplies, and it is frozen by the first bid on
@@ -146,8 +149,16 @@ export default function RulesPage() {
 
       <Section title="Links">
         <Rule>
-          The launchpad link has to be the official launchpad for the chain you selected. A pump.fun
-          link on a BNB listing is rejected.
+          A launchpad link is required, and any https link will do. We do not keep a list of
+          approved launchpads to decide what may be listed — whether a token is real is
+          DexScreener&apos;s call, and a launchpad we have not heard of is not a reason to refuse a
+          real token.
+        </Rule>
+        <Rule>
+          Links on launchpads we do recognise earn a{" "}
+          <span className="font-bold text-positive">✓</span> on the row. That mark says the link
+          points at a launchpad we know for that chain, and nothing more — it is not a review of the
+          token.
         </Rule>
         <Rule>
           Query parameters are stripped from every link. Referral, affiliate and tracking tags do not
@@ -160,7 +171,7 @@ export default function RulesPage() {
         <Rule>Clicks from the board carry no referrer and no parameters.</Rule>
       </Section>
 
-      <Section title="Accepted launchpads">
+      <Section title="Recognised launchpads">
         <div className="space-y-2">
           {CHAINS.map((chain) => (
             <div key={chain.id} className="flex flex-wrap items-baseline gap-x-2.5 text-sm">
@@ -175,8 +186,8 @@ export default function RulesPage() {
           ))}
         </div>
         <p className="mt-3 text-xs leading-snug text-faint">
-          Launched somewhere that is not on this list? Tell us and we will review it. We would rather
-          add a real launchpad than accept an arbitrary link.
+          This list is not a gate. Launching somewhere else does not stop you listing — your row just
+          shows without the ✓. Tell us about a launchpad that belongs here and we will add it.
         </p>
       </Section>
 

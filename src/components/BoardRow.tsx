@@ -54,6 +54,15 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
             {entry.name}
           </a>
           <span className="num shrink-0 text-2xs text-faint">{entry.ticker}</span>
+          {entry.launchpadVerified && (
+            <span
+              className="shrink-0 text-2xs leading-none text-positive"
+              title={`Verified launchpad — launched on ${entry.launchpadHost}`}
+              aria-label={`Verified launchpad: ${entry.launchpadHost}`}
+            >
+              ✓
+            </span>
+          )}
         </div>
 
         {/* The chain badge lives on the meta line, not beside the name: on a

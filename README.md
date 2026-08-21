@@ -19,12 +19,12 @@ The board seed is demo data. Payments are real: bids settle against USDC transfe
 | Rule | Where |
 |---|---|
 | Address format must match the selected chain | `src/lib/addresses.ts` |
-| Launchpad domain must match the selected chain | `src/lib/chains.ts`, `src/lib/validation.ts` |
+| Recognised launchpad earns a verified mark (not a gate) | `src/lib/chains.ts`, `src/lib/validation.ts` |
 | No URL shorteners or link-in-bio pages | `src/lib/links.ts` |
 | Query parameters stripped from every link | `src/lib/links.ts` |
 | Chat/invite links only in their own fields | `src/lib/links.ts` |
 | Same contract = one entry, always | `src/lib/store.ts` |
-| Token must exist on a DEX to be listed | `src/lib/dexscreener.ts` |
+| Any token tradeable on DexScreener can be listed — and only those | `src/lib/dexscreener.ts` |
 | Name, ticker, logo and socials come from DexScreener, not the bidder | `src/lib/dexscreener.ts` |
 | Launchpad link frozen by the first bid | `src/lib/store.ts` |
 | A rank only exists once a payment is confirmed on-chain | `src/lib/payments/solana.ts` |

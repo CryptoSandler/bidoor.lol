@@ -31,6 +31,7 @@ function bidFor(amountUsd: number): NormalizedBid {
     contractKey: `solana:${BONK}`,
     launchpadUrl: "https://pump.fun/coin/bonk",
     launchpadHost: "pump.fun",
+    launchpadVerified: true,
     amountUsd,
     strippedParams: [],
   };

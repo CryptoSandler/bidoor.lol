@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkAddress } from "../addresses";
-import { CHAINS, getChain } from "../chains";
+import { CHAINS, getChain, isKnownLaunchpad } from "../chains";
 import type { TokenMetadata } from "../dexscreener";
-import { hostMatches } from "../links";
 import { listRanked, placeBid } from "../store";
 import { validateBid } from "../validation";
 
@@ -31,11 +30,14 @@ describe("seed integrity", () => {
     }
   });
 
-  it("every seeded launchpad link is on an allowed host for its chain", () => {
+  it("marks each seeded entry according to whether its launchpad is recognised", () => {
+    // The list is a trust signal now, not a gate — so this asserts the mark is
+    // computed correctly, not that every entry has one.
     for (const entry of listRanked()) {
       const chain = getChain(entry.chainId)!;
-      const allowed = chain.launchpads.some((host) => hostMatches(entry.launchpadHost, host));
-      expect(allowed, `${entry.name}: ${entry.launchpadHost} not valid for ${chain.name}`).toBe(true);
+      expect(entry.launchpadVerified, `${entry.name}: ${entry.launchpadHost}`).toBe(
+        isKnownLaunchpad(chain, entry.launchpadHost),
+      );
     }
   });
 
@@ -130,6 +132,7 @@ describe("bidding on an address already on the board", () => {
         contractKey: "solana:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
         launchpadUrl: "https://pump.fun/coin/brand-new",
         launchpadHost: "pump.fun",
+        launchpadVerified: true,
         amountUsd: 5,
         strippedParams: [],
       },
@@ -150,6 +153,7 @@ describe("bidding on an address already on the board", () => {
         contractKey: target.contractKey,
         launchpadUrl: target.launchpadUrl,
         launchpadHost: target.launchpadHost,
+        launchpadVerified: target.launchpadVerified,
         amountUsd: leader.totalUsd,
         strippedParams: [],
       },
@@ -172,6 +176,7 @@ describe("metadata ownership", () => {
         contractKey: target.contractKey,
         launchpadUrl: target.launchpadUrl,
         launchpadHost: target.launchpadHost,
+        launchpadVerified: target.launchpadVerified,
         amountUsd: 10,
         strippedParams: [],
       },
@@ -191,6 +196,7 @@ describe("metadata ownership", () => {
         contractKey: target.contractKey,
         launchpadUrl: target.launchpadUrl,
         launchpadHost: target.launchpadHost,
+        launchpadVerified: target.launchpadVerified,
         amountUsd: 10,
         strippedParams: [],
       },
@@ -213,6 +219,7 @@ describe("metadata ownership", () => {
         contractKey: target.contractKey,
         launchpadUrl: "https://pump.fun/coin/attacker-controlled",
         launchpadHost: "pump.fun",
+        launchpadVerified: true,
         amountUsd: 1,
         strippedParams: [],
       },
@@ -232,6 +239,7 @@ describe("metadata ownership", () => {
         contractKey: "solana:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
         launchpadUrl: "https://pump.fun/coin/first-bid",
         launchpadHost: "pump.fun",
+        launchpadVerified: true,
         amountUsd: 5,
         strippedParams: [],
       },

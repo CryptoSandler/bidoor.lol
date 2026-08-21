@@ -84,9 +84,9 @@ export default function RulesPage() {
           matches your bid exactly.
         </Rule>
         <Rule>
-          If the amount does not match, the payment is not lost. It is recorded against your bid and
-          support can apply it — but it will not land on the board on its own, so send the exact
-          amount and save yourself the wait.
+          If the amount does not match, the payment is recorded against your bid and is not lost,
+          but it does not land on the board on its own. Getting it applied means writing to us and
+          waiting for a person to do it, so send the exact amount and skip that.
         </Rule>
         <Rule>
           A transaction can pay for exactly one bid. Reusing a signature is rejected.
@@ -128,7 +128,7 @@ export default function RulesPage() {
           rejected rather than creating a nameless row.
         </Rule>
         <Rule>
-          The launch link is the one field a bidder supplies, and it is frozen by the first bid on
+          The launch link is the only field a bidder supplies, and it is frozen by the first bid on
           an entry. Later bids never change it.
         </Rule>
       </Section>
@@ -149,10 +149,9 @@ export default function RulesPage() {
 
       <Section title="Links">
         <Rule>
-          A launch link is required — where the token came from — and any https link will do. We do
-          not keep a list of approved launchpads to decide what may be listed: whether a token is
-          real is DexScreener&apos;s call, and a launchpad we have not heard of is not a reason to
-          refuse a real token.
+          A launch link is optional. Listing needs a contract address on a chain DexScreener knows,
+          and nothing else. If you do give a link it must be https and clean, like every other link
+          here; if you do not, the row simply shows nothing about where the token came from.
         </Rule>
         <Rule>
           <span className="font-bold text-text">Known launchpads get a verified badge.</span> If the
@@ -189,6 +188,24 @@ export default function RulesPage() {
           This list is not a gate. Launching somewhere else does not stop you listing — your row just
           shows without the ✓. Tell us about a launchpad that belongs here and we will add it.
         </p>
+      </Section>
+
+      <Section title="Delisting">
+        <Rule>
+          <span className="font-bold text-text">
+            We may remove any entry we believe is a scam or a rug, without a refund.
+          </span>{" "}
+          Bids are non-refundable, and a delisting is a consequence of behaviour rather than a
+          cancelled order.
+        </Rule>
+        <Rule>
+          A delisting frees the rank. The record of it is kept — nothing is deleted — but the total
+          stops counting, so relisting that token means paying again from zero.
+        </Rule>
+        <Rule>
+          We are not obliged to delist anything, and not delisting a token is not an endorsement of
+          it. See below.
+        </Rule>
       </Section>
 
       <Section title="What this board is not">

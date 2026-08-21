@@ -45,14 +45,23 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <a
-            href={`/go/${entry.id}`}
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-            className={`truncate font-bold hover:text-accent ${isPodium ? "text-base" : "text-sm sm:text-base"}`}
-          >
-            {entry.name}
-          </a>
+          {/* A launch link is optional and so is a website, so an entry can have
+              nowhere to send a click. It renders as plain text rather than a
+              link that goes nowhere. */}
+          {entry.launchpadUrl || entry.links.website ? (
+            <a
+              href={`/go/${entry.id}`}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className={`truncate font-bold hover:text-accent ${isPodium ? "text-base" : "text-sm sm:text-base"}`}
+            >
+              {entry.name}
+            </a>
+          ) : (
+            <span className={`truncate font-bold ${isPodium ? "text-base" : "text-sm sm:text-base"}`}>
+              {entry.name}
+            </span>
+          )}
           <span className="num shrink-0 text-2xs text-faint">{entry.ticker}</span>
           {entry.launchpadVerified && (
             <span

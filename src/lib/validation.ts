@@ -12,7 +12,8 @@ import { minimumBidFor } from "./ranking";
 export type BidInput = {
   chainId: string;
   contract: string;
-  launchpadUrl: string;
+  /** Optional. Listing needs only a contract address on a chain DexScreener knows. */
+  launchpadUrl?: string;
   amountUsd: number | string;
 };
 
@@ -20,12 +21,13 @@ export type NormalizedBid = {
   chainId: Chain["id"];
   contract: string;
   contractKey: string;
-  launchpadUrl: string;
-  launchpadHost: string;
+  /** Null when no launch link was given, which is allowed. */
+  launchpadUrl: string | null;
+  launchpadHost: string | null;
   /**
-   * Whether the launchpad host is one we recognise for this chain. Purely a
-   * display signal — an unrecognised launchpad is accepted, it just does not
-   * earn the mark.
+   * Whether the launch link points at a launchpad we recognise for this chain.
+   * Purely a display signal — an unrecognised one is accepted, it just does not
+   * earn the mark, and no link at all is fine too.
    */
   launchpadVerified: boolean;
   amountUsd: number;
@@ -72,22 +74,25 @@ export function validateBid(input: BidInput, existing: ExistingEntry): Validatio
     errors.contract = `${address.reason} You selected ${chain.name}.`;
   }
 
-  // --- Launchpad link -----------------------------------------------------
-  // Required, and held to the same link hygiene as everything else, but NOT
-  // checked against a list of approved domains. Whether the token exists is
-  // DexScreener's call; this link is context, and a launchpad we have not heard
-  // of is not a reason to refuse a real token.
-  let launchpadUrl = "";
-  let launchpadHost = "";
+  // --- Launch link (optional) ---------------------------------------------
+  // Listing needs a contract address on a chain DexScreener knows, and nothing
+  // else. If a link is given it is held to the same hygiene as every other link
+  // and earns the verified mark when we recognise the host — but requiring it
+  // only kept real tokens off the board.
+  let launchpadUrl: string | null = null;
+  let launchpadHost: string | null = null;
   let launchpadVerified = false;
-  const launchpad = normalizeLink(input.launchpadUrl ?? "", "launchpad");
-  if (!launchpad.ok) {
-    errors.launchpadUrl = launchpad.reason;
-  } else {
-    launchpadUrl = launchpad.url;
-    launchpadHost = launchpad.host;
-    launchpadVerified = isKnownLaunchpad(chain, launchpad.host);
-    strippedParams.push(...launchpad.strippedParams);
+
+  if (input.launchpadUrl?.trim()) {
+    const launchpad = normalizeLink(input.launchpadUrl, "launchpad");
+    if (!launchpad.ok) {
+      errors.launchpadUrl = launchpad.reason;
+    } else {
+      launchpadUrl = launchpad.url;
+      launchpadHost = launchpad.host;
+      launchpadVerified = isKnownLaunchpad(chain, launchpad.host);
+      strippedParams.push(...launchpad.strippedParams);
+    }
   }
 
   // --- Amount -------------------------------------------------------------

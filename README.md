@@ -99,11 +99,30 @@ Expired bids are swept inside the limit check itself, on both the allow and the 
 caller who fills a limit is released by expiry alone with no cleanup job. Raw IPs are never stored,
 only a salted hash used as a counting key.
 
+## Operations
+
+`/admin`, protected by `ADMIN_TOKEN` and linked from nowhere, is the console for the two things the
+product promises but cannot do automatically:
+
+- **Unmatched payments.** A confirmed transfer that reached the wallet without matching any bid's
+  exact amount is queued here with the closest candidate bids. Applying one goes through the same
+  signature claim as a normal settlement, so one transfer still cannot pay for two bids. Discarding
+  requires a reason.
+- **Delisting.** Any entry can be removed with a reason. Nothing is deleted: the delisting, the
+  payments and the bid history all stay. The board simply stops counting bids from before it, which
+  is what makes a relisting start from zero. No refund — bids are non-refundable, and a delisting is
+  a consequence rather than a cancelled order.
+
+`POST /api/reconcile`, with the same token, retries payments that settled but whose entry never
+reached the board (the case where DexScreener was down at the wrong moment). Call it from any
+external scheduler; it derives its work from state, so running it twice does nothing twice.
+
 ## Not built yet
 
-Moderation, rate limiting, pagination, and — most importantly — any binding between a payment and
-the person who made it. The verifier proves *someone* paid; it does not prove it was the person
-looking at the screen. See `DECISIONES.md` §8 for that and the rest of the open risks.
+No accounts, and so no "my entries", no recovery and no way to settle a dispute over who controls a
+row — an explicit call for launch, recorded in `DECISIONES.md` §13. Also: no automatic refunds, no
+per-token link previews, and rate limiting that is per-IP and so does not stop rotating addresses.
+See `DECISIONES.md` §12 for the full list of what is still open.
 
 ## Documents
 

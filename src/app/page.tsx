@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ActivityPanels } from "@/components/ActivityPanels";
 import { BoardRow } from "@/components/BoardRow";
 import { HeroSearch } from "@/components/HeroSearch";
@@ -8,9 +9,23 @@ import { getBoard } from "@/lib/store";
 // Mock data mutates in memory, so never cache this route.
 export const dynamic = "force-dynamic";
 
-export default function LeaderboardPage() {
-  const { entries, now, potUsd } = getBoard();
-  const leader = entries[0];
+export default async function LeaderboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ show?: string }>;
+}) {
+  const { show } = await searchParams;
+  const { entries: allEntries, now, potUsd } = getBoard();
+
+  // Top 50, then more on request. Server-rendered, so the board still works
+  // without JavaScript and a shared link to "?show=100" shows what it says.
+  const requested = Number(show);
+  const visible = Number.isFinite(requested)
+    ? Math.min(Math.max(requested, BOARD.pageSize), allEntries.length)
+    : BOARD.pageSize;
+  const entries = allEntries.slice(0, visible);
+  const remaining = allEntries.length - entries.length;
+  const leader = allEntries[0];
   const priceForFirst = leader ? leader.totalUsd + BOARD.topSpotGapUsd : BOARD.minBidUsd;
 
   const podium = entries.slice(0, 3);
@@ -23,7 +38,7 @@ export default function LeaderboardPage() {
       <div className="flex justify-center">
         <p className="money inline-flex items-center gap-2 rounded-pill bg-surface-2 px-3.5 py-1.5 text-xs text-muted">
           <span aria-hidden className="h-1.5 w-1.5 rounded-pill bg-positive" />
-          {entries.length} tokens listed
+          {allEntries.length} tokens listed
           <span aria-hidden>·</span>
           {usdCompact(potUsd)} bid to date
         </p>
@@ -56,7 +71,7 @@ export default function LeaderboardPage() {
       {/* Desktop keeps the reference's order: modules, then board. On phones they
           move below the board so the top three clear the fold. */}
       <div className="mt-7 hidden sm:block">
-        <ActivityPanels entries={entries} now={now} />
+        <ActivityPanels entries={allEntries} now={now} />
       </div>
 
       <ol className="mt-5 flex flex-col sm:mt-6" style={{ gap: "var(--bd-podium-gap)" }}>
@@ -79,8 +94,20 @@ export default function LeaderboardPage() {
         ))}
       </ol>
 
+      {remaining > 0 && (
+        <div className="mt-5 text-center">
+          <Link
+            href={`/?show=${visible + BOARD.pageSize}`}
+            scroll={false}
+            className="inline-block rounded-pill border border-line-strong px-4 py-2 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+          >
+            Show more · {remaining} left
+          </Link>
+        </div>
+      )}
+
       <div className="mt-7 sm:hidden">
-        <ActivityPanels entries={entries} now={now} />
+        <ActivityPanels entries={allEntries} now={now} />
       </div>
     </div>
   );

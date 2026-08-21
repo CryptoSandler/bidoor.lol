@@ -16,8 +16,9 @@ export type PendingBid = {
   chainId: string;
   contract: string;
   contractKey: string;
-  launchpadUrl: string;
-  launchpadHost: string;
+  /** Empty in the database, null here: the launch link is optional. */
+  launchpadUrl: string | null;
+  launchpadHost: string | null;
   launchpadVerified: boolean;
   amountUsd: number;
   /**
@@ -56,8 +57,8 @@ function toBid(row: Row): PendingBid {
     chainId: row.chain_id,
     contract: row.contract,
     contractKey: row.contract_key,
-    launchpadUrl: row.launchpad_url,
-    launchpadHost: row.launchpad_host,
+    launchpadUrl: row.launchpad_url || null,
+    launchpadHost: row.launchpad_host || null,
     launchpadVerified: row.launchpad_verified === 1,
     amountUsd: row.amount_usd,
     // Legacy rows predate unique amounts; fall back to the plain bid amount.
@@ -126,8 +127,8 @@ export function createPendingBid(bid: NormalizedBid, ipHash: string | null = nul
         bid.chainId,
         bid.contract,
         bid.contractKey,
-        bid.launchpadUrl,
-        bid.launchpadHost,
+        bid.launchpadUrl ?? "",
+        bid.launchpadHost ?? "",
         bid.launchpadVerified ? 1 : 0,
         bid.amountUsd,
         ipHash,
@@ -236,8 +237,8 @@ export function recordAcceptedBid(
       bid.chainId,
       bid.contract,
       bid.contractKey,
-      bid.launchpadUrl,
-      bid.launchpadHost,
+      bid.launchpadUrl ?? "",
+      bid.launchpadHost ?? "",
       bid.launchpadVerified ? 1 : 0,
       bid.amountUsd,
       JSON.stringify(metadata),
@@ -257,8 +258,8 @@ export function listAcceptedBids(): AcceptedBid[] {
       chainId: row.chain_id as NormalizedBid["chainId"],
       contract: row.contract as string,
       contractKey: row.contract_key as string,
-      launchpadUrl: row.launchpad_url as string,
-      launchpadHost: row.launchpad_host as string,
+      launchpadUrl: (row.launchpad_url as string) || null,
+      launchpadHost: (row.launchpad_host as string) || null,
       launchpadVerified: row.launchpad_verified === 1,
       amountUsd: row.amount_usd as number,
       strippedParams: [],
@@ -307,26 +308,123 @@ export function recordUnmatchedPayment(params: {
   }
 }
 
+export type UnmatchedStatus = "open" | "applied" | "discarded";
+
 export type UnmatchedPayment = {
+  id: string;
   signature: string;
   bidId: string | null;
   receivedBaseUnits: bigint;
   expectedBaseUnits: bigint;
   reason: string;
   createdAt: string;
+  status: UnmatchedStatus;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+  appliedBidId: string | null;
 };
 
-export function listUnmatchedPayments(): UnmatchedPayment[] {
-  const rows = db()
-    .prepare(`SELECT * FROM unmatched_payments ORDER BY created_at DESC`)
-    .all() as Record<string, string | null>[];
+export function listUnmatchedPayments(status?: UnmatchedStatus): UnmatchedPayment[] {
+  const rows = (
+    status
+      ? db()
+          .prepare(`SELECT * FROM unmatched_payments WHERE status = ? ORDER BY created_at DESC`)
+          .all(status)
+      : db().prepare(`SELECT * FROM unmatched_payments ORDER BY created_at DESC`).all()
+  ) as Record<string, string | null>[];
 
   return rows.map((row) => ({
+    id: row.id as string,
     signature: row.signature as string,
     bidId: row.bid_id,
     receivedBaseUnits: BigInt(row.received_base_units as string),
     expectedBaseUnits: BigInt(row.expected_base_units as string),
     reason: row.reason as string,
     createdAt: row.created_at as string,
+    status: (row.status ?? "open") as UnmatchedStatus,
+    resolvedAt: row.resolved_at,
+    resolutionNote: row.resolution_note,
+    appliedBidId: row.applied_bid_id,
   }));
+}
+
+export function getUnmatchedPayment(id: string): UnmatchedPayment | null {
+  return listUnmatchedPayments().find((payment) => payment.id === id) ?? null;
+}
+
+export function resolveUnmatchedPayment(
+  id: string,
+  status: "applied" | "discarded",
+  note: string,
+  appliedBidId: string | null = null,
+): void {
+  db()
+    .prepare(
+      `UPDATE unmatched_payments
+          SET status = ?, resolved_at = ?, resolution_note = ?, applied_bid_id = ?
+        WHERE id = ?`,
+    )
+    .run(status, new Date().toISOString(), note, appliedBidId, id);
+}
+
+/**
+ * Bids whose amount is closest to what actually arrived — the shortlist an
+ * operator picks from when reuniting a stray transfer with its bid.
+ */
+export function candidateBidsForAmount(receivedBaseUnits: bigint, limit = 8): PendingBid[] {
+  const rows = db()
+    .prepare(
+      `SELECT * FROM pending_bids
+        WHERE status IN ('pending', 'expired', 'failed')
+        ORDER BY ABS(COALESCE(payment_micros, amount_usd * 1000000) - ?) ASC
+        LIMIT ?`,
+    )
+    .all(Number(receivedBaseUnits), limit) as Row[];
+  return rows.map(toBid);
+}
+
+// --- Moderation -------------------------------------------------------------
+
+export type Delisting = { contractKey: string; reason: string; delistedAt: string };
+
+/**
+ * Removes an entry from the board without deleting anything.
+ *
+ * The delisting is recorded with a timestamp, and the board rebuild ignores
+ * every bid that predates it. That is what makes a relisting start from zero:
+ * the old total is not erased, it simply no longer counts. Money is not
+ * returned — the rules say bids are non-refundable, and a delisting is the
+ * consequence of behaviour, not a cancelled order.
+ */
+export function delistEntry(contractKey: string, reason: string): Delisting {
+  const delisting: Delisting = {
+    contractKey,
+    reason,
+    delistedAt: new Date().toISOString(),
+  };
+  db()
+    .prepare(`INSERT INTO delistings (id, contract_key, reason, delisted_at) VALUES (?, ?, ?, ?)`)
+    .run(randomUUID(), delisting.contractKey, delisting.reason, delisting.delistedAt);
+  return delisting;
+}
+
+/** Latest delisting per contract key. */
+export function delistingsByKey(): Map<string, Delisting> {
+  const rows = db()
+    .prepare(`SELECT contract_key, reason, delisted_at FROM delistings ORDER BY delisted_at ASC`)
+    .all() as { contract_key: string; reason: string; delisted_at: string }[];
+
+  const latest = new Map<string, Delisting>();
+  for (const row of rows) {
+    latest.set(row.contract_key, {
+      contractKey: row.contract_key,
+      reason: row.reason,
+      delistedAt: row.delisted_at,
+    });
+  }
+  return latest;
+}
+
+export function listDelistings(): Delisting[] {
+  return [...delistingsByKey().values()].sort((a, b) => b.delistedAt.localeCompare(a.delistedAt));
 }

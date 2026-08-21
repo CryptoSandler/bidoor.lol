@@ -130,8 +130,17 @@ describe("the launchpad list marks trust, it does not gate listing", () => {
 });
 
 describe("basic link hygiene still applies to the launchpad link", () => {
-  it("requires the link at all", () => {
-    expect(validateBid(bid({ launchpadUrl: "" }), null).ok).toBe(false);
+  it("does not require the link at all", () => {
+    // Listing needs a contract on a chain DexScreener knows, and nothing else.
+    const omitted = validateBid(bid({ launchpadUrl: undefined }), null);
+    expect(omitted.ok).toBe(true);
+    if (!omitted.ok) return;
+    expect(omitted.value.launchpadUrl).toBeNull();
+    expect(omitted.value.launchpadHost).toBeNull();
+    expect(omitted.value.launchpadVerified).toBe(false);
+
+    expect(validateBid(bid({ launchpadUrl: "" }), null).ok).toBe(true);
+    expect(validateBid(bid({ launchpadUrl: "   " }), null).ok).toBe(true);
   });
 
   it("rejects a shortener, known launchpad behind it or not", () => {
@@ -163,9 +172,9 @@ describe("basic link hygiene still applies to the launchpad link", () => {
 });
 
 describe("amounts", () => {
-  it("enforces the new-listing floor", () => {
-    expect(validateBid(bid({ amountUsd: 4 }), null).ok).toBe(false);
-    expect(validateBid(bid({ amountUsd: 5 }), null).ok).toBe(true);
+  it("enforces the new-listing floor of $1", () => {
+    expect(validateBid(bid({ amountUsd: 0 }), null).ok).toBe(false);
+    expect(validateBid(bid({ amountUsd: 1 }), null).ok).toBe(true);
   });
 
   it("lets an already-listed token top up by a smaller amount", () => {

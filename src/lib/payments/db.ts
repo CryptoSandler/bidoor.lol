@@ -102,8 +102,26 @@ export function db(): DatabaseSync {
       received_base_units TEXT  NOT NULL,
       expected_base_units TEXT  NOT NULL,
       reason            TEXT    NOT NULL,
-      created_at        TEXT    NOT NULL
+      created_at        TEXT    NOT NULL,
+      -- open | applied | discarded. Never deleted: this is the audit trail for
+      -- money that arrived and did not land where its sender expected.
+      status            TEXT    NOT NULL DEFAULT 'open',
+      resolved_at       TEXT,
+      resolution_note   TEXT,
+      applied_bid_id    TEXT
     );
+
+    -- Entries removed from the board by moderation. The row stays forever: the
+    -- board is a record of money taken, and deleting the evidence of a delisting
+    -- would be the one thing that makes it unauditable.
+    CREATE TABLE IF NOT EXISTS delistings (
+      id           TEXT PRIMARY KEY,
+      contract_key TEXT NOT NULL,
+      reason       TEXT NOT NULL,
+      delisted_at  TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS delistings_key ON delistings (contract_key, delisted_at);
   `);
 
   migrate(database);
@@ -129,6 +147,20 @@ function migrate(database: DatabaseSync): void {
   }
   if (!columns.some((column) => column.name === "ip_hash")) {
     database.exec(`ALTER TABLE pending_bids ADD COLUMN ip_hash TEXT`);
+  }
+
+  const unmatched = database.prepare(`PRAGMA table_info(unmatched_payments)`).all() as {
+    name: string;
+  }[];
+  for (const [name, ddl] of [
+    ["status", `ALTER TABLE unmatched_payments ADD COLUMN status TEXT NOT NULL DEFAULT 'open'`],
+    ["resolved_at", `ALTER TABLE unmatched_payments ADD COLUMN resolved_at TEXT`],
+    ["resolution_note", `ALTER TABLE unmatched_payments ADD COLUMN resolution_note TEXT`],
+    ["applied_bid_id", `ALTER TABLE unmatched_payments ADD COLUMN applied_bid_id TEXT`],
+  ] as const) {
+    if (unmatched.length > 0 && !unmatched.some((column) => column.name === name)) {
+      database.exec(ddl);
+    }
   }
 }
 

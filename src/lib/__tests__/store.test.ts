@@ -36,7 +36,7 @@ describe("seed integrity", () => {
     for (const entry of listRanked()) {
       const chain = getChain(entry.chainId)!;
       expect(entry.launchpadVerified, `${entry.name}: ${entry.launchpadHost}`).toBe(
-        isKnownLaunchpad(chain, entry.launchpadHost),
+        entry.launchpadHost ? isKnownLaunchpad(chain, entry.launchpadHost) : false,
       );
     }
   });
@@ -93,7 +93,7 @@ describe("bidding on an address already on the board", () => {
       {
         chainId: target.chainId,
         contract: target.contract,
-        launchpadUrl: target.launchpadUrl,
+        launchpadUrl: target.launchpadUrl ?? undefined,
         amountUsd: 100,
       },
       { contractKey: target.contractKey, totalUsd: target.totalUsd },
@@ -113,7 +113,7 @@ describe("bidding on an address already on the board", () => {
     const before = listRanked().length;
 
     const result = validateBid(
-      { chainId: target.chainId, contract: upper, launchpadUrl: target.launchpadUrl, amountUsd: 50 },
+      { chainId: target.chainId, contract: upper, launchpadUrl: target.launchpadUrl ?? undefined, amountUsd: 50 },
       { contractKey: target.contractKey, totalUsd: target.totalUsd },
     );
     expect(result.ok).toBe(true);
@@ -151,7 +151,7 @@ describe("bidding on an address already on the board", () => {
         chainId: target.chainId,
         contract: target.contract,
         contractKey: target.contractKey,
-        launchpadUrl: target.launchpadUrl,
+        launchpadUrl: target.launchpadUrl ?? null,
         launchpadHost: target.launchpadHost,
         launchpadVerified: target.launchpadVerified,
         amountUsd: leader.totalUsd,
@@ -174,7 +174,7 @@ describe("metadata ownership", () => {
         chainId: target.chainId,
         contract: target.contract,
         contractKey: target.contractKey,
-        launchpadUrl: target.launchpadUrl,
+        launchpadUrl: target.launchpadUrl ?? null,
         launchpadHost: target.launchpadHost,
         launchpadVerified: target.launchpadVerified,
         amountUsd: 10,
@@ -194,7 +194,7 @@ describe("metadata ownership", () => {
         chainId: target.chainId,
         contract: target.contract,
         contractKey: target.contractKey,
-        launchpadUrl: target.launchpadUrl,
+        launchpadUrl: target.launchpadUrl ?? null,
         launchpadHost: target.launchpadHost,
         launchpadVerified: target.launchpadVerified,
         amountUsd: 10,

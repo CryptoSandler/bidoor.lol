@@ -16,10 +16,20 @@ const geistMono = Geist_Mono({
   weight: ["400", "500", "700"],
 });
 
+const DESCRIPTION =
+  "One board, every chain. The token that has paid the most sits at #1. Rank is the bid, nothing else.";
+
 export const metadata: Metadata = {
+  // Needed for the opengraph image to resolve to an absolute URL.
+  metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
   title: "BIDTAPE — pay-to-rank token leaderboard",
-  description:
-    "One board, every chain. The token that has paid the most sits at #1. Rank is the bid, nothing else.",
+  description: DESCRIPTION,
+  openGraph: {
+    title: "BIDTAPE — pay-to-rank token leaderboard",
+    description: DESCRIPTION,
+    type: "website",
+  },
+  twitter: { card: "summary_large_image", title: "BIDTAPE", description: DESCRIPTION },
 };
 
 export const viewport: Viewport = {

@@ -82,8 +82,34 @@ export function rateLimitSalt(): string {
 /** Confirmations we require before treating a transfer as settled. */
 export const RPC_COMMITMENT = "confirmed";
 
-export function solanaRpcUrl(): string {
-  return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
+/**
+ * Solana RPC endpoints, tried in order. Comma-separated so a paid provider can
+ * be put in front of the public node without a code change; the public endpoint
+ * is heavily rate limited and does not always serve historical transactions.
+ */
+export function solanaRpcUrls(): string[] {
+  const configured = process.env.SOLANA_RPC_URL?.split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
+  return configured?.length ? configured : ["https://api.mainnet-beta.solana.com"];
+}
+
+/** Attempts per verification, across all configured endpoints. */
+export const RPC_MAX_ATTEMPTS = 4;
+/** First backoff step; doubles each retry. */
+export const RPC_BACKOFF_MS = 400;
+
+/**
+ * Where someone whose payment did not match is told to go. Not a promise that
+ * it is automated — it is a human queue, and the copy says so.
+ */
+export function supportContact(): string | null {
+  return process.env.SUPPORT_CONTACT?.trim() || null;
+}
+
+/** Shared secret for the admin console and the reconcile endpoint. */
+export function adminToken(): string | null {
+  return process.env.ADMIN_TOKEN?.trim() || null;
 }
 
 export type WalletConfig =

@@ -38,12 +38,12 @@ export type Entry = {
   /** When the metadata above was last read from DexScreener. */
   metadataFetchedAt: string;
   /**
-   * Frozen on the first bid. Top-ups do not touch it: the launchpad link is a
-   * claim about where the token launched, and that fact cannot change — letting
-   * later bidders edit it would hand them the one field they still control.
+   * Optional, and frozen on the first bid. Top-ups do not touch it: it is a
+   * claim about where the token came from, and that fact cannot change —
+   * letting later bidders edit it would hand them the one field they control.
    */
-  launchpadUrl: string;
-  launchpadHost: string;
+  launchpadUrl: string | null;
+  launchpadHost: string | null;
   /** Set with the link on the first bid: the host is one we recognise. */
   launchpadVerified: boolean;
   bids: BidEvent[];

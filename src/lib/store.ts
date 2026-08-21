@@ -1,7 +1,7 @@
 import { getChain, isKnownLaunchpad } from "./chains";
 import { rankEntries } from "./ranking";
 import { SEED } from "./seed-data";
-import { listAcceptedBids } from "./payments/pending";
+import { delistingsByKey, listAcceptedBids } from "./payments/pending";
 import type { TokenMetadata } from "./dexscreener";
 import type { BidEvent, Entry, EntryLinks, RankedEntry } from "./types";
 import type { NormalizedBid } from "./validation";
@@ -30,7 +30,8 @@ export type SeedSpec = {
   name: string;
   ticker: string;
   logoUrl?: string;
-  launchpadUrl: string;
+  /** Optional: a token can be listed without saying where it came from. */
+  launchpadUrl?: string;
   links: EntryLinks;
   clicks: number;
   /** [amount, how long ago it landed] — several entries built their total up. */
@@ -61,12 +62,11 @@ function buildSeed(): Store {
       ticker: spec.ticker,
       logoUrl: spec.logoUrl,
       metadataFetchedAt: new Date(now).toISOString(),
-      launchpadUrl: spec.launchpadUrl,
-      launchpadHost: new URL(spec.launchpadUrl).hostname,
-      launchpadVerified: isKnownLaunchpad(
-        getChain(spec.chainId)!,
-        new URL(spec.launchpadUrl).hostname,
-      ),
+      launchpadUrl: spec.launchpadUrl ?? null,
+      launchpadHost: spec.launchpadUrl ? new URL(spec.launchpadUrl).hostname : null,
+      launchpadVerified: spec.launchpadUrl
+        ? isKnownLaunchpad(getChain(spec.chainId)!, new URL(spec.launchpadUrl).hostname)
+        : false,
       links: spec.links,
       bids,
       clicks: spec.clicks,
@@ -78,7 +78,17 @@ function buildSeed(): Store {
   // Replay bids that were actually paid for, on top of the demo seed. A settled
   // payment must survive a restart; only the seed is disposable.
   try {
+    const delisted = delistingsByKey();
+
+    // A delisted entry leaves the board entirely, seed included.
+    for (const [key, entry] of [...store.entries]) {
+      if (delisted.has(entry.contractKey) || delisted.has(key)) store.entries.delete(key);
+    }
+
     for (const accepted of listAcceptedBids()) {
+      // Bids from before a delisting do not come back: relisting starts at zero.
+      const delisting = delisted.get(accepted.bid.contractKey);
+      if (delisting && accepted.createdAt <= delisting.delistedAt) continue;
       applyBid(store, accepted.bid, accepted.metadata, accepted.createdAt);
     }
   } catch {
@@ -217,4 +227,20 @@ export function registerClick(id: string): Entry | undefined {
   const entry = findById(id);
   if (entry) entry.clicks += 1;
   return entry;
+}
+
+/**
+ * Drops an entry from the in-memory board immediately, so a delisting takes
+ * effect without waiting for a restart. The database record is what makes it
+ * durable; this is what makes it instant.
+ */
+export function removeEntryFromBoard(contractKey: string): boolean {
+  const entries = store().entries;
+  for (const [key, entry] of entries) {
+    if (entry.contractKey === contractKey || key === contractKey) {
+      entries.delete(key);
+      return true;
+    }
+  }
+  return false;
 }

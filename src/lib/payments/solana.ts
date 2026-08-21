@@ -1,5 +1,11 @@
 import { base58Decode } from "../base58";
-import { RPC_COMMITMENT, USDC_MINT, solanaRpcUrl } from "./config";
+import {
+  RPC_BACKOFF_MS,
+  RPC_COMMITMENT,
+  RPC_MAX_ATTEMPTS,
+  USDC_MINT,
+  solanaRpcUrls,
+} from "./config";
 
 /**
  * Verifies that a Solana transaction really paid us.
@@ -173,7 +179,7 @@ export async function verifyPayment(params: {
       message:
         `That transaction sent exactly ${formatUsdc(received)} USDC, but this bid must be paid with ` +
         `exactly ${formatUsdc(required)} — the amount is how we match a payment to a bid. ` +
-        `Your ${formatUsdc(received)} has been recorded against this bid; contact support to have it applied.`,
+        `Your ${formatUsdc(received)} is recorded against this bid and is not lost.`,
       receivedBaseUnits: received,
     };
   }
@@ -187,8 +193,39 @@ export function formatUsdc(baseUnits: bigint): string {
   return fraction ? `${whole}.${fraction}` : `${whole}`;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * A confirmed transaction that genuinely does not exist and a node that is
+ * rate-limiting us both look like "no result". Retrying across endpoints with
+ * backoff is what keeps the second case from being reported to a paying user as
+ * the first.
+ */
 async function defaultFetchTransaction(signature: string): Promise<SolanaTransaction> {
-  const response = await fetch(solanaRpcUrl(), {
+  const endpoints = solanaRpcUrls();
+  let lastError: unknown = new Error("No RPC endpoint configured");
+
+  for (let attempt = 0; attempt < RPC_MAX_ATTEMPTS; attempt++) {
+    // Rotate endpoints so a single bad node does not eat every attempt.
+    const endpoint = endpoints[attempt % endpoints.length];
+    try {
+      return await callGetTransaction(endpoint, signature);
+    } catch (error) {
+      lastError = error;
+      if (attempt < RPC_MAX_ATTEMPTS - 1) {
+        await sleep(RPC_BACKOFF_MS * 2 ** attempt);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+async function callGetTransaction(
+  endpoint: string,
+  signature: string,
+): Promise<SolanaTransaction> {
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
     signal: AbortSignal.timeout(12_000),

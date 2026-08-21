@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getChain } from "@/lib/chains";
 import { fetchTokenMetadata } from "@/lib/dexscreener";
-import { paymentWallet } from "@/lib/payments/config";
+import { paymentWallet, supportContact } from "@/lib/payments/config";
 import {
   getPendingBid,
   markFailed,
@@ -69,11 +69,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
     }
 
+    // Points at a human, not at an automated recovery we do not have. Reviewing
+    // these is a manual queue in the admin console.
+    const contact = supportContact();
+    const message =
+      verified.receivedBaseUnits !== undefined && contact
+        ? `${verified.message} To have it applied, contact ${contact} with the transaction signature.`
+        : verified.message;
+
     // A wrong paste is not a dead bid: the window is still open, so leave the
     // reason visible and let them try another signature.
-    markFailed(id, "failed", verified.message);
+    markFailed(id, "failed", message);
     return NextResponse.json(
-      { ok: false, message: verified.message, reason: verified.reason, status: "failed" },
+      { ok: false, message, reason: verified.reason, status: "failed" },
       { status: 422 },
     );
   }

@@ -522,3 +522,56 @@ Revisión del board pedida en esta tanda. Esto **no** está implementado; es la 
     transacciones históricas. Hay `SOLANA_RPC_URL` pero no hay reintentos ni fallback.
 14. **Open Graph images.** El producto se comparte por link; hoy la preview no muestra nada.
 
+---
+
+## 13. Tanda 7 — operación mínima y decisiones de producto
+
+Cierra las promesas que el producto ya hacía y aplica las decisiones que tomaste.
+
+### Operación
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 56 | **`/admin` con token en cookie httpOnly, no en la URL** | El token no queda en el historial ni en el referrer. Comparación timing-safe. Sin `ADMIN_TOKEN` la consola directamente no existe. |
+| 57 | **Aplicar un pago suelto pasa por el MISMO claim de firma** | Un operador no puede gastar una transferencia en dos pujas por ir por la consola: la constraint UNIQUE sigue siendo el árbitro incluso para nosotros. |
+| 58 | **Descartar exige motivo** | Es plata de alguien. Si la damos por perdida, tiene que quedar escrito por qué. |
+| 59 | **Deslistar no borra nada** | El board es un registro de plata cobrada. Borrar la evidencia de un deslistado es lo único que lo volvería inauditable. |
+| 60 | **El deslistado se aplica por timestamp, no por flag** | El rebuild ignora las pujas anteriores al deslistado. Por eso un relisting arranca de cero sin necesidad de borrar el historial: el total viejo no se borra, deja de contar. |
+| 61 | **Reconciliación derivada del estado, no de una cola** | La lista de trabajo es "pagos liquidados sin fila en `accepted_bids`". Lo ya aplicado es invisible para la corrida siguiente, así que la idempotencia es estructural y no depende de marcar nada. Hay test de correrlo dos veces. |
+| 62 | **`recordAcceptedBid` se escribe DESPUÉS de tocar el board** | Si se cae en el medio, la puja queda huérfana y reintentable, en vez de marcada como hecha sin estarlo. |
+| 63 | **El copy de pago no coincidente apunta a una persona** | Antes decía "support can apply it", que sonaba automático. Ahora nombra el contacto de `SUPPORT_CONTACT` y las reglas dicen que hay que esperar a que alguien lo haga a mano. |
+| 64 | **Reintentos de RPC con backoff y rotación de endpoints** | Un nodo con rate limit y una transacción inexistente se ven igual desde afuera ("sin resultado"). Sin reintentos, le decimos al que pagó que su transacción no existe. |
+
+### Decisiones de producto aplicadas
+
+1. **Piso de puja: $1.** Baja la fricción al mínimo. Nota: el piso era el único filtro anti-spam que
+   quedaba después de sacar el gate de launchpad (§10), así que ahora **los únicos filtros son
+   "existe en DexScreener" y el rate limiting**. Vale tenerlo presente.
+2. **Decaimiento: NO se implementa.** Ranking por total histórico, revisable si el top se fosiliza.
+   *Dejé el código de decaimiento donde estaba —está escrito, testeado y apagado— en vez de
+   borrarlo, porque dijiste "revisable" y prenderlo es una línea. Si preferís que no exista, se
+   borra `DecayConfig`/`scoreEntry` y su test.*
+3. **Board: top 50, después "Show more" paginado.** Server-rendered vía `?show=`, así que anda sin
+   JavaScript y un link compartido a `?show=100` muestra lo que dice.
+4. **"Where it launched" es OPCIONAL.** Para listar alcanza contract address + chain + que
+   DexScreener lo conozca. Con link conocido, ✓; sin link, la fila no muestra nada de launch link.
+   Efecto lateral que resolví: una entrada puede no tener a dónde mandar el click, así que el nombre
+   cae a la web del token y, si tampoco hay, se renderiza como texto plano en vez de un link a
+   ninguna parte.
+5. **"RobinPad" sigue afuera** hasta tener dominio verificable (§2.2).
+
+### Sin cuentas — aceptado para el lanzamiento
+
+**Decisión explícita:** salimos sin login. Consecuencias asumidas, no olvidadas:
+
+- No hay "mis entradas": si perdés el link de tu puja pendiente, no hay forma de recuperarla más que
+  escribir a soporte.
+- No hay forma de resolver una disputa de propiedad de una fila. Como la metadata la manda
+  DexScreener (§4.1) y el launch link se congela, la superficie es chica — pero no es cero.
+- La atribución de un pago es por monto único (§9), que responde "¿de qué puja es este pago?" y no
+  "¿esta persona es la que pagó?". Sin cuentas eso no se puede cerrar del todo.
+
+Se acepta porque el login mete fricción justo antes de pagar, que es exactamente donde menos se la
+banca un producto de compra impulsiva. **Se revisa** si aparecen disputas reales o si alguna vez
+guardamos algo que valga más que un puesto en un ranking.
+

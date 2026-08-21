@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { NormalizedBid } from "../../validation";
-import { USDC_MINT } from "../config";
+import { USDC_MINT, paymentWallet } from "../config";
 import { resetDbForTests } from "../db";
 import {
   claimSignature,
@@ -221,5 +221,66 @@ describe("what is deliberately NOT burned", () => {
     if (result.ok) return;
     expect(result.reason).toBe("not_confirmed");
     expect(signatureWasConsumed(SIG)).toBe(false);
+  });
+});
+
+describe("payments only ever count for the configured wallet", () => {
+  /**
+   * The receiving address comes from PAYMENT_WALLET and nowhere else — there is
+   * no default in the code, so a misconfigured deploy refuses to take bids
+   * rather than collecting to an address nobody controls.
+   */
+  it("reads the wallet from the environment, with no fallback", () => {
+    const configured = paymentWallet();
+    expect(configured.ok).toBe(true);
+    if (!configured.ok) return;
+    expect(configured.wallet).toBe(process.env.PAYMENT_WALLET);
+  });
+
+  it("refuses to take bids when the wallet is unset", () => {
+    const original = process.env.PAYMENT_WALLET;
+    delete process.env.PAYMENT_WALLET;
+    try {
+      const configured = paymentWallet();
+      expect(configured.ok).toBe(false);
+      if (configured.ok) return;
+      expect(configured.message).toMatch(/PAYMENT_WALLET is unset/);
+    } finally {
+      process.env.PAYMENT_WALLET = original;
+    }
+  });
+
+  it("rejects an identical payment made to any other address", async () => {
+    const configured = paymentWallet();
+    expect(configured.ok).toBe(true);
+    if (!configured.ok) return;
+
+    // Same mint, same exact amount, same moment — only the destination differs.
+    const result = await verifyPayment({
+      signature: SIG,
+      expectedBaseUnits: AMOUNT,
+      wallet: configured.wallet,
+      createdAtMs: CREATED_AT,
+      expiresAtMs: EXPIRES_AT,
+      fetchTransaction: async () => tx(CREATED_AT + MINUTE, AMOUNT, OTHER_WALLET),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("wrong_destination");
+  });
+
+  it("accepts the same payment once it is addressed to the configured wallet", async () => {
+    const configured = paymentWallet();
+    if (!configured.ok) return;
+    const result = await verifyPayment({
+      signature: SIG,
+      expectedBaseUnits: AMOUNT,
+      wallet: configured.wallet,
+      createdAtMs: CREATED_AT,
+      expiresAtMs: EXPIRES_AT,
+      fetchTransaction: async () => tx(CREATED_AT + MINUTE, AMOUNT, configured.wallet),
+    });
+    expect(result.ok).toBe(true);
   });
 });

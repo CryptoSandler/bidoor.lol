@@ -4,7 +4,7 @@ import { BOARD } from "@/lib/config";
 import { PAYMENT_WINDOW_MINUTES } from "@/lib/payments/config";
 import { usd } from "@/lib/format";
 
-export const metadata = { title: "Rules — BIDTAPE" };
+export const metadata = { title: "Rules — BIDOOR" };
 
 export default function RulesPage() {
   return (
@@ -16,7 +16,8 @@ export default function RulesPage() {
       <h1 className="mt-3 text-2xl font-bold tracking-tight">Rules</h1>
       <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
         Short version: rank is the total paid on a contract address, and the contract address is the
-        only thing you control. Everything below exists so that stays true.
+        only thing you control. Everything below exists so that stays true. No edge, no allowlist,
+        no cope — just the number.
       </p>
 
       <Section title="Ranking">
@@ -84,17 +85,24 @@ export default function RulesPage() {
           matches your bid exactly.
         </Rule>
         <Rule>
-          If the amount does not match, the payment is recorded against your bid and is not lost,
-          but it does not land on the board on its own. Getting it applied means writing to us and
-          waiting for a person to do it, so send the exact amount and skip that.
+          If the amount does not match, the payment is recorded against your bid and is not lost —
+          but it does not land on the board on its own, and the transaction is now spent. Getting it
+          applied means writing to us and waiting for a person to do it. Send the exact amount and
+          you never meet any of this.
         </Rule>
         <Rule>
-          A transaction can pay for exactly one bid. Reusing a signature is rejected.
+          <span className="font-bold text-text">
+            A transaction can only be presented once, matched or not.
+          </span>{" "}
+          We record every signature the moment we check it. That is what stops anyone else claiming
+          a payment you made — and it also means a transaction that did not match cannot be
+          submitted again, by you or by them.
         </Rule>
         <Rule>
-          Nothing reaches the board until that check passes. If it fails, the reason is shown and you
-          can paste a different signature while the window is still open. If the window closes, the
-          bid expires and you start again at whatever the price is then.
+          Nothing reaches the board until that check passes. If it fails, the reason is shown, and
+          while the window is still open you can pay again and paste the new transaction — a
+          different one. If the window closes, the bid expires and you start again at whatever the
+          price is then.
         </Rule>
         <Rule>
           <span className="font-bold text-text">
@@ -117,8 +125,8 @@ export default function RulesPage() {
           up — so a rebrand follows the token automatically.
         </Rule>
         <Rule>
-          This means paying into an entry buys you rank and nothing else. Nobody can top up someone
-          else&apos;s token to rewrite its name or repoint its links.
+          This means paying into an entry buys you rank and nothing else. No bidoor can top up
+          someone else&apos;s token to rewrite its name or repoint its links.
         </Rule>
         <Rule>
           <span className="font-bold text-text">

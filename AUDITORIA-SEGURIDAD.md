@@ -1,4 +1,4 @@
-# AUDITORÍA DE SEGURIDAD — BIDTAPE
+# AUDITORÍA DE SEGURIDAD — BIDOOR
 
 **Fecha:** 2026-08-21 · **Commit auditado:** `5a05cbb` · **Alcance:** todo `src/`, esquema SQLite,
 configuración de entorno.
@@ -108,7 +108,7 @@ parte que el cliente controla. Los proxies **agregan** a la derecha; el valor co
 
 **Cómo se explota:**
 
-1. `curl -H 'x-forwarded-for: 1.2.3.4' https://bidtape/api/bid ...`
+1. `curl -H 'x-forwarded-for: 1.2.3.4' https://bidoor/api/bid ...`
 2. Cambiar el valor en cada request. Cada uno cae en un bucket de rate limit distinto.
 3. Los tres techos (`livePendingPerIp`, `createdPerIpPerWindow`, y el propio `hashIp`) quedan sin
    efecto: **el rate limiting es cosmético**.
@@ -147,7 +147,7 @@ lo repunta a un drainer"*. **Ese es exactamente el comportamiento actual vía De
    `pump.fun`, la fila muestra el ✓ de launchpad verificado.
 3. Deja pasar el tiempo, acumula clicks y credibilidad.
 4. Cambia el `website` en DexScreener a un drainer de wallets.
-5. `bidtape.tld/go/<id>` empieza a redirigir ahí. El dominio que aparece en el screenshot que la
+5. `bidoor.tld/go/<id>` empieza a redirigir ahí. El dominio que aparece en el screenshot que la
    gente comparte sigue siendo el nuestro, y la fila sigue con su ✓.
 
 **Fix propuesto.** Congelar el destino del click igual que se congela `launchpadUrl` (snapshot en la
@@ -458,7 +458,7 @@ No es relleno: son controles que verifiqué leyendo el código y que resisten el
 
 No se auditó: dependencias de terceros (`npm audit`), configuración del hosting (cabeceras de
 seguridad, HSTS, CSP — **no hay ninguna configurada**, lo cual amerita su propia revisión), backups y
-cifrado en reposo de `data/bidtape.db` (contiene `ip_hash` y el historial completo de pagos), ni el
+cifrado en reposo de `data/bidoor.db` (contiene `ip_hash` y el historial completo de pagos), ni el
 manejo operativo de la wallet de cobro, que por diseño vive fuera de este proyecto.
 
 ---
@@ -554,7 +554,7 @@ Estas dos no se tocaron en esta remediación y **no deberían pasar a producció
    cualquier inyección futura no tiene contención), `Strict-Transport-Security`,
    `X-Content-Type-Options: nosniff`, `Referrer-Policy` a nivel documento y `Permissions-Policy`.
    Se configuran en `next.config.ts` con `headers()`.
-2. **Cifrado en reposo de `data/bidtape.db`.** La base contiene el historial completo de pagos, las
+2. **Cifrado en reposo de `data/bidoor.db`.** La base contiene el historial completo de pagos, las
    firmas consumidas y los `ip_hash` de los visitantes (con M-6 abierto, esos hashes son
    efectivamente IPs). Hoy es un archivo en disco sin cifrar y sin política de backup ni de
    retención. Definir: dónde vive, quién puede leerlo, cada cuánto se respalda, cómo se restaura y

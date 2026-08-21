@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BIDOOR">
+  <!--
+    The mark: a bid stepping up off a floor.
+
+    A thick chevron rising from a short bar. The bar is the price you have to
+    clear, the chevron is you clearing it — "up only", which is the whole
+    product in one glyph. Deliberately not a crown or a throne: a bidoor is a
+    participant, not a monarch. Two shapes only, so it still reads at 16px.
+  -->
+  <rect width="64" height="64" rx="14" fill="#c4006a"/>
+  <path d="M14 34 L32 16 L50 34" fill="none" stroke="#fffdfa" stroke-width="9"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="18" y="43" width="28" height="7" rx="3.5" fill="#fffdfa" opacity="0.75"/>
+</svg>

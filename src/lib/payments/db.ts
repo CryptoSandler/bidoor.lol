@@ -15,7 +15,7 @@ import { dirname } from "node:path";
 const globalRef = globalThis as unknown as { __paymentsDb?: DatabaseSync };
 
 function databasePath(): string {
-  return process.env.DATABASE_PATH ?? "data/bidtape.db";
+  return process.env.DATABASE_PATH ?? "data/bidoor.db";
 }
 
 export function db(): DatabaseSync {

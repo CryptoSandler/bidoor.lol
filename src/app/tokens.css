@@ -1,5 +1,5 @@
 /* =============================================================================
-   DESIGN TOKENS — the single source of truth for how BIDTAPE looks.
+   DESIGN TOKENS — the single source of truth for how BIDOOR looks.
    =============================================================================
 
    Every colour, type size, space, radius and row height lives here. Components
@@ -30,16 +30,19 @@
      A more saturated persimmon than the reference's softer coral: same warm
      family, clearly not the same brand. Used with discipline — price, rank,
      CTA, links, and nothing else. */
-  --bd-accent: #e8502d;
+  /* Hot magenta against warm cream: loud, closer to how Crypto Twitter actually
+     looks than a soft coral, and it clears AA everywhere it is used — the old
+     persimmon did not (3.68 as 16px bold text on the page background).
+     Green was the obvious "degen" alternative and was rejected: green already
+     means "positive" in this palette, and an accent that collides with a status
+     colour makes both of them mean less. Still exactly one accent. */
+  --bd-accent: #c4006a;
   --bd-accent-ink: #ffffff;
-  --bd-accent-tint: #fdeee9;
-  --bd-accent-line: #f6cdc0;
+  --bd-accent-tint: #fdeaf3;
+  --bd-accent-line: #f3bfd8;
 
-  /* Reserved for rank #1, which the reference does not distinguish. */
-  --bd-gold: #b8860b;
-  --bd-gold-tint: #fdf4e0;
-
-  --bd-positive: #1a8f5a;
+  /* Darkened from #1a8f5a, which was 4.04 on the page background. */
+  --bd-positive: #157a4c;
   --bd-danger: #c62828;
 
   /* --- Type -------------------------------------------------------------- */
@@ -104,12 +107,10 @@
     --bd-text-faint: #857d75;
     --bd-border: #ffffff1a;
     --bd-border-strong: #ffffff2e;
-    --bd-accent: #ff6a42;
+    --bd-accent: #ff5fae;
     --bd-accent-ink: #1a1512;
-    --bd-accent-tint: #2e1d16;
-    --bd-accent-line: #573026;
-    --bd-gold: #e0b34a;
-    --bd-gold-tint: #2b2314;
+    --bd-accent-tint: #2f1322;
+    --bd-accent-line: #5e2440;
     --bd-positive: #4ade80;
     --bd-danger: #ff6568;
     --bd-shadow-card: none;
@@ -125,12 +126,10 @@
   --bd-text-faint: #857d75;
   --bd-border: #ffffff1a;
   --bd-border-strong: #ffffff2e;
-  --bd-accent: #ff6a42;
+  --bd-accent: #ff5fae;
   --bd-accent-ink: #1a1512;
-  --bd-accent-tint: #2e1d16;
-  --bd-accent-line: #573026;
-  --bd-gold: #e0b34a;
-  --bd-gold-tint: #2b2314;
+  --bd-accent-tint: #2f1322;
+  --bd-accent-line: #5e2440;
   --bd-positive: #4ade80;
   --bd-danger: #ff6568;
   --bd-shadow-card: none;

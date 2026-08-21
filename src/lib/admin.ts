@@ -6,7 +6,7 @@ import { adminToken } from "./payments/config";
  * Admin access. One shared secret from the environment, with no default — an
  * admin console that falls back to a known token is worse than no console.
  */
-export const ADMIN_COOKIE = "bidtape_admin";
+export const ADMIN_COOKIE = "bidoor_admin";
 
 export function checkToken(candidate: string): boolean {
   const expected = adminToken();

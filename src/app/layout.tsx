@@ -22,14 +22,14 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   // Needed for the opengraph image to resolve to an absolute URL.
   metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
-  title: "BIDTAPE — pay-to-rank token leaderboard",
+  title: "BIDOOR — pay-to-rank token leaderboard",
   description: DESCRIPTION,
   openGraph: {
-    title: "BIDTAPE — pay-to-rank token leaderboard",
+    title: "BIDOOR — pay-to-rank token leaderboard",
     description: DESCRIPTION,
     type: "website",
   },
-  twitter: { card: "summary_large_image", title: "BIDTAPE", description: DESCRIPTION },
+  twitter: { card: "summary_large_image", title: "BIDOOR", description: DESCRIPTION },
 };
 
 export const viewport: Viewport = {
@@ -45,7 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="shell flex items-center justify-between py-3">
             <Link href="/" className="flex items-baseline gap-2">
               <span className="text-lg font-bold tracking-tight">
-                BID<span className="text-accent">TAPE</span>
+                BID<span className="text-accent">OOR</span>
               </span>
             </Link>
             <nav className="flex items-center gap-4 text-sm text-muted sm:gap-5">
@@ -70,7 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="mt-10 border-t border-line py-6">
           <div className="shell text-xs leading-relaxed text-faint">
             <p className="max-w-xl">
-              BIDTAPE ranks tokens by how much has been paid for the spot. Nothing on this board is
+              BIDOOR ranks tokens by how much has been paid for the spot. Nothing on this board is
               an endorsement, an audit, or financial advice. Token names, logos and links are read
               from DexScreener. Do your own research before you touch any token listed here.
             </p>

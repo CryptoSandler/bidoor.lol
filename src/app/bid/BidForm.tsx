@@ -233,8 +233,9 @@ export function BidForm({
       </Field>
 
       <p className="rounded-sm border border-line bg-surface-2 px-3 py-2.5 text-xs leading-relaxed text-faint">
-        The next screen shows where to send USDC on Solana. Your rank only appears once that
-        transfer is confirmed on-chain. Bids are final and non-refundable.
+        The next screen shows where to send USDC on Solana, and the exact amount to send. Your rank
+        only appears once that transfer is confirmed on-chain. Send the exact amount: a transaction
+        can only be checked once. Bids are final and non-refundable.
       </p>
 
       <button

@@ -32,9 +32,9 @@ export function HeroSearch() {
       />
       <button
         type="submit"
-        className="rounded-pill bg-accent px-6 py-2.5 text-sm font-bold sm:py-3 text-accent-ink transition-opacity hover:opacity-90"
+        className="rounded-pill bg-accent px-6 py-2.5 text-sm font-bold whitespace-nowrap sm:py-3 text-accent-ink transition-opacity hover:opacity-90"
       >
-        Outbid
+        Become the top bidoor
       </button>
     </form>
   );

@@ -18,8 +18,6 @@
   --color-accent-ink: var(--bd-accent-ink);
   --color-accent-tint: var(--bd-accent-tint);
   --color-accent-line: var(--bd-accent-line);
-  --color-gold: var(--bd-gold);
-  --color-gold-tint: var(--bd-gold-tint);
   --color-positive: var(--bd-positive);
   --color-danger: var(--bd-danger);
 
@@ -88,10 +86,16 @@ body {
   border-radius: var(--bd-radius-sm);
 }
 
-input,
-select,
-textarea,
-button {
-  font: inherit;
-  color: inherit;
+/* Layered on purpose. Unlayered CSS outranks Tailwind's utility layer, so a
+   bare `button { color: inherit }` silently beat every text-* utility — which
+   is why the accent buttons were rendering body-coloured text on the accent
+   instead of their ink colour. */
+@layer base {
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
 }

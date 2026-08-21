@@ -1,6 +1,6 @@
-# BIDTAPE
+# BIDOOR
 
-A pay-to-rank leaderboard for crypto tokens. One board, eight chains, one number that decides
+A pay-to-rank leaderboard for crypto tokens. A *bidoor* is someone who bids. One board, eight chains, one number that decides
 everything: the total paid on a contract address.
 
 The board seed is demo data. Payments are real: bids settle against USDC transfers on Solana.

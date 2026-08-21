@@ -222,7 +222,8 @@ export async function verifyPayment(params: {
       message:
         `That transaction sent exactly ${formatUsdc(received)} USDC, but this bid must be paid with ` +
         `exactly ${formatUsdc(required)} — the amount is how we match a payment to a bid. ` +
-        `Your ${formatUsdc(received)} is recorded against this bid and is not lost.`,
+        `Your ${formatUsdc(received)} is recorded against this bid and is not lost, but this ` +
+        `transaction is now spent and cannot be submitted again.`,
       receivedBaseUnits: received,
     };
   }

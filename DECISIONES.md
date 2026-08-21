@@ -14,7 +14,7 @@ discutirlas una por una.
 
 | # | Decisión | Por qué | Dónde |
 |---|---|---|---|
-| 1 | **Nombre de producto: BIDTAPE** | Pediste identidad propia. "Tape" es jerga de trading para el feed de precios, y el producto es literalmente un ticker de plata. No arrastra la marca de ellos. | `src/app/layout.tsx` |
+| 1 | **Nombre de producto: BIDOOR** | Pediste identidad propia. "Tape" es jerga de trading para el feed de precios, y el producto es literalmente un ticker de plata. No arrastra la marca de ellos. | `src/app/layout.tsx` |
 | 2 | **Botón de puja por fila, con el precio impreso** | Lo mejor del diseño original (ver REFERENCIA §3). Convierte "¿cuánto pago?" en "¿pago esto?". Es lo que le da valor comercial a la cola larga de la lista. | `src/components/BoardRow.tsx` |
 | 3 | **El hero es el precio del #1, no un slogan** | El sitio tiene que leerse como un mercado en 2 segundos, sobre todo en screenshot. | `src/app/page.tsx` |
 | 4 | **Tomar el #1 cuesta +$5; cualquier otro puesto +$1** | Sin margen extra, la posición más valiosa del board es la más barata de disputar y el #1 rota todo el día por un dólar. | `src/lib/config.ts` |
@@ -574,4 +574,30 @@ Cierra las promesas que el producto ya hacía y aplica las decisiones que tomast
 Se acepta porque el login mete fricción justo antes de pagar, que es exactamente donde menos se la
 banca un producto de compra impulsiva. **Se revisa** si aparecen disputas reales o si alguna vez
 guardamos algo que valga más que un puesto en un ranking.
+
+---
+
+## 14. Tanda 8 — rebrand a BIDOOR
+
+El producto se llama **BIDOOR** (bidoor.lol). "-oor" es jerga de Crypto Twitter para "el que hace X",
+así que el usuario **es** un bidoor. La línea de realeza queda anulada: un bidoor participa, no reina.
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 65 | **CTA del hero: "Become the top bidoor"** | Consideré tres: *"Outbid the board"* (más preciso como acción, pero "outbid" es el verbo de la referencia y no deja caer la marca), *"Take #1"* (más corto pero redundante con el precio que está justo arriba), y la elegida. Gana porque el precio de 60px sigue siendo el protagonista y el botón es el momento donde la marca tiene que aterrizar. |
+| 66 | **Acento magenta `#c4006a` / `#ff5fae`** | Contra el crema cálido es fuerte y se parece más a cómo se ve Crypto Twitter que un coral suave. Y pasa AA en todos los usos, cosa que **el persimmon no hacía**: 3.68 como texto bold de 16px sobre el fondo. |
+| 67 | **Verde ácido descartado pese a ser el más "degen"** | El verde ya significa "positivo" en esta paleta. Un acento que colisiona con un color de estado hace que los dos signifiquen menos. |
+| 68 | **Se eliminó el dorado del #1: un solo acento de verdad** | Sobre una card teñida de magenta, cualquier dorado que pase AA se va a oliva y se lee como un error. El líder se marca por **tamaño** (`text-xl` contra `text-lg`), que además es una señal más fuerte que el tono. Los tokens `--bd-gold*` se borraron en vez de quedar sin usar. |
+| 69 | **Favicon: un chevron subiendo desde una barra** | La barra es el precio a superar, el chevron sos vos superándolo — "up only", que es el producto entero en un glifo. Dos formas, así que sigue leyéndose a 16px. SVG propio, nada de corona. |
+
+### Dos fallos de accesibilidad preexistentes que aparecieron al medir
+
+No los causó el rebrand; los encontré calculando contrastes y los arreglé:
+
+1. **El texto de los botones de acento no era el color de tinta.** `button { color: inherit }` estaba
+   **fuera de capa** en `globals.css`, y el CSS sin capa le gana a la capa de utilidades de Tailwind.
+   Resultado: desde la tanda de diseño, el CTA y el pill "Bid" servían texto `#282624` sobre el
+   acento — **2.55:1**. Movido a `@layer base`; ahora es 5.91:1.
+2. **Dorado y verde positivo fallaban en tema claro** (3.21 y 4.04 sobre el fondo). El dorado
+   desapareció con la decisión #68; el positivo se oscureció a `#157a4c` (5.28).
 

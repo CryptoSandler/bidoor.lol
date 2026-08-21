@@ -11,7 +11,7 @@ import { formatUsdc } from "@/lib/payments/solana";
 import { listRanked } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Admin — BIDTAPE", robots: { index: false, follow: false } };
+export const metadata = { title: "Admin — BIDOOR", robots: { index: false, follow: false } };
 
 export default async function AdminPage({
   searchParams,

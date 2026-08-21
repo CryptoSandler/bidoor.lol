@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PaymentPanel } from "./PaymentPanel";
 import { getChain } from "@/lib/chains";
 import { usd } from "@/lib/format";
-import { PAYMENT_WINDOW_MINUTES, paymentWallet } from "@/lib/payments/config";
+import { PAYMENT_WINDOW_MINUTES, paymentWallet, supportContact } from "@/lib/payments/config";
 import { formatUsdc } from "@/lib/payments/solana";
 import { getPendingBid } from "@/lib/payments/pending";
 
@@ -15,6 +15,7 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
   if (!bid) notFound();
 
   const wallet = paymentWallet();
+  const support = supportContact();
   const chain = getChain(bid.chainId);
 
   return (
@@ -54,6 +55,28 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
         </Cell>
       </dl>
 
+      <div className="mt-4 rounded-card border border-accent-line bg-accent-tint px-3.5 py-3 text-xs leading-relaxed">
+        <p className="font-bold text-text">Read this before you send anything.</p>
+        <p className="mt-1.5 text-muted">
+          A transaction can only be checked <span className="font-bold text-text">once</span>. We
+          record every signature the moment we look at it, whether or not it matched — that is what
+          stops somebody else claiming your payment. So if you send the wrong amount, you cannot fix
+          it by pasting the same transaction again.
+        </p>
+        <p className="mt-1.5 text-muted">
+          Your money is not lost if that happens: the payment is recorded against this bid. But
+          getting it applied means{" "}
+          {support ? (
+            <>
+              contacting <span className="font-bold text-text">{support}</span>
+            </>
+          ) : (
+            "contacting support"
+          )}{" "}
+          and waiting for a person, not retrying. Send the exact amount and skip all of that.
+        </p>
+      </div>
+
       <PaymentPanel
         id={bid.id}
         status={bid.status}
@@ -73,9 +96,8 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
           moved on and you will need to start a new one.
         </p>
         <p>
-          Send only USDC on Solana, from a wallet you control. Anything else — a different token, a
-          different chain, an exchange withdrawal that arrives from an address we cannot match — will
-          not be credited and cannot be recovered.
+          Send only USDC on Solana, from a wallet you control. A different token, a different chain,
+          or an exchange withdrawal we cannot match will not be credited.
         </p>
       </div>
     </div>

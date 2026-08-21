@@ -38,7 +38,7 @@ export default async function LeaderboardPage({
       <div className="flex justify-center">
         <p className="money inline-flex items-center gap-2 rounded-pill bg-surface-2 px-3.5 py-1.5 text-xs text-muted">
           <span aria-hidden className="h-1.5 w-1.5 rounded-pill bg-positive" />
-          {allEntries.length} tokens listed
+          {allEntries.length} tokens on the board
           <span aria-hidden>·</span>
           {usdCompact(potUsd)} bid to date
         </p>
@@ -55,15 +55,15 @@ export default async function LeaderboardPage({
         </h1>
         <p className="mx-auto mt-2.5 max-w-xl text-xs leading-relaxed text-muted text-balance sm:mt-3 sm:text-sm">
           <span className="text-accent">New listings start at {usd(BOARD.minBidUsd)}.</span> Paying
-          less than #1 still puts you on the board, at whatever rank your total buys. Every chain
-          competes in one list.
+          less than #1 still puts you on the board, at whatever rank your total buys. Every chain in
+          one list, every bidoor in the same queue.
         </p>
 
         <div className="mx-auto max-w-xl">
           <HeroSearch />
           <p className="mt-2 text-2xs text-faint sm:text-xs">
-            Already listed? Bidding on the same contract adds to its total — it never creates a
-            second row.
+            Already on the board? Bidding on the same contract adds to its total — it never creates
+            a second row.
           </p>
         </div>
       </section>

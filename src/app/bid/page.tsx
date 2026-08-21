@@ -37,8 +37,8 @@ export default async function BidPage({
       <h1 className="mt-3 text-2xl font-bold tracking-tight">Put a token on the board</h1>
       <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
         Any token tradeable on DexScreener can be listed. All you need is the contract address and
-        its chain — the name, ticker, logo and socials are read from DexScreener, so nobody can buy
-        their way into editing what an entry says.
+        its chain — the name, ticker, logo and socials are read from DexScreener, so no bidoor can
+        buy their way into editing what an entry says.
       </p>
 
       {target && (

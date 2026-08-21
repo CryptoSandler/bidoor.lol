@@ -91,7 +91,10 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         <span
-          className={`money font-bold ${isLeader ? "text-gold" : "text-accent"} ${isPodium ? "text-lg" : "text-base"}`}
+          // One accent, no second colour for #1: on a magenta-tinted card any
+          // AA-legible gold goes olive and reads as a mistake. The leader is
+          // marked by size instead, which is a stronger signal than hue anyway.
+          className={`money font-bold text-accent ${isLeader ? "text-xl" : isPodium ? "text-lg" : "text-base"}`}
           title={usd(entry.totalUsd)}
         >
           {usdCompact(entry.totalUsd)}

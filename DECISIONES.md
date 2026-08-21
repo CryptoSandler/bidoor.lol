@@ -52,9 +52,10 @@ Lo mismo, en menor grado: no verifico el checksum EIP-55 de las EVM (requiere ke
 dependencia) ni el base58check de TRON. Ambos son baratos de agregar; la truncación de Solana no se
 arregla con nada que no sea consultar la chain.
 
-> **Recomendación:** antes de conectar pagos, un lookup contra un indexer/RPC por chain que
-> confirme que la address es un token existente y traiga nombre, ticker, supply y logo. Convierte
-> tres campos manuales en uno solo y elimina toda una clase de errores y de spam.
+> **RESUELTO.** Se implementó exactamente eso: `src/lib/dexscreener.ts` resuelve la address contra
+> la API pública de DexScreener antes de aceptar la puja. Si ningún DEX la conoce, se rechaza con
+> "Token not found on any DEX". El test que documentaba el límite sigue ahí a propósito, para dejar
+> constancia de por qué la validación de formato **sola** nunca alcanzó.
 
 ### 2.2 El allowlist de launchpads es la regla más frágil que tenemos
 
@@ -63,9 +64,15 @@ implementé, pero descansa en una lista que **envejece sola**. Sale un launchpad
 todos los meses. Cada vez que eso pasa, el producto rechaza pujas legítimas y el que puja no
 entiende por qué.
 
-Peor: **Robinhood Chain no tiene un ecosistema de launchpads establecido.** Puse `robinhood.com`
-como placeholder y lo marqué como provisional en el código. Hoy esa chain es, en la práctica,
-imposible de usar. Hay que decidir qué hacemos ahí antes de lanzar.
+Sobre **Robinhood Chain**: se verificaron los dominios candidatos uno por uno. `hood.fun` está vivo
+y es un launchpad de memecoins real en esa chain — quedó en el allowlist. "RobinPad" **no** entró:
+el nombre lo usan al menos tres productos distintos y ninguno tiene un dominio oficial verificable
+(`robinpad.xyz` se autodescribe "demo software" con cero lanzamientos; `rpad.fun` no tiene contenido
+verificable; `robinpad.fi` devuelve HTTP 402, probablemente parkeado). Los candidatos quedaron
+documentados en `chains.ts` para que agregarlo sea una línea cuando producto confirme cuál es.
+
+> Meter un dominio sin verificar en una lista que el producto presenta como "launchpads oficiales"
+> es exactamente el daño que la regla existe para evitar.
 
 > **Recomendación:** que el allowlist sea configuración editable por ops (no un deploy), con una
 > vía de escape explícita: "¿lanzaste en otro lado? Mandanos el link" y revisión manual. Ya está el
@@ -79,11 +86,10 @@ tiene consecuencias que hay que aceptar explícitamente:
 
 - Un competidor puede listar tu token con links a un sitio que no controlás.
 - Un scammer puede listar un token legítimo con su propio link de "sitio oficial".
-- El top-up refresca la metadata (decisión #6), así que **el que paga último controla el nombre y
-  los links de la entrada.** Es coherente pero es un vector: puedo pagar $1 sobre una entrada ajena
-  y cambiarle el website.
+- ~~El top-up refresca la metadata, así que el que paga último controla el nombre y los links.~~
+  **Corregido:** la metadata ya no la escribe nadie que pague. Ver §4.1.
 
-**Esto último lo considero un bug de diseño, no una feature.** Ver §4.1.
+**Esto último era un bug de diseño, y está corregido.** Ver §4.1.
 
 ---
 
@@ -128,14 +134,23 @@ En orden de importancia.
 
 ### 4.1 Abuso de la mecánica de puja
 
-**Secuestro de metadata por $1 (el más grave).** Como el top-up refresca nombre y links, y el
-mínimo de top-up es $1, cualquiera puede pagar $1 sobre la entrada #1 y cambiarle el sitio oficial
-a uno propio. El que pagó $8.000 pierde el control de su fila por un dólar.
+**Secuestro de metadata por $1 — RESUELTO.** Era el riesgo más grave: como el top-up refrescaba
+nombre y links y el mínimo era $1, cualquiera podía pagar un dólar sobre la entrada #1 y cambiarle
+el sitio oficial.
 
-> **Fix propuesto:** que el top-up sume al total siempre, pero que **solo pueda editar la metadata
-> quien acumuló la mayoría del total** de esa entrada (o el que la creó). Alternativa más simple:
-> la metadata se congela después de la primera puja y solo cambia por soporte. Hay que decidirlo
-> antes de pagos.
+El fix no fue el que había propuesto (permisos por participación), sino uno mejor: **sacarle el
+campo al pagador**. Nombre, ticker, logo y sociales se leen de DexScreener por contract address y se
+refrescan de esa misma fuente en cada top-up. No hay nada que secuestrar porque no hay nada que
+escribir. Como efecto lateral, un rebrand del token sigue a la entrada solo.
+
+El único campo que el pagador aporta es el **link de launchpad**, y se congela con la primera puja:
+los top-ups no lo tocan. Hay test que lo prueba (`store.test.ts`, "freezes the launchpad link").
+
+**El riesgo que queda, desplazado un nivel.** DexScreener refleja lo que está on-chain, y cualquiera
+puede deployar un token con el nombre y el logo que quiera. Sacamos el control de manos del
+*pujador*, no del *deployer*. Un token puede llamarse igual que otro y usar su logo — el dedupe por
+contrato hace que sean filas distintas, pero visualmente se puede suplantar. Es el mismo problema
+que tiene cualquier DEX y no lo resuelve nadie sin una lista curada de tokens verificados.
 
 **Guerra de centavos en el #1.** Mitigado con el margen de $5, pero $5 sobre un board de $10.000 no
 es margen. Debería ser **porcentual** (ej. +2% del líder, con piso de $5), no un monto fijo.
@@ -175,6 +190,11 @@ pierde plata.
 
 ### 4.4 Edge cases que ya están cubiertos (con test)
 
+- Address que no existe en ningún DEX → rechazada, no se crea entrada.
+- DexScreener caído → la puja falla explícita; nunca se crea una fila sin nombre.
+- Top-up que intenta repuntar el link de launchpad → ignorado, se conserva el original.
+- Token consultado que aparece solo como `quoteToken` → rechazado en vez de listar el token errado.
+
 - Address EVM enviada como Solana, y al revés → rechazado.
 - La misma address en dos chains → dos entradas distintas.
 - Misma address EVM en distinto casing → una sola entrada.
@@ -188,8 +208,19 @@ pierde plata.
 
 ### 4.5 Edge cases NO cubiertos
 
-- Truncación de un carácter en Solana (§2.1).
-- Checksum EIP-55 y base58check de TRON.
+- ~~Truncación de un carácter en Solana~~ — ya no importa: si la address no existe, DexScreener no
+  la conoce y la puja se rechaza. La verificación de existencia dejó obsoleto el problema.
+- Checksum EIP-55 y base58check de TRON (siguen sin verificarse, y siguen sin importar por lo mismo).
+- **Nuevo, encontrado construyendo:** DexScreener devuelve *pares*, y el token consultado no siempre
+  es el `baseToken` del par. Consultando WHYPE, el par que vuelve tiene USDC como base. Leer
+  `baseToken` a ciegas listaba el token equivocado con nombre y logo ajenos. Se filtra por chain
+  **y** por coincidencia de `baseToken.address`. Hay test.
+- **Nuevo:** el chain id de DexScreener no es el nuestro. Hyperliquid es `hyperevm` y BNB es `bsc`.
+  Equivocarse ahí no da error: devuelve vacío para siempre. Hay test que lo fija.
+- **Nuevo:** los `imageUrl` del CDN de DexScreener *necesitan* su query string (traen el sizing), así
+  que el logo no puede pasar por el normalizador que strippea params. Va por una validación aparte
+  que además solo acepta el CDN de DexScreener, para no servirle a nuestros visitantes una imagen
+  desde un dominio de un tercero.
 - Homoglyphs / Unicode en el nombre del token (se puede escribir un nombre que se ve idéntico a
   otro). El dedupe por contrato lo hace menos grave, pero visualmente se puede suplantar.
 - Nombres con RTL override o zero-width chars.
@@ -209,13 +240,16 @@ Las que bloquean.
    reembolsos dejan de ser automáticos.
 2. **¿Hay reembolsos?** Caso concreto y garantizado: alguien paga con un typo en la address (§2.1).
    ¿Devolvemos? ¿Damos crédito? ¿Nada? Tiene que estar escrito en las reglas antes del primer pago.
-3. **¿Quién controla la metadata de una entrada?** §4.1. Es la decisión más urgente.
+3. ~~**¿Quién controla la metadata de una entrada?**~~ **Respondida:** nadie que pague. La fuente es
+   DexScreener. Queda una pregunta más chica detrás: ¿qué hacemos si DexScreener tiene mal el
+   nombre de un token, o si un proyecto pide corregirlo? Hoy no hay override manual.
 4. **¿Bajamos entradas, y en qué casos?** Si bajamos un token que pagó $10.000 por rug, ¿devolvemos?
    Si no bajamos nada, hay que poder sostenerlo públicamente.
 5. **¿El margen del #1 es fijo o porcentual?** §4.1.
 6. **¿Prendemos decaimiento, y lo anunciamos desde el día uno?** Está construido para soportarlo,
    pero es una promesa que solo se puede hacer una vez.
-7. **¿Qué pasa con Robinhood Chain?** §2.2. Hoy está listada pero es inusable.
+7. ~~**¿Qué pasa con Robinhood Chain?**~~ **Resuelta parcialmente:** soportada con `hood.fun`.
+   Falta decidir si "RobinPad" entra y con qué dominio (§2.2).
 8. **¿Hay cuentas?** Hoy no hay login. Sin identidad no hay "mis entradas", ni recuperación, ni
    forma de resolver una disputa de propiedad. Con login, hay fricción antes de pagar.
 9. **¿Cuál es el precio piso real?** $5 es lo que copiamos de ellos, pensado para productos. Para
@@ -243,3 +277,44 @@ No es una lista de intenciones: esto corre.
 el recibo decía "Moved up from #1" cuando el líder hacía top-up y no se movía; y el formulario
 venía precargado con el precio del #1 aunque entraras por el CTA genérico, lo que lo hacía leer
 como un muro de pago.
+
+---
+
+## 7. Tanda 2 — metadata canónica y rediseño
+
+Decisiones nuevas, mismo criterio que la tabla de §1.
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 17 | **Endpoint chain-scoped de DexScreener primero, cross-chain como fallback** | El cross-chain mezcla chains (PEPE devuelve pares de Ethereum y PulseChain juntos) y no sirve para probar en qué chain vive el token. El scoped sí, pero devuelve un solo par y a veces con nuestro token del lado quote — de ahí el fallback. |
+| 18 | **Los sociales de DexScreener igual pasan por nuestras reglas de links** | DexScreener es fuente confiable de *cuáles* links son de un token, no de si son links que aceptamos. Un social que falla se descarta; nunca tumba la puja. |
+| 19 | **El logo solo se acepta del CDN de DexScreener** | Un `<img>` a un dominio arbitrario es un beacon de tracking sobre todos nuestros visitantes. Si el logo viene de otro lado, se cae al fallback de iniciales. |
+| 20 | **Cache de 60s, y los errores transitorios no se cachean** | Un timeout no debe quedar recordado como "este token no existe". |
+| 21 | **El seed usa addresses reales con snapshot capturado** | El board arranca sin red pero muestra metadata real. `scripts/generate-seed.mts` lo regenera con el mismo resolver que usa el path de puja en vivo. Los montos y clicks son inventados y está dicho en el archivo. |
+| 22 | **Tema claro cálido por defecto** | Es lo que usa la referencia, y era la mitad de la distancia visual. La paleta no tiene un solo gris neutro. |
+| 23 | **DM Sans + Geist Mono** | Son las dos que usa la referencia y **las dos son gratis** (Google Fonts). No hizo falta buscar sustituto. |
+| 24 | **Acento propio: persimmon `#e8502d`, no su coral `#e57255`** | Misma familia cálida, marca distinta. Más el dorado del #1 y el sistema de color por chain, que ellos no tienen porque no tienen chains. |
+| 25 | **Un solo archivo de tokens (`src/app/tokens.css`)** | Ningún color ni tamaño hardcodeado en componentes, ni siquiera las densidades de fila o el ancho del contenedor. El re-skin futuro es editar ese archivo. |
+| 26 | **Clase `.money` en sans, separada de `.num` en mono** | Geist Mono pone la coma en un avance tan ancho que `$8,750` se lee `$8 , 750`. Las cifras de dinero van en DM Sans con `tabular-nums`: alinean igual, sin el bache. |
+
+### Bugs encontrados y corregidos en esta tanda
+
+1. **Badge de chain ausente** — `ChainBadge` devolvía `null` cuando la chain no estaba en el
+   registro, así que la fila quedaba sin badge. Ahora siempre renderiza, cayendo al id crudo, y hay
+   un test que exige que toda entrada del seed pertenezca a una chain ofrecida.
+2. **Contenedor angosto** — estábamos en `42rem`; la referencia usa `56rem`. Era el "espacio muerto
+   a los costados".
+3. **Hero ilegible** — el precio iba en mono y la coma se abría. Corregido con `.money`.
+4. **Nombres truncados a una letra en mobile** — el badge de chain competía por el ancho en la línea
+   del nombre. Se movió a la línea de metadata.
+5. **Top 3 fuera de pantalla en iPhone SE** tras el rediseño: el hero nuevo es más alto. Se compactó
+   con tokens de densidad específicos para pantallas chicas. Vuelve a pasar el chequeo.
+
+### Lo que sigue abierto
+
+- **No hay override manual de metadata.** Si DexScreener tiene mal un nombre, no tenemos cómo
+  corregirlo.
+- **Suplantación por deployer** (§4.1). Necesita lista curada para resolverse de verdad.
+- **Rate limit de DexScreener.** Hay cache de 60s, pero no hay backoff ni cola. Con tráfico real
+  hace falta.
+- **"RobinPad"** sigue sin dominio verificado (§2.2).

@@ -24,6 +24,9 @@ This is a design and mechanics prototype — **mock data, no payments, nothing p
 | Query parameters stripped from every link | `src/lib/links.ts` |
 | Chat/invite links only in their own fields | `src/lib/links.ts` |
 | Same contract = one entry, always | `src/lib/store.ts` |
+| Token must exist on a DEX to be listed | `src/lib/dexscreener.ts` |
+| Name, ticker, logo and socials come from DexScreener, not the bidder | `src/lib/dexscreener.ts` |
+| Launchpad link frozen by the first bid | `src/lib/store.ts` |
 
 ## Running it
 
@@ -37,7 +40,17 @@ npm test             # 60 unit tests
 npm run check:layout # asserts the top 3 fit one phone screen (needs the dev server up)
 npm run build
 npm run lint
+
+npx tsx scripts/generate-seed.mts   # refresh the seed snapshot from DexScreener
 ```
+
+## Design
+
+All styling comes from one file: `src/app/tokens.css`. Colours, type scale, spacing, radii, row
+densities and the container width live there and nowhere else — components consume them through
+Tailwind's `@theme` mapping and never hardcode a value. Re-skinning is editing that file.
+
+`DESIGN.md` records the patterns the current look is based on and what was deliberately changed.
 
 ## Layout
 
@@ -60,4 +73,5 @@ See `DECISIONES.md` for the full analysis of what is missing and what could go w
 ## Documents
 
 - `REFERENCIA.md` — analysis of the reference product's mechanics and rules (Spanish).
+- `DESIGN.md` — design tokens and layout patterns, and what we changed (Spanish).
 - `DECISIONES.md` — design critique, risks, and open product questions (Spanish).

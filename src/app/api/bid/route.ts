@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
+import { getChain } from "@/lib/chains";
+import { fetchTokenMetadata } from "@/lib/dexscreener";
 import { rankEntries } from "@/lib/ranking";
 import { findByContractKey, listRanked, placeBid } from "@/lib/store";
 import { contractKeyFor, validateBid, type BidInput } from "@/lib/validation";
 
 /**
- * No payment step yet: a bid that validates is applied immediately. When a
- * processor is wired in, this handler becomes "create intent" and the entry is
- * only written on a settled webhook — a rank must never exist unpaid.
+ * No payment step yet: a bid that validates and resolves is applied
+ * immediately. When a processor is wired in, this handler becomes "create
+ * intent" and the entry is only written on a settled webhook — a rank must
+ * never exist unpaid.
  */
 export async function POST(request: Request) {
   let body: BidInput;
@@ -29,7 +32,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, errors: result.errors }, { status: 422 });
   }
 
-  const outcome = placeBid(result.value);
+  // Identity comes from DexScreener, never from the payer. This doubles as the
+  // existence check: an address no DEX has seen cannot be listed, which is a
+  // guarantee address-format validation alone can never give.
+  const chain = getChain(result.value.chainId)!;
+  const metadata = await fetchTokenMetadata(chain, result.value.contract);
+  if (!metadata.ok) {
+    return NextResponse.json(
+      { ok: false, errors: { contract: metadata.message } },
+      // "Not found" is the caller's problem; "unavailable" is ours.
+      { status: metadata.kind === "not_found" ? 422 : 503 },
+    );
+  }
+
+  const outcome = placeBid(result.value, metadata.metadata);
 
   return NextResponse.json({
     ok: true,

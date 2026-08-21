@@ -1,9 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChainBadge } from "@/components/ChainBadge";
+import { TokenMark } from "@/components/TokenMark";
 import { CHAINS, type ChainId } from "@/lib/chains";
 import { BOARD } from "@/lib/config";
+import { usd } from "@/lib/format";
 import { contractKeyFor, validateBid, type FieldErrors } from "@/lib/validation";
 
 export type ListingIndex = Record<string, { name: string; rank: number; totalUsd: number }>;
@@ -18,57 +21,89 @@ type Result = {
   strippedParams: string[];
 };
 
-const EMPTY = {
-  chainId: "solana" as ChainId,
-  contract: "",
-  name: "",
-  ticker: "",
-  logoUrl: "",
-  launchpadUrl: "",
-  website: "",
-  x: "",
-  telegram: "",
-  discord: "",
-  amountUsd: "",
-};
+type Preview =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "found"; name: string; ticker: string; logoUrl?: string }
+  | { state: "error"; message: string };
 
 export function BidForm({
   index,
   suggestedAmount,
+  initialAddress,
 }: {
   index: ListingIndex;
   suggestedAmount: number;
+  initialAddress: string;
 }) {
   const router = useRouter();
-  const [form, setForm] = useState({ ...EMPTY, amountUsd: String(suggestedAmount) });
+  const [chainId, setChainId] = useState<ChainId>("solana");
+  const [contract, setContract] = useState(initialAddress);
+  const [launchpadUrl, setLaunchpadUrl] = useState("");
+  const [amountUsd, setAmountUsd] = useState(String(suggestedAmount));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
-  const chain = CHAINS.find((item) => item.id === form.chainId)!;
+  const chain = CHAINS.find((item) => item.id === chainId)!;
 
-  // The same validator the server runs. Sharing it means the inline hints can
-  // never disagree with what the API will actually accept.
   const existing = useMemo(() => {
-    const key = contractKeyFor(form.chainId, form.contract);
+    const key = contractKeyFor(chainId, contract);
     if (!key) return null;
     const listed = index[key] ?? index[key.toLowerCase()];
     return listed ? { contractKey: key, ...listed } : null;
-  }, [form.chainId, form.contract, index]);
+  }, [chainId, contract, index]);
 
   const minimum = existing ? BOARD.minTopUpUsd : BOARD.minBidUsd;
 
-  function set<K extends keyof typeof EMPTY>(field: K, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-    setErrors((prev) => ({ ...prev, [field]: undefined }));
-  }
+  // Resolve the token as they type. Seeing the exact name and logo before
+  // paying matters much more now that these fields cannot be typed by hand.
+  //
+  // Results are cached per lookup key and the preview is *derived* from that
+  // cache rather than pushed into state on every keystroke, so going back to an
+  // address you already typed is instant and needs no request.
+  const lookupKey = useMemo(() => contractKeyFor(chainId, contract), [chainId, contract]);
+  const [resolved, setResolved] = useState<Record<string, Preview>>({});
+  const requested = useRef<Set<string>>(new Set());
+
+  const preview: Preview = lookupKey
+    ? (resolved[lookupKey] ?? { state: "loading" })
+    : { state: "idle" };
+
+  useEffect(() => {
+    if (!lookupKey || requested.current.has(lookupKey)) return;
+
+    const address = contract.trim();
+    const chain = chainId;
+    const timer = setTimeout(async () => {
+      requested.current.add(lookupKey);
+      let next: Preview;
+      try {
+        const response = await fetch(
+          `/api/token?chain=${chain}&address=${encodeURIComponent(address)}`,
+        );
+        const data = await response.json();
+        next = data.ok
+          ? { state: "found", name: data.name, ticker: data.ticker, logoUrl: data.logoUrl }
+          : { state: "error", message: data.message ?? "Token not found." };
+      } catch {
+        // A failed lookup must not stick: let the next keystroke retry it.
+        requested.current.delete(lookupKey);
+        next = { state: "error", message: "Could not reach DexScreener." };
+      }
+      setResolved((prev) => ({ ...prev, [lookupKey]: next }));
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [lookupKey, chainId, contract]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setResult(null);
 
+    const form = { chainId, contract, launchpadUrl, amountUsd };
     const local = validateBid(
-      { ...form, amountUsd: form.amountUsd },
+      form,
       existing ? { contractKey: existing.contractKey, totalUsd: existing.totalUsd } : null,
     );
     if (!local.ok) {
@@ -89,7 +124,9 @@ export function BidForm({
         return;
       }
       setResult(data as Result);
-      setForm({ ...EMPTY, amountUsd: String(BOARD.minBidUsd) });
+      setContract("");
+      setLaunchpadUrl("");
+      setAmountUsd(String(BOARD.minBidUsd));
       router.refresh();
     } catch {
       setErrors({ amountUsd: "Something went wrong. Try again." });
@@ -100,36 +137,36 @@ export function BidForm({
 
   if (result) {
     return (
-      <div className="mt-5 rounded-[6px] border border-line bg-surface p-4">
-        <p className="text-[11px] font-semibold tracking-[0.18em] text-up uppercase">
+      <div className="mt-6 rounded-card border border-line bg-surface p-4">
+        <p className="text-2xs font-bold tracking-widest text-positive uppercase">
           {result.toppedUp ? "Bid added" : "Listed"}
         </p>
-        <p className="num mt-2 text-3xl font-bold text-gold">#{result.rank}</p>
-        <p className="mt-1 text-sm text-muted">
-          <span className="font-semibold text-text">{result.name}</span> is at #{result.rank} with{" "}
-          <span className="num">${result.totalUsd.toLocaleString("en-US")}</span> total.
-          {result.toppedUp && result.previousRank !== null && result.previousRank > result.rank && (
-            <> Moved up from #{result.previousRank}.</>
-          )}
+        <p className="money mt-2 text-4xl font-bold text-accent">#{result.rank}</p>
+        <p className="mt-1.5 text-sm text-muted">
+          <span className="font-bold text-text">{result.name}</span> is at #{result.rank} with{" "}
+          <span className="money">{usd(result.totalUsd)}</span> total.
+          {result.toppedUp &&
+            result.previousRank !== null &&
+            result.previousRank > result.rank && <> Moved up from #{result.previousRank}.</>}
           {result.toppedUp && result.previousRank === result.rank && <> Rank unchanged.</>}
         </p>
         {result.strippedParams.length > 0 && (
-          <p className="mt-2 text-xs text-muted-2">
+          <p className="mt-2 text-xs text-faint">
             Removed {result.strippedParams.length} query parameter
-            {result.strippedParams.length > 1 ? "s" : ""} from your links:{" "}
+            {result.strippedParams.length > 1 ? "s" : ""} from your launchpad link:{" "}
             <span className="num">{result.strippedParams.join(", ")}</span>.
           </p>
         )}
         <div className="mt-4 flex gap-2">
           <button
             onClick={() => router.push("/")}
-            className="rounded-[4px] bg-accent px-3 py-1.5 text-sm font-semibold text-black"
+            className="rounded-pill bg-accent px-4 py-2 text-sm font-bold text-accent-ink"
           >
             See the board
           </button>
           <button
             onClick={() => setResult(null)}
-            className="rounded-[4px] border border-line-bright px-3 py-1.5 text-sm text-muted hover:text-text"
+            className="rounded-pill border border-line-strong px-4 py-2 text-sm text-muted hover:text-text"
           >
             Bid again
           </button>
@@ -139,19 +176,19 @@ export function BidForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-5 space-y-5" noValidate>
+    <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
       <Field label="Chain" hint="Sets which address format and which launchpads are accepted.">
         <div className="flex flex-wrap gap-1.5">
           {CHAINS.map((item) => (
             <button
               key={item.id}
               type="button"
-              onClick={() => set("chainId", item.id)}
-              aria-pressed={form.chainId === item.id}
-              className={`rounded-[3px] border px-2.5 py-1 text-xs font-medium transition-colors ${
-                form.chainId === item.id
-                  ? "border-accent bg-accent-soft text-accent"
-                  : "border-line text-muted hover:border-line-bright hover:text-text"
+              onClick={() => setChainId(item.id)}
+              aria-pressed={chainId === item.id}
+              className={`rounded-pill border px-3 py-1 text-xs font-medium transition-colors ${
+                chainId === item.id
+                  ? "border-accent bg-accent-tint text-accent"
+                  : "border-line text-muted hover:border-line-strong hover:text-text"
               }`}
             >
               {item.name}
@@ -162,130 +199,103 @@ export function BidForm({
 
       <Field label="Contract address" hint={chain.addressHint} error={errors.contract}>
         <input
-          value={form.contract}
-          onChange={(event) => set("contract", event.target.value)}
+          value={contract}
+          onChange={(event) => {
+            setContract(event.target.value);
+            setErrors((prev) => ({ ...prev, contract: undefined }));
+          }}
           placeholder={chain.addressPlaceholder}
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
-          className="num w-full rounded-[4px] border border-line bg-surface px-3 py-2 text-[13px] placeholder:text-muted-2/75"
+          className="num w-full rounded-sm border border-line bg-surface px-3 py-2.5 text-sm placeholder:font-sans placeholder:text-faint"
         />
+
+        {preview.state === "loading" && (
+          <p className="mt-2 text-xs text-faint">Looking this up on DexScreener…</p>
+        )}
+        {preview.state === "error" && (
+          <p className="mt-2 text-xs text-danger">{preview.message}</p>
+        )}
+        {preview.state === "found" && (
+          <div className="mt-2 flex items-center gap-2.5 rounded-sm border border-line bg-surface-2 px-3 py-2">
+            <TokenMark name={preview.name} logoUrl={preview.logoUrl} size="2rem" />
+            <span className="min-w-0">
+              <span className="flex items-center gap-2">
+                <span className="truncate text-sm font-bold">{preview.name}</span>
+                <span className="num text-2xs text-faint">{preview.ticker}</span>
+                <ChainBadge chainId={chainId} />
+              </span>
+              <span className="block text-2xs text-faint">
+                Name, ticker, logo and socials come from DexScreener.
+              </span>
+            </span>
+          </div>
+        )}
+
         {existing && (
-          <p className="mt-1.5 rounded-[3px] border border-gold/25 bg-gold-soft px-2 py-1.5 text-[12px] text-gold">
+          <p className="mt-2 rounded-sm border border-accent-line bg-accent-tint px-3 py-2 text-xs text-accent">
             Already on the board at #{existing.rank} as {existing.name}. Your bid adds to its{" "}
-            <span className="num">${existing.totalUsd.toLocaleString("en-US")}</span> — it will not
-            create a second entry.
+            <span className="money">{usd(existing.totalUsd)}</span> — it will not create a second
+            entry, and it will not change what the entry says.
           </p>
         )}
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Token name" error={errors.name}>
-          <input
-            value={form.name}
-            onChange={(event) => set("name", event.target.value)}
-            placeholder="Hyperfrog"
-            className="w-full rounded-[4px] border border-line bg-surface px-3 py-2 text-sm placeholder:text-muted-2/75"
-          />
-        </Field>
-        <Field label="Ticker" error={errors.ticker}>
-          <input
-            value={form.ticker}
-            onChange={(event) => set("ticker", event.target.value)}
-            placeholder="HFROG"
-            className="num w-full rounded-[4px] border border-line bg-surface px-3 py-2 text-sm uppercase placeholder:text-muted-2/75"
-          />
-        </Field>
-      </div>
-
       <Field
         label="Official launchpad link"
-        hint={`Where this token launched. For ${chain.name}: ${chain.launchpads.join(", ")}.`}
+        hint={
+          existing
+            ? "This entry's launchpad link was frozen by its first bid and will not be changed."
+            : `Where this token launched. For ${chain.name}: ${chain.launchpads.join(", ")}.`
+        }
         error={errors.launchpadUrl}
       >
         <input
-          value={form.launchpadUrl}
-          onChange={(event) => set("launchpadUrl", event.target.value)}
+          value={launchpadUrl}
+          onChange={(event) => {
+            setLaunchpadUrl(event.target.value);
+            setErrors((prev) => ({ ...prev, launchpadUrl: undefined }));
+          }}
           placeholder={`https://${chain.launchpads[0]}/…`}
           spellCheck={false}
-          className="w-full rounded-[4px] border border-line bg-surface px-3 py-2 text-[13px] placeholder:text-muted-2/75"
+          className="w-full rounded-sm border border-line bg-surface px-3 py-2.5 text-sm placeholder:text-faint"
         />
       </Field>
-
-      <fieldset className="space-y-3">
-        <legend className="text-[11px] font-semibold tracking-[0.18em] text-muted-2 uppercase">
-          Socials · optional
-        </legend>
-        <p className="text-[11px] text-muted-2">
-          No shorteners and no link-in-bio pages. Query parameters are stripped from everything you
-          paste.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="X" error={errors.x}>
-            <input
-              value={form.x}
-              onChange={(event) => set("x", event.target.value)}
-              placeholder="@hyperfrogsol"
-              className="w-full rounded-[4px] border border-line bg-surface px-3 py-2 text-[13px] placeholder:text-muted-2/75"
-            />
-          </Field>
-          <Field label="Telegram" error={errors.telegram}>
-            <input
-              value={form.telegram}
-              onChange={(event) => set("telegram", event.target.value)}
-              placeholder="https://t.me/…"
-              className="w-full rounded-[4px] border border-line bg-surface px-3 py-2 text-[13px] placeholder:text-muted-2/75"
-            />
-          </Field>
-          <Field label="Website" error={errors.website}>
-            <input
-              value={form.website}
-              onChange={(event) => set("website", event.target.value)}
-              placeholder="https://…"
-              className="w-full rounded-[4px] border border-line bg-surface px-3 py-2 text-[13px] placeholder:text-muted-2/75"
-            />
-          </Field>
-          <Field label="Discord" error={errors.discord}>
-            <input
-              value={form.discord}
-              onChange={(event) => set("discord", event.target.value)}
-              placeholder="https://discord.gg/…"
-              className="w-full rounded-[4px] border border-line bg-surface px-3 py-2 text-[13px] placeholder:text-muted-2/75"
-            />
-          </Field>
-        </div>
-      </fieldset>
 
       <Field
         label="Amount"
         hint={
           existing
-            ? `Top-ups on a listed token start at $${BOARD.minTopUpUsd}.`
-            : `New listings start at $${BOARD.minBidUsd}. Whole dollars only.`
+            ? `Top-ups on a listed token start at ${usd(BOARD.minTopUpUsd)}.`
+            : `New listings start at ${usd(BOARD.minBidUsd)}. Whole dollars only.`
         }
         error={errors.amountUsd}
       >
         <div className="flex items-center gap-2">
-          <span className="num text-lg text-muted-2">$</span>
+          <span className="money text-lg text-faint">$</span>
           <input
-            value={form.amountUsd}
-            onChange={(event) => set("amountUsd", event.target.value)}
+            value={amountUsd}
+            onChange={(event) => {
+              setAmountUsd(event.target.value);
+              setErrors((prev) => ({ ...prev, amountUsd: undefined }));
+            }}
             inputMode="numeric"
             placeholder={String(minimum)}
-            className="num w-40 rounded-[4px] border border-line bg-surface px-3 py-2 text-lg font-semibold"
+            className="money w-40 rounded-sm border border-line bg-surface px-3 py-2.5 text-lg font-bold"
           />
         </div>
       </Field>
 
-      <div className="rounded-[4px] border border-line bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted-2">
+      <p className="rounded-sm border border-line bg-surface-2 px-3 py-2.5 text-xs leading-relaxed text-faint">
         Demo build: no payment is taken and no rank is real. In production the rank is only granted
         once a payment settles.
-      </div>
+      </p>
 
       <button
         type="submit"
         disabled={submitting}
-        className="w-full rounded-[4px] bg-accent py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="w-full rounded-pill bg-accent py-3 text-sm font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         {submitting ? "Placing…" : existing ? "Add to this token's total" : "Place bid"}
       </button>
@@ -306,14 +316,12 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-[11px] font-semibold tracking-[0.18em] text-muted-2 uppercase">
-        {label}
-      </span>
+      <span className="text-2xs font-bold tracking-widest text-faint uppercase">{label}</span>
       <div className="mt-1.5">{children}</div>
       {error ? (
-        <p className="mt-1 text-[12px] text-danger">{error}</p>
+        <p className="mt-1.5 text-xs text-danger">{error}</p>
       ) : hint ? (
-        <p className="mt-1 text-[11px] leading-snug text-muted-2">{hint}</p>
+        <p className="mt-1.5 text-xs leading-snug text-faint">{hint}</p>
       ) : null}
     </label>
   );

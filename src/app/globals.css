@@ -1,90 +1,97 @@
 @import "tailwindcss";
+@import "./tokens.css";
 
 /*
-  BIDTAPE — dark, dense, built to be screenshotted.
-  Money is always mono and tabular so columns of numbers line up and never
-  reflow as the board updates.
+  Base styles only. Every value below refers to a token — see tokens.css.
+  Nothing in this file, or in any component, may hardcode a colour or a size.
 */
-:root {
-  --bg: #08090b;
-  --surface: #101216;
-  --surface-2: #16181e;
-  --border: #23262e;
-  --border-bright: #333846;
-  --text: #edeff3;
-  --muted: #8b919d;
-  --muted-2: #616774;
-  --accent: #ff5c1a;
-  --accent-soft: #2a1409;
-  --gold: #f7c948;
-  --gold-soft: #2a2210;
-  --up: #4ade80;
-  --danger: #ff6b6b;
-}
-
 @theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-line: var(--border);
-  --color-line-bright: var(--border-bright);
-  --color-text: var(--text);
-  --color-muted: var(--muted);
-  --color-muted-2: var(--muted-2);
-  --color-accent: var(--accent);
-  --color-accent-soft: var(--accent-soft);
-  --color-gold: var(--gold);
-  --color-gold-soft: var(--gold-soft);
-  --color-up: var(--up);
-  --color-danger: var(--danger);
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --color-bg: var(--bd-bg);
+  --color-surface: var(--bd-surface);
+  --color-surface-2: var(--bd-surface-2);
+  --color-text: var(--bd-text);
+  --color-muted: var(--bd-text-muted);
+  --color-faint: var(--bd-text-faint);
+  --color-line: var(--bd-border);
+  --color-line-strong: var(--bd-border-strong);
+  --color-accent: var(--bd-accent);
+  --color-accent-ink: var(--bd-accent-ink);
+  --color-accent-tint: var(--bd-accent-tint);
+  --color-accent-line: var(--bd-accent-line);
+  --color-gold: var(--bd-gold);
+  --color-gold-tint: var(--bd-gold-tint);
+  --color-positive: var(--bd-positive);
+  --color-danger: var(--bd-danger);
+
+  --font-sans: var(--bd-font-sans);
+  --font-mono: var(--bd-font-mono);
+
+  --text-2xs: var(--bd-text-2xs);
+  --text-xs: var(--bd-text-xs);
+  --text-sm: var(--bd-text-sm);
+  --text-base: var(--bd-text-base);
+  --text-lg: var(--bd-text-lg);
+  --text-xl: var(--bd-text-xl);
+  --text-2xl: var(--bd-text-2xl);
+  --text-4xl: var(--bd-text-4xl);
+  --text-6xl: var(--bd-text-6xl);
+
+  --radius-card: var(--bd-radius);
+  --radius-sm: var(--bd-radius-sm);
+  --radius-pill: var(--bd-radius-pill);
 }
 
 html {
-  background: var(--bg);
+  background: var(--bd-bg);
   -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-feature-settings: "cv01", "ss01";
+  background: var(--bd-bg);
+  color: var(--bd-text);
+  font-family: var(--bd-font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Money, ranks and counters: fixed-width digits, no jitter. */
+/* Addresses, tickers and counters: monospaced, so they read as machine data. */
 .num {
-  font-family: var(--font-mono);
+  font-family: var(--bd-font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
 
+/* Money. Tabular figures keep the column aligned and stop the number reflowing
+   as the board updates, but the sans face is used deliberately: at display
+   sizes the mono comma sits in such a wide advance that "$8,750" reads as
+   "$8 , 750". */
+.money {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* The centred column. One place decides how wide the site is. */
+.shell {
+  width: 100%;
+  max-width: var(--bd-container);
+  margin-inline: auto;
+  padding-inline: var(--bd-gutter);
+}
+
 ::selection {
-  background: var(--accent);
-  color: #000;
+  background: var(--bd-accent);
+  color: var(--bd-accent-ink);
 }
 
 *:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--bd-accent);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: var(--bd-radius-sm);
 }
 
 input,
 select,
-textarea {
+textarea,
+button {
   font: inherit;
   color: inherit;
-}
-
-/* The board's own scan-line texture, used behind the hero. */
-.tape {
-  background-image: repeating-linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--border) 45%, transparent) 0 1px,
-    transparent 1px 11px
-  );
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 78%);
-  mask-image: linear-gradient(180deg, #000 0%, transparent 78%);
 }

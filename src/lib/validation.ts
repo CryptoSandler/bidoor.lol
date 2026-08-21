@@ -1,21 +1,18 @@
 import { checkAddress } from "./addresses";
 import { getChain, isChainId, type Chain } from "./chains";
-import { BOARD, MAX_NAME_LENGTH, MAX_TICKER_LENGTH } from "./config";
-import { hostMatches, normalizeLink, normalizeXHandle } from "./links";
+import { BOARD } from "./config";
+import { hostMatches, normalizeLink } from "./links";
 import { minimumBidFor } from "./ranking";
-import type { EntryLinks } from "./types";
 
+/**
+ * What a bidder actually supplies. Name, ticker, logo and socials are not here
+ * on purpose: they are read from DexScreener (see dexscreener.ts) so that
+ * paying for a rank never grants control over what the entry says.
+ */
 export type BidInput = {
   chainId: string;
   contract: string;
-  name: string;
-  ticker: string;
-  logoUrl?: string;
   launchpadUrl: string;
-  website?: string;
-  x?: string;
-  telegram?: string;
-  discord?: string;
   amountUsd: number | string;
 };
 
@@ -23,14 +20,10 @@ export type NormalizedBid = {
   chainId: Chain["id"];
   contract: string;
   contractKey: string;
-  name: string;
-  ticker: string;
-  logoUrl?: string;
   launchpadUrl: string;
   launchpadHost: string;
-  links: EntryLinks;
   amountUsd: number;
-  /** Params we removed from submitted links, so the UI can say so out loud. */
+  /** Params we removed from the launchpad link, so the UI can say so out loud. */
   strippedParams: string[];
 };
 
@@ -53,11 +46,16 @@ export function contractKeyFor(chainId: string, contract: string): string | null
   return `${chain.id}:${checked.canonical}`;
 }
 
+/**
+ * Shape validation only — everything here is synchronous and runs identically
+ * in the browser and on the server. Proving the token exists is a separate,
+ * asynchronous step; this just makes sure it is worth asking.
+ */
 export function validateBid(input: BidInput, existing: ExistingEntry): ValidationResult {
   const errors: FieldErrors = {};
   const strippedParams: string[] = [];
 
-  if (!isChainId(input.chainId)) {
+  if (!isChainId(input.chainId) || !getChain(input.chainId)) {
     return { ok: false, errors: { chainId: "Pick a chain." } };
   }
   const chain = getChain(input.chainId)!;
@@ -66,19 +64,6 @@ export function validateBid(input: BidInput, existing: ExistingEntry): Validatio
   const address = checkAddress(chain.family, input.contract ?? "");
   if (!address.ok) {
     errors.contract = `${address.reason} You selected ${chain.name}.`;
-  }
-
-  // --- Name and ticker ----------------------------------------------------
-  const name = (input.name ?? "").trim();
-  if (!name) errors.name = "Enter the token name.";
-  else if (name.length > MAX_NAME_LENGTH) {
-    errors.name = `Keep the name to ${MAX_NAME_LENGTH} characters or fewer.`;
-  }
-
-  const ticker = (input.ticker ?? "").trim().replace(/^\$/, "").toUpperCase();
-  if (!ticker) errors.ticker = "Enter the ticker.";
-  else if (!/^[A-Z0-9]{1,12}$/.test(ticker)) {
-    errors.ticker = `Tickers are letters and numbers, up to ${MAX_TICKER_LENGTH} characters.`;
   }
 
   // --- Launchpad link: must be a real launchpad for THIS chain -------------
@@ -95,60 +80,9 @@ export function validateBid(input: BidInput, existing: ExistingEntry): Validatio
     strippedParams.push(...launchpad.strippedParams);
   }
 
-  // --- Optional links -----------------------------------------------------
-  const links: EntryLinks = {};
-
-  if (input.website?.trim()) {
-    const website = normalizeLink(input.website, "website");
-    if (!website.ok) errors.website = website.reason;
-    else {
-      links.website = website.url;
-      strippedParams.push(...website.strippedParams);
-    }
-  }
-
-  if (input.x?.trim()) {
-    const x = normalizeXHandle(input.x);
-    if (!x.ok) errors.x = x.reason;
-    else {
-      links.x = x.url;
-      strippedParams.push(...x.strippedParams);
-    }
-  }
-
-  if (input.telegram?.trim()) {
-    const telegram = normalizeLink(input.telegram, "telegram");
-    if (!telegram.ok) errors.telegram = telegram.reason;
-    else if (!hostMatches(telegram.host, "t.me")) {
-      errors.telegram = "Use a t.me link for Telegram.";
-    } else {
-      links.telegram = telegram.url;
-      strippedParams.push(...telegram.strippedParams);
-    }
-  }
-
-  if (input.discord?.trim()) {
-    const discord = normalizeLink(input.discord, "discord");
-    if (!discord.ok) errors.discord = discord.reason;
-    else if (!hostMatches(discord.host, "discord.gg") && !hostMatches(discord.host, "discord.com")) {
-      errors.discord = "Use a discord.gg invite link.";
-    } else {
-      links.discord = discord.url;
-      strippedParams.push(...discord.strippedParams);
-    }
-  }
-
-  let logoUrl: string | undefined;
-  if (input.logoUrl?.trim()) {
-    const logo = normalizeLink(input.logoUrl, "website");
-    if (!logo.ok) errors.logoUrl = logo.reason;
-    else logoUrl = logo.url;
-  }
-
   // --- Amount -------------------------------------------------------------
-  const amountUsd = typeof input.amountUsd === "string"
-    ? Number(input.amountUsd.trim())
-    : input.amountUsd;
+  const amountUsd =
+    typeof input.amountUsd === "string" ? Number(input.amountUsd.trim()) : input.amountUsd;
 
   const minimum = minimumBidFor(existing ? existing.totalUsd : null);
 
@@ -172,12 +106,8 @@ export function validateBid(input: BidInput, existing: ExistingEntry): Validatio
       chainId: chain.id,
       contract: address.ok ? address.display : "",
       contractKey: `${chain.id}:${address.ok ? address.canonical : ""}`,
-      name,
-      ticker,
-      logoUrl,
       launchpadUrl,
       launchpadHost,
-      links,
       amountUsd: amountUsd as number,
       strippedParams: [...new Set(strippedParams)],
     },

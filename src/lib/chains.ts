@@ -1,5 +1,10 @@
 import type { AddressFamily } from "./addresses";
 
+/**
+ * "robinhood" stays in the union while the chain is not offered: entries and
+ * bids may already reference it, and reinstating it should be a matter of
+ * putting its entry back in CHAINS rather than migrating data.
+ */
 export type ChainId =
   | "solana"
   | "bnb"
@@ -16,6 +21,12 @@ export type Chain = {
   /** Short form used in the row badge, where space is tight. */
   short: string;
   family: AddressFamily;
+  /**
+   * DexScreener's own identifier for this chain, which is not always what you
+   * would guess — Hyperliquid is "hyperevm" and BNB Chain is "bsc". Getting
+   * this wrong makes every lookup on the chain silently return nothing.
+   */
+  dexscreenerId: string;
   /** Badge colours, tuned for the dark surface. */
   tint: string;
   ink: string;
@@ -35,6 +46,7 @@ export type Chain = {
 export const CHAINS: Chain[] = [
   {
     id: "solana",
+    dexscreenerId: "solana",
     name: "Solana",
     short: "SOL",
     family: "solana",
@@ -46,6 +58,7 @@ export const CHAINS: Chain[] = [
   },
   {
     id: "bnb",
+    dexscreenerId: "bsc",
     name: "BNB Chain",
     short: "BNB",
     family: "evm",
@@ -57,19 +70,29 @@ export const CHAINS: Chain[] = [
   },
   {
     id: "robinhood",
+    dexscreenerId: "robinhood",
     name: "Robinhood Chain",
     short: "RHC",
     family: "evm",
     tint: "#14261B",
     ink: "#7BE38B",
-    // Provisional: this ecosystem is new and its launchpad set is not settled.
-    // Treat as an ops-editable config value, not a product truth.
-    launchpads: ["robinhood.com"],
+    // An Arbitrum L2 with no native token — gas is paid in ETH — so addresses
+    // are ordinary EVM addresses.
+    //
+    // hood.fun is verified: a live memecoin launchpad on this chain. "RobinPad"
+    // is deliberately NOT here: the name is used by several unrelated products
+    // and none has a verifiable official domain. Candidates checked, none added:
+    //   robinpad.xyz — AI-agent launchpad, self-described demo software, zero launches
+    //   rpad.fun     — no substantive content to verify against
+    //   robinpad.fi  — returns HTTP 402, likely parked
+    // Add one here only once product confirms which is official.
+    launchpads: ["hood.fun"],
     addressHint: "0x plus 40 hex characters.",
     addressPlaceholder: "0x0000000000000000000000000000000000000000",
   },
   {
     id: "base",
+    dexscreenerId: "base",
     name: "Base",
     short: "BASE",
     family: "evm",
@@ -81,6 +104,7 @@ export const CHAINS: Chain[] = [
   },
   {
     id: "ethereum",
+    dexscreenerId: "ethereum",
     name: "Ethereum",
     short: "ETH",
     family: "evm",
@@ -92,6 +116,7 @@ export const CHAINS: Chain[] = [
   },
   {
     id: "ton",
+    dexscreenerId: "ton",
     name: "TON",
     short: "TON",
     family: "ton",
@@ -103,6 +128,7 @@ export const CHAINS: Chain[] = [
   },
   {
     id: "tron",
+    dexscreenerId: "tron",
     name: "TRON",
     short: "TRX",
     family: "tron",
@@ -114,6 +140,7 @@ export const CHAINS: Chain[] = [
   },
   {
     id: "hyperliquid",
+    dexscreenerId: "hyperevm",
     name: "Hyperliquid",
     short: "HYPE",
     family: "evm",

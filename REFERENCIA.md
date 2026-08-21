@@ -4,11 +4,11 @@
 > palabras** de la mecánica y el layout de outbid.lol y outbid.lol/rules. No se copia texto,
 > markup ni código del sitio original. Nuestra implementación tiene diseño, copy e identidad propios.
 >
-> **Nota metodológica:** en esta sesión no había un MCP de Firecrawl conectado, así que el
-> relevamiento se hizo con la herramienta de fetch/extracción de contenido disponible en el harness
-> (`WebFetch`), sobre `outbid.lol`, `outbid.lol/rules` y `outbid.lol/about`. El resultado es
-> equivalente para el propósito (leer el DOM renderizado y describirlo); queda anotado por
-> transparencia.
+> **Nota metodológica:** el relevamiento de mecánica y reglas (secciones 1–5) se hizo con la
+> herramienta de fetch del harness sobre `outbid.lol`, `outbid.lol/rules` y `outbid.lol/about`,
+> porque en ese momento no había un MCP de Firecrawl conectado. El relevamiento **visual**
+> posterior sí se hizo con Firecrawl (screenshot renderizado desktop y mobile + lectura de su hoja
+> de estilos) y está documentado aparte en **`DESIGN.md`**.
 
 ---
 
@@ -210,5 +210,15 @@ Qué me llevo, y qué cambia por ser tokens y no productos:
    dejaría de ser *el* top 3) y fragmentaría la puja en 8 subastas chicas en vez de una grande.
 6. **Empate por antigüedad y top-up por diferencia**: los copiamos tal cual, son reglas correctas y
    baratas.
-7. **Trending por clicks separado del ranking por plata.** Buena idea, pero no en el MVP: agrega un
-   segundo eje antes de que exista tráfico real que medir.
+7. **Trending por clicks separado del ranking por plata.** Adoptado: son dos módulos chicos bajo el
+   hero (trending + actividad reciente), sin mezclarse con el ranking.
+8. **Donde nos separamos fuerte: la identidad de la entrada no la escribe el que paga.** Ellos
+   dejan que el que puja cargue nombre y descripción, porque su unidad es una URL arbitraria y no
+   tienen fuente de verdad posible. Nosotros sí la tenemos: el contract address permite leer
+   nombre, ticker, logo y sociales de **DexScreener**. Eso cierra un agujero que su modelo no puede
+   cerrar — en su diseño, quien paga controla lo que la fila dice. En el nuestro, pagar compra
+   posición y nada más.
+9. **También nos separamos en mobile.** En su mobile el #1 recién aparece a ~770px, así que el top 3
+   no entra en una pantalla de teléfono. Para nosotros eso es requisito, no detalle: el producto se
+   distribuye por screenshot. Nuestro hero es más compacto y los módulos secundarios van después
+   del board en mobile.

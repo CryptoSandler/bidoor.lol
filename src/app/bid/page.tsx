@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BidForm, type ListingIndex } from "./BidForm";
 import { BOARD } from "@/lib/config";
+import { usd } from "@/lib/format";
 import { listRanked } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -8,9 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function BidPage({
   searchParams,
 }: {
-  searchParams: Promise<{ rank?: string }>;
+  searchParams: Promise<{ rank?: string; address?: string }>;
 }) {
-  const { rank } = await searchParams;
+  const { rank, address } = await searchParams;
   const entries = listRanked();
 
   // Shipped to the client so the form can tell you, as you type the address,
@@ -23,31 +24,32 @@ export default async function BidPage({
   );
 
   const target = rank ? entries.find((entry) => entry.rank === Number(rank)) : undefined;
-  // Only prefill an amount when the visitor arrived by tapping a specific rank.
-  // Landing on a blank form pre-loaded with the price of #1 reads as a paywall.
+  // Only prefill an amount when the visitor aimed at a specific rank. A blank
+  // form pre-loaded with the price of #1 reads as a paywall.
   const suggested = target?.priceToClaim ?? BOARD.minBidUsd;
 
   return (
-    <div className="px-3 py-5 sm:px-4 sm:py-7">
-      <Link href="/" className="text-xs text-muted-2 transition-colors hover:text-text">
+    <div className="shell py-6 sm:py-8">
+      <Link href="/" className="text-xs text-faint transition-colors hover:text-text">
         ← Back to the board
       </Link>
 
-      <h1 className="mt-3 text-xl font-bold tracking-tight sm:text-2xl">Put a token on the board</h1>
-      <p className="mt-1.5 max-w-lg text-[12.5px] leading-snug text-muted sm:text-sm">
-        Rank is the total paid on a contract address — nothing else. If this token is already
-        listed, your bid stacks onto its total instead of creating a second row.
+      <h1 className="mt-3 text-2xl font-bold tracking-tight">Put a token on the board</h1>
+      <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+        Rank is the total paid on a contract address. You supply the address, the chain and where it
+        launched — the name, ticker, logo and socials are read from DexScreener, so nobody can buy
+        their way into editing what an entry says.
       </p>
 
       {target && (
-        <p className="mt-3 rounded-[4px] border border-line bg-surface px-3 py-2 text-[12.5px] text-muted">
-          Aiming at <span className="font-semibold text-text">#{target.rank}</span> ({target.name}).
+        <p className="mt-4 rounded-card border border-line bg-surface px-3.5 py-2.5 text-sm text-muted">
+          Aiming at <span className="font-bold text-text">#{target.rank}</span> ({target.name}).
           Taking that spot costs{" "}
-          <span className="num font-semibold text-gold">${target.priceToClaim.toLocaleString("en-US")}</span>.
+          <span className="money font-bold text-accent">{usd(target.priceToClaim)}</span>.
         </p>
       )}
 
-      <BidForm index={index} suggestedAmount={suggested} />
+      <BidForm index={index} suggestedAmount={suggested} initialAddress={address ?? ""} />
     </div>
   );
 }

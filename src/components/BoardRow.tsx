@@ -5,67 +5,86 @@ import { compactCount, timeAgo, usd, usdCompact } from "@/lib/format";
 import type { RankedEntry } from "@/lib/types";
 
 /**
- * One row of the board. Kept to a fixed two-line shape on mobile so the top
- * three always clear the fold on a phone — the whole product gets shared as a
- * screenshot, and a top three that needs scrolling is a top three nobody posts.
+ * The board has two row treatments, and the contrast between them is the whole
+ * design: the top three are tinted cards, everything below is a flat separated
+ * row. That is what makes the podium read as a podium in a screenshot without
+ * medals or confetti.
  */
 export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
-  const isLeader = entry.rank === 1;
   const isPodium = entry.rank <= 3;
-  // A thin coloured edge on the podium: enough to read the top three at a glance
-  // in a screenshot, not enough to turn the board into a medal ceremony.
-  const edge = isLeader ? "var(--gold)" : entry.rank === 2 ? "#9aa4b2" : entry.rank === 3 ? "#b0794a" : null;
+  const isLeader = entry.rank === 1;
 
   return (
     <li
-      className="relative flex items-center gap-2.5 border-b border-line px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3"
-      style={isLeader ? { background: "linear-gradient(90deg, var(--gold-soft), transparent 60%)" } : undefined}
+      className={
+        isPodium
+          ? "flex items-center gap-3 rounded-card border border-accent-line bg-accent-tint sm:gap-4"
+          : "flex items-center gap-3 border-b border-line sm:gap-4"
+      }
+      style={
+        isPodium
+          ? { padding: "var(--bd-podium-pad)" }
+          : { paddingBlock: "var(--bd-row-pad-y)" }
+      }
     >
-      {edge && <span aria-hidden className="absolute inset-y-0 left-0 w-[2px]" style={{ background: edge }} />}
-
       <span
-        className={`num w-6 shrink-0 text-right text-[13px] font-semibold tabular-nums sm:w-9 sm:text-base ${
-          isLeader ? "text-gold" : isPodium ? "text-text" : "text-muted-2"
-        }`}
+        className={
+          isPodium
+            ? "num inline-flex shrink-0 items-center justify-center rounded-pill bg-accent px-2 py-0.5 text-xs font-bold text-accent-ink"
+            : "num w-7 shrink-0 text-center text-sm font-medium text-faint sm:w-8"
+        }
       >
-        {entry.rank}
+        {isPodium ? `#${entry.rank}` : entry.rank}
       </span>
 
-      <TokenMark name={entry.name} contract={entry.contract} logoUrl={entry.logoUrl} size={isPodium ? 40 : 34} />
+      <TokenMark
+        name={entry.name}
+        logoUrl={entry.logoUrl}
+        size={isPodium ? "var(--bd-podium-logo)" : "var(--bd-row-logo)"}
+      />
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex items-center gap-2">
           <a
             href={`/go/${entry.id}`}
             target="_blank"
             rel="noopener noreferrer nofollow"
-            className="truncate text-[15px] leading-tight font-semibold hover:text-accent sm:text-base"
+            className={`truncate font-bold hover:text-accent ${isPodium ? "text-base" : "text-sm sm:text-base"}`}
           >
             {entry.name}
           </a>
-          <span className="num shrink-0 text-[11px] text-muted-2 sm:text-xs">{entry.ticker}</span>
+          <span className="num shrink-0 text-2xs text-faint">{entry.ticker}</span>
         </div>
 
-        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-2 sm:text-xs">
+        {/* The chain badge lives on the meta line, not beside the name: on a
+            narrow phone the badges were stealing the width and truncating
+            names down to a single letter. */}
+        <div className="num mt-1 flex items-center gap-1.5 text-2xs text-faint">
           <ChainBadge chainId={entry.chainId} />
-          <span className="num truncate">{compactCount(entry.clicks)} clicks</span>
-          <span aria-hidden className="text-line-bright">·</span>
-          <span className="num truncate">{timeAgo(entry.lastBidAt, now)}</span>
+          {/* On the narrowest phones the click count earns the space over the
+              timestamp: it is the number a bidder is buying. */}
+          <span className="hidden truncate sm:inline">{timeAgo(entry.lastBidAt, now)}</span>
+          <span aria-hidden className="hidden sm:inline">·</span>
+          <span className="truncate font-medium text-muted">
+            {compactCount(entry.clicks)} clicks
+          </span>
         </div>
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         <span
-          className={`num text-[15px] leading-none font-bold sm:text-lg ${isLeader ? "text-gold" : "text-text"}`}
+          className={`money font-bold ${isLeader ? "text-gold" : "text-accent"} ${isPodium ? "text-lg" : "text-base"}`}
           title={usd(entry.totalUsd)}
         >
           {usdCompact(entry.totalUsd)}
         </span>
         <Link
           href={`/bid?rank=${entry.rank}`}
-          className="rounded-[3px] border border-line-bright px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap text-muted transition-colors hover:border-accent hover:text-accent sm:px-2 sm:py-1 sm:text-[11px]"
+          className="money rounded-pill border border-line-strong px-2 py-0.5 text-2xs whitespace-nowrap text-muted transition-colors hover:border-accent hover:text-accent"
         >
-          Take #{entry.rank} · {usdCompact(entry.priceToClaim)}
+          <span className="hidden sm:inline">Take #{entry.rank} · </span>
+          <span aria-hidden className="sm:hidden">↑ </span>
+          {usdCompact(entry.priceToClaim)}
         </Link>
       </div>
     </li>

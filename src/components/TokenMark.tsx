@@ -1,18 +1,16 @@
 /**
- * Token avatar. Falls back to initials on a colour derived from the contract
- * address, so an entry never renders as an empty box while still looking
- * deliberate — and two tokens with the same name still look different.
+ * Token avatar. Logos come from DexScreener; when a token has none we fall back
+ * to its initials on a plain surface, so a row never renders as an empty hole.
  */
 export function TokenMark({
   name,
-  contract,
   logoUrl,
-  size = 40,
+  size,
 }: {
   name: string;
-  contract: string;
   logoUrl?: string;
-  size?: number;
+  /** A CSS length, always passed as a token (e.g. var(--bd-podium-logo)). */
+  size: string;
 }) {
   const initials = name
     .split(/\s+/)
@@ -22,25 +20,14 @@ export function TokenMark({
     .join("")
     .toUpperCase();
 
-  let hash = 0;
-  for (const char of contract) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  const hue = hash % 360;
-
   return (
     <span
-      className="relative grid shrink-0 place-items-center overflow-hidden rounded-full font-semibold"
-      style={{
-        width: size,
-        height: size,
-        fontSize: size * 0.34,
-        background: `linear-gradient(140deg, hsl(${hue} 46% 26%), hsl(${(hue + 40) % 360} 42% 16%))`,
-        color: `hsl(${hue} 70% 78%)`,
-        boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.07)",
-      }}
+      className="grid shrink-0 place-items-center overflow-hidden rounded-pill bg-surface-2 text-xs font-bold text-muted"
+      style={{ width: size, height: size }}
     >
       {logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt="" className="h-full w-full object-cover" />
+        <img src={logoUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
       ) : (
         initials || "?"
       )}

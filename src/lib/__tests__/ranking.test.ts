@@ -15,6 +15,7 @@ function entry(id: string, bids: [number, number][]): Entry {
     id, chainId: "solana", contract: id, contractKey: `solana:${id}`,
     name: id, ticker: id.toUpperCase(), launchpadUrl: "https://pump.fun/coin/" + id,
     launchpadHost: "pump.fun", links: {}, bids: events, clicks: 0,
+    metadataFetchedAt: new Date(NOW).toISOString(),
     createdAt: events[0].createdAt,
     lastBidAt: events[events.length - 1].createdAt,
   };

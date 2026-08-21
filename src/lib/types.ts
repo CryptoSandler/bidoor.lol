@@ -26,12 +26,24 @@ export type Entry = {
   contract: string;
   /** The de-duplication key. Same canonical + same chain = same entry, always. */
   contractKey: string;
+  /**
+   * Identity fields below are owned by DexScreener, not by whoever paid. They
+   * are refreshed from the same source on every top-up, so buying into an entry
+   * can never rewrite what it says.
+   */
   name: string;
   ticker: string;
   logoUrl?: string;
+  links: EntryLinks;
+  /** When the metadata above was last read from DexScreener. */
+  metadataFetchedAt: string;
+  /**
+   * Frozen on the first bid. Top-ups do not touch it: the launchpad link is a
+   * claim about where the token launched, and that fact cannot change — letting
+   * later bidders edit it would hand them the one field they still control.
+   */
   launchpadUrl: string;
   launchpadHost: string;
-  links: EntryLinks;
   bids: BidEvent[];
   clicks: number;
   createdAt: string;

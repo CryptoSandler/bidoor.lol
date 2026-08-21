@@ -8,13 +8,23 @@ function bid(overrides: Partial<BidInput> = {}): BidInput {
   return {
     chainId: "solana",
     contract: SOL_MINT,
-    name: "Test Token",
-    ticker: "TEST",
     launchpadUrl: "https://pump.fun/coin/abc",
     amountUsd: 50,
     ...overrides,
   };
 }
+
+describe("the bidder supplies only address, chain, launchpad and amount", () => {
+  it("has no field for name, ticker or socials", () => {
+    // Identity is read from DexScreener, so there is nothing here to hijack.
+    const result = validateBid(bid(), null);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(Object.keys(result.value).sort()).toEqual(
+      ["amountUsd", "chainId", "contract", "contractKey", "launchpadHost", "launchpadUrl", "strippedParams"],
+    );
+  });
+});
 
 describe("address must match the selected chain", () => {
   it("rejects an EVM address submitted as Solana", () => {
@@ -45,6 +55,18 @@ describe("address must match the selected chain", () => {
     if (!onBase.ok || !onBnb.ok) return;
     expect(onBase.value.contractKey).not.toBe(onBnb.value.contractKey);
   });
+
+  it("keys an EVM entry case-insensitively", () => {
+    const upper = validateBid(
+      bid({ chainId: "base", contract: EVM_ADDR, launchpadUrl: "https://clanker.world/c/1" }),
+      null,
+    );
+    const lower = validateBid(
+      bid({ chainId: "base", contract: EVM_ADDR.toLowerCase(), launchpadUrl: "https://clanker.world/c/1" }),
+      null,
+    );
+    expect(upper.ok && lower.ok && upper.value.contractKey === lower.value.contractKey).toBe(true);
+  });
 });
 
 describe("launchpad must match the chain", () => {
@@ -59,11 +81,21 @@ describe("launchpad must match the chain", () => {
   });
 
   it("accepts four.meme for a BNB token", () => {
-    const result = validateBid(
-      bid({ chainId: "bnb", contract: EVM_ADDR, launchpadUrl: "https://four.meme/token/0xabc" }),
-      null,
-    );
-    expect(result.ok).toBe(true);
+    expect(
+      validateBid(
+        bid({ chainId: "bnb", contract: EVM_ADDR, launchpadUrl: "https://four.meme/token/0xabc" }),
+        null,
+      ).ok,
+    ).toBe(true);
+  });
+
+  it("accepts hood.fun for a Robinhood Chain token", () => {
+    expect(
+      validateBid(
+        bid({ chainId: "robinhood", contract: EVM_ADDR, launchpadUrl: "https://hood.fun/token/0xabc" }),
+        null,
+      ).ok,
+    ).toBe(true);
   });
 
   it("rejects a random domain dressed up as a launchpad", () => {
@@ -87,42 +119,18 @@ describe("amounts", () => {
     expect(validateBid(bid({ amountUsd: 0 }), existing).ok).toBe(false);
   });
 
-  it("rejects fractional dollars", () => {
+  it("rejects fractional and negative amounts", () => {
     expect(validateBid(bid({ amountUsd: 10.5 }), null).ok).toBe(false);
-  });
-
-  it("rejects a negative amount", () => {
     expect(validateBid(bid({ amountUsd: -100 }), null).ok).toBe(false);
   });
 });
 
 describe("normalization", () => {
-  it("strips params and reports what it removed", () => {
-    const result = validateBid(
-      bid({ launchpadUrl: "https://pump.fun/coin/abc?ref=me", x: "https://x.com/proj?s=21" }),
-      null,
-    );
+  it("strips params from the launchpad link and reports what it removed", () => {
+    const result = validateBid(bid({ launchpadUrl: "https://pump.fun/coin/abc?ref=me&utm_source=x" }), null);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.launchpadUrl).toBe("https://pump.fun/coin/abc");
-    expect(result.value.links.x).toBe("https://x.com/proj");
-    expect(result.value.strippedParams).toContain("ref");
-  });
-
-  it("normalizes the ticker to bare uppercase", () => {
-    const result = validateBid(bid({ ticker: "$test" }), null);
-    expect(result.ok && result.value.ticker).toBe("TEST");
-  });
-
-  it("keys an EVM entry case-insensitively", () => {
-    const upper = validateBid(
-      bid({ chainId: "base", contract: EVM_ADDR, launchpadUrl: "https://clanker.world/c/1" }),
-      null,
-    );
-    const lower = validateBid(
-      bid({ chainId: "base", contract: EVM_ADDR.toLowerCase(), launchpadUrl: "https://clanker.world/c/1" }),
-      null,
-    );
-    expect(upper.ok && lower.ok && upper.value.contractKey === lower.value.contractKey).toBe(true);
+    expect(result.value.strippedParams).toEqual(["ref", "utm_source"]);
   });
 });

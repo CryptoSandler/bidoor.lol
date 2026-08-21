@@ -1,0 +1,182 @@
+/* =============================================================================
+   DESIGN TOKENS — the single source of truth for how BIDTAPE looks.
+   =============================================================================
+
+   Every colour, type size, space, radius and row height lives here. Components
+   consume these through Tailwind's @theme mapping and must never hardcode a hex
+   value or a pixel size. Re-skinning the product is editing this file.
+
+   The palette is warm on purpose: no grey here is neutral, every one is pushed
+   toward red/yellow. Dropping a neutral #fafafa next to these reads cold and
+   dead. See DESIGN.md for where this came from.
+   ========================================================================== */
+
+:root {
+  /* --- Surfaces ---------------------------------------------------------- */
+  --bd-bg: #fffdfa;
+  --bd-surface: #fbfaf7;
+  --bd-surface-2: #f6f3ef;
+
+  /* --- Ink --------------------------------------------------------------- */
+  --bd-text: #282624;
+  --bd-text-muted: #67625d;
+  --bd-text-faint: #96908a;
+
+  /* --- Lines ------------------------------------------------------------- */
+  --bd-border: #e6e0da;
+  --bd-border-strong: #d6cec6;
+
+  /* --- Accent -----------------------------------------------------------
+     A more saturated persimmon than the reference's softer coral: same warm
+     family, clearly not the same brand. Used with discipline — price, rank,
+     CTA, links, and nothing else. */
+  --bd-accent: #e8502d;
+  --bd-accent-ink: #ffffff;
+  --bd-accent-tint: #fdeee9;
+  --bd-accent-line: #f6cdc0;
+
+  /* Reserved for rank #1, which the reference does not distinguish. */
+  --bd-gold: #b8860b;
+  --bd-gold-tint: #fdf4e0;
+
+  --bd-positive: #1a8f5a;
+  --bd-danger: #c62828;
+
+  /* --- Type -------------------------------------------------------------- */
+  --bd-font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --bd-font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --bd-text-2xs: 0.6875rem;
+  --bd-text-xs: 0.75rem;
+  --bd-text-sm: 0.875rem;
+  --bd-text-base: 1rem;
+  --bd-text-lg: 1.125rem;
+  --bd-text-xl: 1.25rem;
+  --bd-text-2xl: 1.5rem;
+  --bd-text-4xl: 2.25rem;
+  --bd-text-6xl: 3.75rem;
+
+  --bd-weight-normal: 400;
+  --bd-weight-medium: 500;
+  --bd-weight-bold: 700;
+
+  /* --- Geometry ---------------------------------------------------------- */
+  --bd-radius: 0.875rem;
+  --bd-radius-sm: 0.5rem;
+  --bd-radius-pill: 999px;
+
+  /* Wide enough that the content fills its column instead of floating in a
+     narrow strip with dead space either side. */
+  --bd-container: 56rem;
+  --bd-gutter: 1rem;
+
+  /* --- Row density -------------------------------------------------------
+     The podium is cards; everything below is flat rows. That contrast is what
+     makes the top three read as a podium in a screenshot. */
+  --bd-podium-pad: 0.875rem;
+  --bd-podium-gap: 0.625rem;
+  --bd-podium-logo: 3rem;
+  --bd-row-pad-y: 0.75rem;
+  --bd-row-logo: 2.25rem;
+
+  --bd-shadow-card: 0 1px 2px rgba(40, 38, 36, 0.04);
+}
+
+/* Small phones get a tighter podium so the top three still clear the fold.
+   Density is a token, not a component decision. */
+@media (max-width: 30rem) {
+  :root {
+    --bd-podium-pad: 0.75rem;
+    --bd-podium-gap: 0.5rem;
+    --bd-podium-logo: 2.5rem;
+    --bd-row-pad-y: 0.625rem;
+  }
+}
+
+/* Dark theme. Same structure, same warmth, inverted. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bd-bg: #1a1512;
+    --bd-surface: #231e1b;
+    --bd-surface-2: #2d2824;
+    --bd-text: #f7f5f1;
+    --bd-text-muted: #aba39b;
+    --bd-text-faint: #857d75;
+    --bd-border: #ffffff1a;
+    --bd-border-strong: #ffffff2e;
+    --bd-accent: #ff6a42;
+    --bd-accent-ink: #1a1512;
+    --bd-accent-tint: #2e1d16;
+    --bd-accent-line: #573026;
+    --bd-gold: #e0b34a;
+    --bd-gold-tint: #2b2314;
+    --bd-positive: #4ade80;
+    --bd-danger: #ff6568;
+    --bd-shadow-card: none;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bd-bg: #1a1512;
+  --bd-surface: #231e1b;
+  --bd-surface-2: #2d2824;
+  --bd-text: #f7f5f1;
+  --bd-text-muted: #aba39b;
+  --bd-text-faint: #857d75;
+  --bd-border: #ffffff1a;
+  --bd-border-strong: #ffffff2e;
+  --bd-accent: #ff6a42;
+  --bd-accent-ink: #1a1512;
+  --bd-accent-tint: #2e1d16;
+  --bd-accent-line: #573026;
+  --bd-gold: #e0b34a;
+  --bd-gold-tint: #2b2314;
+  --bd-positive: #4ade80;
+  --bd-danger: #ff6568;
+  --bd-shadow-card: none;
+}
+
+/* --- Per-chain accents ------------------------------------------------------
+   Our own addition: the reference has no concept of chains. Each pair is a tint
+   plus an ink that stays legible on it in both themes. */
+:root {
+  --bd-chain-solana-tint: #e7f7f1;
+  --bd-chain-solana-ink: #0f7a5a;
+  --bd-chain-bnb-tint: #fdf3d8;
+  --bd-chain-bnb-ink: #8a6d08;
+  --bd-chain-robinhood-tint: #e6f7ea;
+  --bd-chain-robinhood-ink: #1a7a35;
+  --bd-chain-base-tint: #e8edfd;
+  --bd-chain-base-ink: #2b4bc4;
+  --bd-chain-ethereum-tint: #eeecfb;
+  --bd-chain-ethereum-ink: #4b40a8;
+  --bd-chain-ton-tint: #e4f2fb;
+  --bd-chain-ton-ink: #1a6d9e;
+  --bd-chain-tron-tint: #fdeaea;
+  --bd-chain-tron-ink: #b52b2b;
+  --bd-chain-hyperliquid-tint: #e2f6f3;
+  --bd-chain-hyperliquid-ink: #0d7a6c;
+  --bd-chain-unknown-tint: var(--bd-surface-2);
+  --bd-chain-unknown-ink: var(--bd-text-muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bd-chain-solana-tint: #102a22;
+    --bd-chain-solana-ink: #5fe9c4;
+    --bd-chain-bnb-tint: #2c2712;
+    --bd-chain-bnb-ink: #f0b90b;
+    --bd-chain-robinhood-tint: #14261b;
+    --bd-chain-robinhood-ink: #7be38b;
+    --bd-chain-base-tint: #161e38;
+    --bd-chain-base-ink: #8aa2ff;
+    --bd-chain-ethereum-tint: #1d1c2e;
+    --bd-chain-ethereum-ink: #a2a0f0;
+    --bd-chain-ton-tint: #11242f;
+    --bd-chain-ton-ink: #54b8e8;
+    --bd-chain-tron-tint: #2c1618;
+    --bd-chain-tron-ink: #f06a6a;
+    --bd-chain-hyperliquid-tint: #122a28;
+    --bd-chain-hyperliquid-ink: #63e0ce;
+  }
+}

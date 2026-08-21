@@ -1,5 +1,6 @@
-import Link from "next/link";
+import { ActivityPanels } from "@/components/ActivityPanels";
 import { BoardRow } from "@/components/BoardRow";
+import { HeroSearch } from "@/components/HeroSearch";
 import { BOARD } from "@/lib/config";
 import { usd, usdCompact } from "@/lib/format";
 import { getBoard } from "@/lib/store";
@@ -12,60 +13,75 @@ export default function LeaderboardPage() {
   const leader = entries[0];
   const priceForFirst = leader ? leader.totalUsd + BOARD.topSpotGapUsd : BOARD.minBidUsd;
 
+  const podium = entries.slice(0, 3);
+  const rest = entries.slice(3);
+
   return (
-    <>
-      {/*
-        The hero is a price tag, not a slogan. The first thing anyone sees —
-        including in a screenshot — is what #1 costs right now.
-      */}
-      <section className="tape border-b border-line px-3 pt-5 pb-4 sm:px-4 sm:pt-7 sm:pb-6">
-        <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-2 uppercase">
-          Claim #1 for
+    <div className="shell pt-4 pb-2 sm:pt-8">
+      {/* Social proof first: it answers "does anyone actually look at this?",
+          which is the only real objection before paying. */}
+      <div className="flex justify-center">
+        <p className="money inline-flex items-center gap-2 rounded-pill bg-surface-2 px-3.5 py-1.5 text-xs text-muted">
+          <span aria-hidden className="h-1.5 w-1.5 rounded-pill bg-positive" />
+          {entries.length} tokens listed
+          <span aria-hidden>·</span>
+          {usdCompact(potUsd)} bid to date
         </p>
-        <div className="mt-1 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-          <span className="num text-[40px] leading-none font-bold tracking-tight text-gold sm:text-6xl">
-            {usd(priceForFirst)}
-          </span>
-          <Link
-            href="/bid?rank=1"
-            className="rounded-[4px] bg-accent px-3 py-1.5 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-          >
-            Outbid the board
-          </Link>
+      </div>
+
+      {/* The hero is a price tag, not a slogan: the biggest thing on the page is
+          what #1 costs right now. */}
+      <section className="mt-4 text-center sm:mt-7">
+        {/* Deliberately NOT the mono face: at this size Geist Mono's wide comma
+            advance renders "$8,755" as "$8 , 755". Tabular figures still keep
+            the number from reflowing as the board updates. */}
+        <h1 className="text-[1.75rem] leading-tight font-bold tracking-tight text-balance tabular-nums sm:text-6xl">
+          Claim #1 for <span className="text-accent">{usd(priceForFirst)}</span>
+        </h1>
+        <p className="mx-auto mt-2.5 max-w-xl text-xs leading-relaxed text-muted text-balance sm:mt-3 sm:text-sm">
+          <span className="text-accent">New listings start at {usd(BOARD.minBidUsd)}.</span> Paying
+          less than #1 still puts you on the board, at whatever rank your total buys. Every chain
+          competes in one list.
+        </p>
+
+        <div className="mx-auto max-w-xl">
+          <HeroSearch />
+          <p className="mt-2 text-2xs text-faint sm:text-xs">
+            Already listed? Bidding on the same contract adds to its total — it never creates a
+            second row.
+          </p>
         </div>
-        <p className="mt-2.5 max-w-lg text-[12.5px] leading-snug text-muted sm:text-sm">
-          Entries start at {usd(BOARD.minBidUsd)}. Pay less than #1 and you still land on the board,
-          at whatever rank your total buys. Every chain competes in one list.
-        </p>
       </section>
 
-      <section className="flex items-center justify-between border-b border-line px-3 py-2 text-[11px] text-muted-2 sm:px-4">
-        <span className="num">
-          {entries.length} tokens · {usdCompact(potUsd)} bid to date
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-up" />
-          Ranked by total paid
-        </span>
-      </section>
+      {/* Desktop keeps the reference's order: modules, then board. On phones they
+          move below the board so the top three clear the fold. */}
+      <div className="mt-7 hidden sm:block">
+        <ActivityPanels entries={entries} now={now} />
+      </div>
 
-      <ol>
-        {entries.map((entry) => (
+      <ol className="mt-5 flex flex-col sm:mt-6" style={{ gap: "var(--bd-podium-gap)" }}>
+        {podium.map((entry) => (
           <BoardRow key={entry.id} entry={entry} now={now} />
         ))}
       </ol>
 
-      <div className="px-3 py-6 text-center sm:px-4">
-        <Link
-          href="/bid"
-          className="inline-block rounded-[4px] border border-line-bright px-4 py-2 text-sm font-medium text-muted transition-colors hover:border-accent hover:text-accent"
-        >
-          Put a token on the board
-        </Link>
-        <p className="mt-2 text-[11px] text-muted-2">
-          Already listed? Bidding again on the same contract adds to its total.
-        </p>
+      <div className="my-5 flex items-center gap-3" aria-hidden>
+        <span className="h-px flex-1 bg-line" />
+        <span className="rounded-pill border border-line px-2.5 py-0.5 text-2xs font-medium tracking-wide text-faint uppercase">
+          Top 3
+        </span>
+        <span className="h-px flex-1 bg-line" />
       </div>
-    </>
+
+      <ol>
+        {rest.map((entry) => (
+          <BoardRow key={entry.id} entry={entry} now={now} />
+        ))}
+      </ol>
+
+      <div className="mt-7 sm:hidden">
+        <ActivityPanels entries={entries} now={now} />
+      </div>
+    </div>
   );
 }

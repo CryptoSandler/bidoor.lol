@@ -18,6 +18,30 @@ export const USDC_DECIMALS = 6;
 /** How long a pending bid holds its price before it has to be started again. */
 export const PAYMENT_WINDOW_MINUTES = 30;
 
+/**
+ * Payment attribution.
+ *
+ * A transfer arriving at our wallet says nothing about WHO it is for. To bind a
+ * payment to a bid we give every pending bid a unique amount: the bid, plus a
+ * random four-decimal fraction of a dollar. A $50 bid becomes "send exactly
+ * $50.0041", and that fraction is what identifies it.
+ *
+ * USDC has six decimals, so a four-decimal fraction leaves two decimal places
+ * of headroom and keeps the number short enough to read and re-type. The
+ * fraction is drawn from 1..9999 ten-thousandths — never zero, because a round
+ * amount is exactly the one we cannot attribute.
+ */
+export const FRACTION_MIN = 1;
+export const FRACTION_MAX = 9999;
+
+/** One ten-thousandth of a dollar, in USDC base units. */
+export const FRACTION_UNIT_BASE = 100;
+
+/** The exact amount a bid must be paid with, in USDC base units. */
+export function paymentBaseUnits(amountUsd: number, fraction: number): number {
+  return amountUsd * 10 ** USDC_DECIMALS + fraction * FRACTION_UNIT_BASE;
+}
+
 /** Confirmations we require before treating a transfer as settled. */
 export const RPC_COMMITMENT = "confirmed";
 

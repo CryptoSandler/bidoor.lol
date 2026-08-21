@@ -342,21 +342,15 @@ Reemplaza el mock. Un rank ahora solo existe si hay una transferencia confirmada
 
 ### Lo que este diseño NO resuelve (y hay que saberlo antes de cobrarle a alguien)
 
-1. **No hay atribución del pagador.** Verificamos que *alguien* mandó USDC suficiente a nuestra
-   wallet. No verificamos que sea quien está mirando la pantalla. Concretamente: si alguien mira el
-   explorer, ve una transferencia entrante a nuestra wallet y pega esa firma antes que el dueño, se
-   queda con la puja. La constraint UNIQUE hace que solo pase una vez, pero le pasa al equivocado.
-   **Este es el agujero más serio que queda.** El fix estándar es un *memo* único por puja, o un
-   monto con centavos únicos por puja, o exigir que la firma venga de una wallet que el usuario
-   probó controlar. Ninguno está implementado.
+1. ~~**No hay atribución del pagador.**~~ **RESUELTO** con centavos únicos. Ver §9.
 2. **El RPC público es frágil.** `api.mainnet-beta.solana.com` tiene rate limits agresivos y no
    siempre sirve transacciones históricas. Con tráfico real hace falta un proveedor dedicado.
    Hay `SOLANA_RPC_URL` para eso, pero no hay reintentos ni fallback a un segundo nodo.
 3. **`confirmed`, no `finalized`.** Elegimos `confirmed` porque `finalized` tarda ~13 segundos y la
    espera arruina el flujo. Es la elección correcta para este monto, pero es una elección: en teoría
    un bloque `confirmed` puede revertirse.
-4. **Sobrepago no se acredita ni se devuelve.** Si mandan de más, la puja se acredita por su monto y
-   la diferencia queda. Está dicho en las reglas ("final and non-refundable") pero es áspero.
+4. ~~**Sobrepago no se acredita ni se devuelve.**~~ Cambió: ahora el sobrepago **falla** la
+   verificación en vez de acreditarse. Ver §9.
 5. **No hay reconciliación.** Si el pago se confirma y DexScreener se cae justo en ese momento, el
    pago queda registrado pero la entrada no se aplica. El mensaje le dice al usuario que recargue,
    pero no hay un job que lo repare solo.
@@ -365,9 +359,52 @@ Reemplaza el mock. Un rank ahora solo existe si hay una transferencia confirmada
 
 ### Preguntas que esto agrega
 
-- **¿Cómo atamos un pago a un pagador?** (§8.1). Es lo primero.
+- ~~**¿Cómo atamos un pago a un pagador?**~~ **Respondida** en §9.
 - **¿Qué hacemos con un pago que llega tarde**, después de que la puja expiró? Hoy: nada, y la plata
   quedó. Es defendible pero hay que decidirlo explícitamente.
 - **¿Y si mandan el monto correcto pero la puja ya la ganó otro?** El precio del puesto pudo cambiar
   en esos 30 minutos. Hoy la puja se acredita por su monto y cae donde caiga.
+
+---
+
+## 9. Tanda 4 — atribución por monto único
+
+Cierra el agujero de §8.1: una transferencia que llega a nuestra wallet no dice **de quién** es.
+
+### Cómo funciona
+
+Cada puja pendiente recibe un monto propio: la puja más una fracción aleatoria de cuatro decimales.
+Una puja de $50 se paga como `$50.0041`, y esa fracción es la identidad del pago. USDC tiene seis
+decimales, así que cuatro dejan dos de margen y el número sigue siendo corto para leer y tipear.
+La fracción nunca es cero — un monto redondo es justamente el único que no se puede atribuir.
+
+El ranking sigue usando el monto redondo. La fracción es plomería y está dicho en la pantalla y en
+las reglas: *"your rank is still counted as $50"*.
+
+### Decisiones
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 37 | **Índice UNIQUE parcial sobre `payment_micros WHERE status='pending'`** | La unicidad la garantiza la base, no un chequeo en código. Es parcial porque el monto solo está reservado mientras la puja está viva: pagada o expirada, se libera. |
+| 38 | **Se sortea y se ofrece a la base, con reintento** | En vez de "buscar uno libre y usarlo" (que pierde contra dos requests simultáneos), se inserta y si el índice lo rechaza se sortea de nuevo. La base decide. Tope de 40 intentos para no colgarse. |
+| 39 | **Barrido de expiradas antes de asignar** | El índice solo cubre `pending`, así que las pujas abandonadas retendrían su fracción para siempre. Se barren primero. |
+| 40 | **La unicidad es sobre el total, no sobre la fracción** | `$50.0041` y `$100.0041` son montos distintos y ambos atribuibles. Restringir la fracción sola desperdiciaría el espacio sin ganar nada. |
+| 41 | **Monto EXACTO, no `>=`** | Aceptar de más rompe lo único que ata la transferencia al pujador: `$50.0042` es la puja de otro. El sobrepago pasó de "gratis para nosotros" a error. |
+| 42 | **La firma NO se consume en un pago que no matchea** | La plata es real. Consumir la firma bloquearía además el reintento legítimo. Va a `unmatched_payments`, que es la cola desde la que trabaja soporte. |
+| 43 | **La firma sigue siendo UNIQUE, como candado anti-replay** | La atribución ahora es por monto + destino; la firma queda para que una transferencia no pague dos pujas. Son dos garantías distintas y las dos hacen falta. |
+
+### Lo que esto NO resuelve
+
+- **9.999 pujas pendientes del mismo monto base** agotan el espacio de fracciones y la creación
+  falla con `PaymentAmountUnavailable`. Es un límite teórico holgado, pero es un vector de DoS
+  barato: sin rate limiting, alguien puede crear pujas pendientes de $5 hasta llenar ese espacio y
+  bloquear las pujas legítimas de $5. **El rate limiting pasa de "falta" a "necesario".**
+- **Sigue sin haber reconciliación automática.** `unmatched_payments` se llena solo; aplicarlo es
+  manual y no hay pantalla de soporte para hacerlo.
+- **Un pago con el monto exacto pero mandado por un tercero** sigue siendo atribuible a esa puja. El
+  monto único resuelve "¿de qué puja es este pago?", no "¿esta persona es la que pagó?". Para el
+  caso de uso (comprar un puesto en un ranking) es suficiente; para un producto con cuentas, no.
+- **El usuario tiene que tipear un monto raro.** Es fricción real, y la pantalla la compensa con
+  copy explícito, pero un botón de copiar al portapapeles o un deep link de pago lo haría mucho
+  mejor. No está.
 

@@ -43,7 +43,7 @@ function tx(options: {
 async function check(transaction: SolanaTransaction, amountUsd = 100, signature = SIG) {
   return verifyPayment({
     signature,
-    expectedAmountUsd: amountUsd,
+    expectedBaseUnits: BigInt(amountUsd) * 1_000_000n,
     wallet: WALLET,
     fetchTransaction: async () => transaction,
   });
@@ -58,8 +58,16 @@ describe("a payment that is good", () => {
     expect(result.amountBaseUnits).toBe(100_000_000n);
   });
 
-  it("accepts an overpayment", async () => {
-    expect((await check(tx({ after: "250000000" }))).ok).toBe(true);
+  it("accepts only the exact amount", async () => {
+    // 100.0041 USDC — a bid amount plus its own unique fraction.
+    const exact = 100_004_100n;
+    const result = await verifyPayment({
+      signature: SIG,
+      expectedBaseUnits: exact,
+      wallet: WALLET,
+      fetchTransaction: async () => tx({ after: exact.toString() }),
+    });
+    expect(result.ok).toBe(true);
   });
 
   it("measures the delta, not the balance, so a funded wallet still works", async () => {
@@ -70,20 +78,56 @@ describe("a payment that is good", () => {
   });
 });
 
-describe("insufficient amount", () => {
-  it("rejects a transfer smaller than the bid", async () => {
-    const result = await check(tx({ after: "99000000" }));
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.reason).toBe("insufficient_amount");
-    expect(result.message).toMatch(/99/);
+describe("the amount must match exactly, because the amount is the attribution", () => {
+  const exact = 100_004_100n; // $100.0041
+
+  async function pay(received: bigint) {
+    return verifyPayment({
+      signature: SIG,
+      expectedBaseUnits: exact,
+      wallet: WALLET,
+      fetchTransaction: async () => tx({ after: received.toString() }),
+    });
+  }
+
+  it("accepts the exact unique amount", async () => {
+    expect((await pay(exact)).ok).toBe(true);
   });
 
-  it("rejects a transfer one base unit short", async () => {
-    const result = await check(tx({ after: "99999999" }));
+  it("rejects an underpayment", async () => {
+    const result = await pay(exact - 100n);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("insufficient_amount");
+  });
+
+  it("rejects an overpayment, which used to be accepted", async () => {
+    // Paying more is no longer generosity: $100.0042 is somebody else's bid.
+    const result = await pay(exact + 100n);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("overpaid");
+  });
+
+  it("rejects the round amount without the fraction", async () => {
+    const result = await pay(100_000_000n);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("insufficient_amount");
+  });
+
+  it("rejects a single base unit of difference", async () => {
+    expect((await pay(exact + 1n)).ok).toBe(false);
+    expect((await pay(exact - 1n)).ok).toBe(false);
+  });
+
+  it("reports what arrived so the money can be traced", async () => {
+    const result = await pay(exact + 100n);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.receivedBaseUnits).toBe(exact + 100n);
+    expect(result.message).toMatch(/100\.0042/);
+    expect(result.message).toMatch(/exactly 100\.0041/);
   });
 });
 
@@ -133,7 +177,7 @@ describe("transaction state", () => {
     let called = false;
     const result = await verifyPayment({
       signature: "not-a-signature",
-      expectedAmountUsd: 100,
+      expectedBaseUnits: 100_000_000n,
       wallet: WALLET,
       fetchTransaction: async () => {
         called = true;
@@ -149,7 +193,7 @@ describe("transaction state", () => {
   it("reports an unreachable RPC separately from a bad payment", async () => {
     const result = await verifyPayment({
       signature: SIG,
-      expectedAmountUsd: 100,
+      expectedBaseUnits: 100_000_000n,
       wallet: WALLET,
       fetchTransaction: async () => {
         throw new Error("node down");

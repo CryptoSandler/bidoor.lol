@@ -1,7 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import type { TokenMetadata } from "../dexscreener";
 import type { NormalizedBid } from "../validation";
-import { PAYMENT_WINDOW_MINUTES } from "./config";
+import {
+  FRACTION_MAX,
+  FRACTION_MIN,
+  PAYMENT_WINDOW_MINUTES,
+  paymentBaseUnits,
+} from "./config";
 import { db } from "./db";
 
 export type PendingStatus = "pending" | "paid" | "expired" | "failed";
@@ -14,6 +19,12 @@ export type PendingBid = {
   launchpadUrl: string;
   launchpadHost: string;
   amountUsd: number;
+  /**
+   * The exact amount that must be transferred, in USDC base units. Differs from
+   * amountUsd by a small unique fraction — that fraction is how an incoming
+   * payment is attributed to this bid. Ranking still uses amountUsd.
+   */
+  paymentBaseUnits: bigint;
   status: PendingStatus;
   failureReason: string | null;
   createdAt: string;
@@ -29,6 +40,7 @@ type Row = {
   launchpad_url: string;
   launchpad_host: string;
   amount_usd: number;
+  payment_micros: number | null;
   status: string;
   failure_reason: string | null;
   created_at: string;
@@ -45,6 +57,8 @@ function toBid(row: Row): PendingBid {
     launchpadUrl: row.launchpad_url,
     launchpadHost: row.launchpad_host,
     amountUsd: row.amount_usd,
+    // Legacy rows predate unique amounts; fall back to the plain bid amount.
+    paymentBaseUnits: BigInt(row.payment_micros ?? row.amount_usd * 1_000_000),
     status: row.status as PendingStatus,
     failureReason: row.failure_reason,
     createdAt: row.created_at,
@@ -53,31 +67,82 @@ function toBid(row: Row): PendingBid {
   };
 }
 
+/**
+ * Moves every pending bid whose window has closed to 'expired'.
+ *
+ * Run before allocating a new payment amount: the uniqueness index only covers
+ * 'pending' rows, so sweeping first is what releases the fractions held by bids
+ * nobody ever paid. Without this, abandoned bids would slowly consume the
+ * fraction space for their amount.
+ */
+export function expireStalePendingBids(): number {
+  const result = db()
+    .prepare(
+      `UPDATE pending_bids
+         SET status = 'expired',
+             failure_reason = 'This bid expired before a payment was confirmed.'
+       WHERE status = 'pending' AND expires_at <= ?`,
+    )
+    .run(new Date().toISOString());
+  return Number(result.changes ?? 0);
+}
+
+export class PaymentAmountUnavailable extends Error {
+  constructor() {
+    super("Could not allocate a unique payment amount. Try again in a moment.");
+    this.name = "PaymentAmountUnavailable";
+  }
+}
+
+/** How many fractions we try before giving up rather than looping forever. */
+const FRACTION_ATTEMPTS = 40;
+
 export function createPendingBid(bid: NormalizedBid): PendingBid {
+  expireStalePendingBids();
+
   const id = randomUUID();
   const now = new Date();
   const expires = new Date(now.getTime() + PAYMENT_WINDOW_MINUTES * 60_000);
 
-  db()
-    .prepare(
-      `INSERT INTO pending_bids
+  const insert = db().prepare(
+    `INSERT INTO pending_bids
        (id, chain_id, contract, contract_key, launchpad_url, launchpad_host,
-        amount_usd, status, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
-    )
-    .run(
-      id,
-      bid.chainId,
-      bid.contract,
-      bid.contractKey,
-      bid.launchpadUrl,
-      bid.launchpadHost,
-      bid.amountUsd,
-      now.toISOString(),
-      expires.toISOString(),
-    );
+        amount_usd, payment_micros, status, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+  );
 
-  return getPendingBid(id)!;
+  // The fraction is drawn at random and offered to the database. If another
+  // pending bid already holds that exact amount the unique index rejects it and
+  // we draw again — the database decides, so two bids created in the same
+  // instant cannot both take it.
+  for (let attempt = 0; attempt < FRACTION_ATTEMPTS; attempt++) {
+    const fraction = randomInt(FRACTION_MIN, FRACTION_MAX + 1);
+    try {
+      insert.run(
+        id,
+        bid.chainId,
+        bid.contract,
+        bid.contractKey,
+        bid.launchpadUrl,
+        bid.launchpadHost,
+        bid.amountUsd,
+        paymentBaseUnits(bid.amountUsd, fraction),
+        now.toISOString(),
+        expires.toISOString(),
+      );
+      return getPendingBid(id)!;
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+    }
+  }
+
+  throw new PaymentAmountUnavailable();
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  const code = (error as { code?: string }).code ?? "";
+  const message = (error as Error)?.message ?? "";
+  return code === "ERR_SQLITE_ERROR" && /UNIQUE/i.test(message);
 }
 
 /**
@@ -136,11 +201,7 @@ export function recordPayment(
       )
       .run(randomUUID(), signature.trim(), bidId, amountBaseUnits.toString(), new Date().toISOString());
   } catch (error) {
-    const code = (error as { code?: string }).code ?? "";
-    const message = (error as Error).message ?? "";
-    if (code === "ERR_SQLITE_ERROR" && /UNIQUE/i.test(message)) {
-      return { ok: false, reason: "signature_used" };
-    }
+    if (isUniqueViolation(error)) return { ok: false, reason: "signature_used" };
     throw error;
   }
 
@@ -196,6 +257,69 @@ export function listAcceptedBids(): AcceptedBid[] {
       strippedParams: [],
     },
     metadata: JSON.parse(row.metadata_json as string) as TokenMetadata,
+    createdAt: row.created_at as string,
+  }));
+}
+
+/**
+ * Records a confirmed transfer that reached our wallet but matched no bid's
+ * exact amount.
+ *
+ * Deliberately does NOT consume the signature in `payments`: the money is real
+ * and the payer should be able to be made whole, and locking the signature here
+ * would also block a legitimate retry. This table is the queue support works
+ * from.
+ */
+export function recordUnmatchedPayment(params: {
+  signature: string;
+  bidId: string | null;
+  receivedBaseUnits: bigint;
+  expectedBaseUnits: bigint;
+  reason: string;
+}): void {
+  try {
+    db()
+      .prepare(
+        `INSERT INTO unmatched_payments
+           (id, signature, bid_id, received_base_units, expected_base_units, reason, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        randomUUID(),
+        params.signature.trim(),
+        params.bidId,
+        params.receivedBaseUnits.toString(),
+        params.expectedBaseUnits.toString(),
+        params.reason,
+        new Date().toISOString(),
+      );
+  } catch (error) {
+    // Already logged from an earlier attempt with the same signature; one row
+    // per stray transfer is enough.
+    if (!isUniqueViolation(error)) throw error;
+  }
+}
+
+export type UnmatchedPayment = {
+  signature: string;
+  bidId: string | null;
+  receivedBaseUnits: bigint;
+  expectedBaseUnits: bigint;
+  reason: string;
+  createdAt: string;
+};
+
+export function listUnmatchedPayments(): UnmatchedPayment[] {
+  const rows = db()
+    .prepare(`SELECT * FROM unmatched_payments ORDER BY created_at DESC`)
+    .all() as Record<string, string | null>[];
+
+  return rows.map((row) => ({
+    signature: row.signature as string,
+    bidId: row.bid_id,
+    receivedBaseUnits: BigInt(row.received_base_units as string),
+    expectedBaseUnits: BigInt(row.expected_base_units as string),
+    reason: row.reason as string,
     createdAt: row.created_at as string,
   }));
 }

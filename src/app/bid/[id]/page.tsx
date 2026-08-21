@@ -4,6 +4,7 @@ import { PaymentPanel } from "./PaymentPanel";
 import { getChain } from "@/lib/chains";
 import { usd } from "@/lib/format";
 import { PAYMENT_WINDOW_MINUTES, paymentWallet } from "@/lib/payments/config";
+import { formatUsdc } from "@/lib/payments/solana";
 import { getPendingBid } from "@/lib/payments/pending";
 
 export const dynamic = "force-dynamic";
@@ -34,8 +35,15 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
           <span className="ml-2 text-xs text-muted">on {chain?.name ?? bid.chainId}</span>
         </Cell>
         <Cell label="Amount to send">
-          <span className="money text-xl font-bold text-accent">{usd(bid.amountUsd)}</span>
+          <span className="money text-xl font-bold text-accent">
+            ${formatUsdc(bid.paymentBaseUnits)}
+          </span>
           <span className="ml-2 text-xs text-muted">USDC on Solana</span>
+          <span className="mt-1.5 w-full text-xs leading-snug text-muted">
+            <span className="font-bold text-text">Send exactly this amount</span> — it&apos;s how we
+            match your payment to your bid. The odd fraction is intentional and unique to this bid;
+            your rank is still counted as {usd(bid.amountUsd)}.
+          </span>
         </Cell>
         <Cell label="Send to">
           {wallet.ok ? (
@@ -51,7 +59,7 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
         status={bid.status}
         failureReason={bid.failureReason}
         expiresAt={bid.expiresAt}
-        amountUsd={bid.amountUsd}
+        paymentAmount={formatUsdc(bid.paymentBaseUnits)}
         walletConfigured={wallet.ok}
       />
 

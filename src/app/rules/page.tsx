@@ -66,9 +66,27 @@ export default function RulesPage() {
         </Rule>
         <Rule>
           Starting a bid creates a pending bid that holds its price for {PAYMENT_WINDOW_MINUTES}{" "}
-          minutes. Send the exact amount, then paste the transaction signature. We check it against
-          the Solana chain: that it is confirmed, that it is real USDC, that it arrived at our
-          wallet, and that it covers the bid.
+          minutes, and gives it a payment amount of its own: your bid plus a small unique fraction,
+          so a $50 bid is paid as something like $50.0041.
+        </Rule>
+        <Rule>
+          <span className="font-bold text-text">Send exactly that amount.</span> The fraction is how
+          we tell your payment apart from everyone else&apos;s — a transfer arriving at our wallet
+          carries no other clue about whose bid it is for. Send more or less and it will not match.
+        </Rule>
+        <Rule>
+          The fraction is plumbing, not a fee. Your rank is counted as the round bid amount: a $50
+          bid ranks as $50, whatever the last four decimals were.
+        </Rule>
+        <Rule>
+          Paste the transaction signature and we check it against the Solana chain: that it is
+          confirmed, that it moved real USDC, that it arrived at our wallet, and that the amount
+          matches your bid exactly.
+        </Rule>
+        <Rule>
+          If the amount does not match, the payment is not lost. It is recorded against your bid and
+          support can apply it — but it will not land on the board on its own, so send the exact
+          amount and save yourself the wait.
         </Rule>
         <Rule>
           A transaction can pay for exactly one bid. Reusing a signature is rejected.

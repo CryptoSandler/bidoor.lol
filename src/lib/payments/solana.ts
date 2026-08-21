@@ -1,5 +1,5 @@
 import { base58Decode } from "../base58";
-import { RPC_COMMITMENT, USDC_MINT, solanaRpcUrl, usdToBaseUnits } from "./config";
+import { RPC_COMMITMENT, USDC_MINT, solanaRpcUrl } from "./config";
 
 /**
  * Verifies that a Solana transaction really paid us.
@@ -18,11 +18,22 @@ export type PaymentFailure =
   | "wrong_token"
   | "wrong_destination"
   | "insufficient_amount"
+  | "overpaid"
   | "rpc_unavailable";
 
 export type VerifyResult =
   | { ok: true; amountBaseUnits: bigint }
-  | { ok: false; reason: PaymentFailure; message: string };
+  | {
+      ok: false;
+      reason: PaymentFailure;
+      message: string;
+      /**
+       * What actually arrived, when a real transfer reached our wallet but did
+       * not match. The caller needs this to file the payment for support
+       * instead of letting somebody's money vanish.
+       */
+      receivedBaseUnits?: bigint;
+    };
 
 type TokenBalance = {
   accountIndex?: number;
@@ -65,7 +76,11 @@ function touchedWallet(balances: TokenBalance[] | undefined, wallet: string): bo
 
 export async function verifyPayment(params: {
   signature: string;
-  expectedAmountUsd: number;
+  /**
+   * The exact amount this bid must be paid with, in USDC base units. Attribution
+   * is by amount, so this is matched exactly rather than as a minimum.
+   */
+  expectedBaseUnits: bigint;
   wallet: string;
   fetchTransaction?: TransactionFetcher;
 }): Promise<VerifyResult> {
@@ -146,12 +161,20 @@ export async function verifyPayment(params: {
         };
   }
 
-  const required = usdToBaseUnits(params.expectedAmountUsd);
-  if (received < required) {
+  // Exact, not "at least". The amount IS the attribution: a payment for
+  // $50.0041 belongs to exactly one bid, and accepting $50.0042 for it would
+  // throw away the only thing tying this transfer to this bidder.
+  const required = params.expectedBaseUnits;
+  if (received !== required) {
+    const short = received < required;
     return {
       ok: false,
-      reason: "insufficient_amount",
-      message: `That transaction sent ${formatUsdc(received)} USDC but this bid needs ${formatUsdc(required)}.`,
+      reason: short ? "insufficient_amount" : "overpaid",
+      message:
+        `That transaction sent exactly ${formatUsdc(received)} USDC, but this bid must be paid with ` +
+        `exactly ${formatUsdc(required)} — the amount is how we match a payment to a bid. ` +
+        `Your ${formatUsdc(received)} has been recorded against this bid; contact support to have it applied.`,
+      receivedBaseUnits: received,
     };
   }
 

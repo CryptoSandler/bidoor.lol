@@ -7,6 +7,7 @@ import {
   markFailed,
   recordAcceptedBid,
   recordPayment,
+  recordUnmatchedPayment,
 } from "@/lib/payments/pending";
 import { verifyPayment } from "@/lib/payments/solana";
 import { placeBid } from "@/lib/store";
@@ -50,11 +51,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const verified = await verifyPayment({
     signature,
-    expectedAmountUsd: bid.amountUsd,
+    expectedBaseUnits: bid.paymentBaseUnits,
     wallet: wallet.wallet,
   });
 
   if (!verified.ok) {
+    // Real money that reached us but matched no bid is filed rather than
+    // dropped. The signature is deliberately NOT consumed: this is somebody's
+    // funds, and support has to be able to apply them.
+    if (verified.receivedBaseUnits !== undefined) {
+      recordUnmatchedPayment({
+        signature,
+        bidId: id,
+        receivedBaseUnits: verified.receivedBaseUnits,
+        expectedBaseUnits: bid.paymentBaseUnits,
+        reason: verified.reason,
+      });
+    }
+
     // A wrong paste is not a dead bid: the window is still open, so leave the
     // reason visible and let them try another signature.
     markFailed(id, "failed", verified.message);

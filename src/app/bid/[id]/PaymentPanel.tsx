@@ -18,14 +18,15 @@ export function PaymentPanel({
   status,
   failureReason,
   expiresAt,
-  amountUsd,
+  paymentAmount,
   walletConfigured,
 }: {
   id: string;
   status: PendingStatus;
   failureReason: string | null;
   expiresAt: string;
-  amountUsd: number;
+  /** The exact amount to send, already formatted (e.g. "50.0041"). */
+  paymentAmount: string;
   walletConfigured: boolean;
 }) {
   const router = useRouter();
@@ -146,7 +147,7 @@ export function PaymentPanel({
           ? "Bid expired"
           : checking
             ? "Checking the chain…"
-            : `I sent ${usd(amountUsd)} — verify it`}
+            : `I sent $${paymentAmount} — verify it`}
       </button>
 
       {expired && (

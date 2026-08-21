@@ -51,15 +51,22 @@ function paidTx(baseUnits: string): SolanaTransaction {
   };
 }
 
-/** Walks the exact sequence the verify route performs. */
-async function settle(amountUsd: number, baseUnits: string, signature = SIG) {
+/**
+ * Walks the exact sequence the verify route performs. `pay` decides what the
+ * transaction actually transferred, given the exact amount the bid asked for.
+ */
+async function settle(
+  amountUsd: number,
+  pay: (exact: bigint) => bigint = (exact) => exact,
+  signature = SIG,
+) {
   const pending = createPendingBid(bidFor(amountUsd));
 
   const verified = await verifyPayment({
     signature,
-    expectedAmountUsd: pending.amountUsd,
+    expectedBaseUnits: pending.paymentBaseUnits,
     wallet: WALLET,
-    fetchTransaction: async () => paidTx(baseUnits),
+    fetchTransaction: async () => paidTx(pay(pending.paymentBaseUnits).toString()),
   });
   if (!verified.ok) return { pending, applied: false as const, verified };
 
@@ -80,7 +87,7 @@ describe("settling a verified payment", () => {
   it("puts the bid on the board and marks it paid", async () => {
     const before = listRanked().find((entry) => entry.contract === BONK)!;
 
-    const result = await settle(250, "250000000");
+    const result = await settle(250);
     expect(result.applied).toBe(true);
     if (!result.applied) return;
 
@@ -91,8 +98,8 @@ describe("settling a verified payment", () => {
   it("does not touch the board when the payment is short", async () => {
     const before = listRanked().find((entry) => entry.contract === BONK)!;
 
-    // Bid is $250 but only $100 arrived.
-    const result = await settle(250, "100000000");
+    // The bid asked for its exact unique amount; $100 arrived instead.
+    const result = await settle(250, () => 100_000_000n);
     expect(result.applied).toBe(false);
 
     const after = listRanked().find((entry) => entry.contract === BONK)!;
@@ -100,7 +107,7 @@ describe("settling a verified payment", () => {
   });
 
   it("records the paid bid so it survives a restart", async () => {
-    await settle(250, "250000000");
+    await settle(250);
 
     const accepted = listAcceptedBids();
     expect(accepted).toHaveLength(1);
@@ -115,13 +122,13 @@ describe("settling a verified payment", () => {
   });
 
   it("cannot settle two bids with one signature", async () => {
-    const first = await settle(250, "250000000");
+    const first = await settle(250);
     expect(first.applied).toBe(true);
 
     const boardBefore = listRanked().find((entry) => entry.contract === BONK)!.totalUsd;
 
     // Same signature, second bid: the constraint stops it before the board moves.
-    const second = await settle(250, "250000000");
+    const second = await settle(250);
     expect(second.applied).toBe(false);
 
     const boardAfter = listRanked().find((entry) => entry.contract === BONK)!.totalUsd;

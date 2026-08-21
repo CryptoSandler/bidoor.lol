@@ -11,16 +11,6 @@ import { contractKeyFor, validateBid, type FieldErrors } from "@/lib/validation"
 
 export type ListingIndex = Record<string, { name: string; rank: number; totalUsd: number }>;
 
-type Result = {
-  toppedUp: boolean;
-  previousRank: number | null;
-  rank: number;
-  totalUsd: number;
-  name: string;
-  ticker: string;
-  strippedParams: string[];
-};
-
 type Preview =
   | { state: "idle" }
   | { state: "loading" }
@@ -43,7 +33,6 @@ export function BidForm({
   const [amountUsd, setAmountUsd] = useState(String(suggestedAmount));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<Result | null>(null);
 
   const chain = CHAINS.find((item) => item.id === chainId)!;
 
@@ -99,7 +88,6 @@ export function BidForm({
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setResult(null);
 
     const form = { chainId, contract, launchpadUrl, amountUsd };
     const local = validateBid(
@@ -123,56 +111,13 @@ export function BidForm({
         setErrors(data.errors ?? {});
         return;
       }
-      setResult(data as Result);
-      setContract("");
-      setLaunchpadUrl("");
-      setAmountUsd(String(BOARD.minBidUsd));
-      router.refresh();
+      // Nothing is on the board yet — the bid now has to be paid for.
+      router.push(`/bid/${data.id}`);
     } catch {
       setErrors({ amountUsd: "Something went wrong. Try again." });
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (result) {
-    return (
-      <div className="mt-6 rounded-card border border-line bg-surface p-4">
-        <p className="text-2xs font-bold tracking-widest text-positive uppercase">
-          {result.toppedUp ? "Bid added" : "Listed"}
-        </p>
-        <p className="money mt-2 text-4xl font-bold text-accent">#{result.rank}</p>
-        <p className="mt-1.5 text-sm text-muted">
-          <span className="font-bold text-text">{result.name}</span> is at #{result.rank} with{" "}
-          <span className="money">{usd(result.totalUsd)}</span> total.
-          {result.toppedUp &&
-            result.previousRank !== null &&
-            result.previousRank > result.rank && <> Moved up from #{result.previousRank}.</>}
-          {result.toppedUp && result.previousRank === result.rank && <> Rank unchanged.</>}
-        </p>
-        {result.strippedParams.length > 0 && (
-          <p className="mt-2 text-xs text-faint">
-            Removed {result.strippedParams.length} query parameter
-            {result.strippedParams.length > 1 ? "s" : ""} from your launchpad link:{" "}
-            <span className="num">{result.strippedParams.join(", ")}</span>.
-          </p>
-        )}
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={() => router.push("/")}
-            className="rounded-pill bg-accent px-4 py-2 text-sm font-bold text-accent-ink"
-          >
-            See the board
-          </button>
-          <button
-            onClick={() => setResult(null)}
-            className="rounded-pill border border-line-strong px-4 py-2 text-sm text-muted hover:text-text"
-          >
-            Bid again
-          </button>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -288,8 +233,8 @@ export function BidForm({
       </Field>
 
       <p className="rounded-sm border border-line bg-surface-2 px-3 py-2.5 text-xs leading-relaxed text-faint">
-        Demo build: no payment is taken and no rank is real. In production the rank is only granted
-        once a payment settles.
+        The next screen shows where to send USDC on Solana. Your rank only appears once that
+        transfer is confirmed on-chain. Bids are final and non-refundable.
       </p>
 
       <button
@@ -297,7 +242,7 @@ export function BidForm({
         disabled={submitting}
         className="w-full rounded-pill bg-accent py-3 text-sm font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        {submitting ? "Placing…" : existing ? "Add to this token's total" : "Place bid"}
+        {submitting ? "Starting…" : existing ? "Top up this token — continue to payment" : "Continue to payment"}
       </button>
     </form>
   );

@@ -1,5 +1,6 @@
 import { rankEntries } from "./ranking";
 import { SEED } from "./seed-data";
+import { listAcceptedBids } from "./payments/pending";
 import type { TokenMetadata } from "./dexscreener";
 import type { BidEvent, Entry, EntryLinks, RankedEntry } from "./types";
 import type { NormalizedBid } from "./validation";
@@ -69,6 +70,17 @@ function buildSeed(): Store {
     });
   }
 
+  // Replay bids that were actually paid for, on top of the demo seed. A settled
+  // payment must survive a restart; only the seed is disposable.
+  try {
+    for (const accepted of listAcceptedBids()) {
+      applyBid(store, accepted.bid, accepted.metadata, accepted.createdAt);
+    }
+  } catch {
+    // No database available (or not readable). The seed alone is still a valid
+    // board, so this must never take the whole page down.
+  }
+
   return store;
 }
 
@@ -128,10 +140,19 @@ export type BidOutcome = {
  * into an entry moves its total and nothing else.
  */
 export function placeBid(bid: NormalizedBid, metadata: TokenMetadata): BidOutcome {
-  const state = store();
-  const ranked = listRanked();
-  const existing = findByContractKey(bid.contractKey);
-  const now = new Date().toISOString();
+  return applyBid(store(), bid, metadata, new Date().toISOString());
+}
+
+function applyBid(
+  state: Store,
+  bid: NormalizedBid,
+  metadata: TokenMetadata,
+  at: string,
+): BidOutcome {
+  const ranked = rankEntries([...state.entries.values()]);
+  const entries = state.entries;
+  const existing = entries.get(bid.contractKey) ?? entries.get(bid.contractKey.toLowerCase());
+  const now = at;
 
   const event: BidEvent = {
     id: `bid_${++state.seq}`,
@@ -156,7 +177,7 @@ export function placeBid(bid: NormalizedBid, metadata: TokenMetadata): BidOutcom
     // launchpadUrl and launchpadHost are deliberately untouched: frozen by the
     // first bid, so later bidders cannot repoint where the row sends clicks.
 
-    const after = listRanked();
+    const after = rankEntries([...state.entries.values()]);
     const row = after.find((item) => item.id === existing.id)!;
     return { entry: existing, toppedUp: true, previousRank, newRank: row.rank, totalUsd: row.totalUsd };
   }
@@ -180,7 +201,7 @@ export function placeBid(bid: NormalizedBid, metadata: TokenMetadata): BidOutcom
   };
   state.entries.set(bid.contractKey, entry);
 
-  const after = listRanked();
+  const after = rankEntries([...state.entries.values()]);
   const row = after.find((item) => item.id === entry.id)!;
   return { entry, toppedUp: false, previousRank: null, newRank: row.rank, totalUsd: row.totalUsd };
 }

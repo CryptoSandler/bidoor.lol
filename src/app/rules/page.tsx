@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CHAINS } from "@/lib/chains";
 import { BOARD } from "@/lib/config";
+import { PAYMENT_WINDOW_MINUTES } from "@/lib/payments/config";
 import { usd } from "@/lib/format";
 
 export const metadata = { title: "Rules — BIDTAPE" };
@@ -54,6 +55,40 @@ export default function RulesPage() {
         <Rule>
           Payment is what claims a rank. Nothing appears on the board on the strength of an
           unfinished checkout.
+        </Rule>
+      </Section>
+
+      <Section title="Paying">
+        <Rule>
+          Every bid is paid in <span className="font-bold text-text">USDC on Solana</span>, to one
+          fixed wallet, whatever chain the token itself lives on. The address is shown on the payment
+          screen for your bid.
+        </Rule>
+        <Rule>
+          Starting a bid creates a pending bid that holds its price for {PAYMENT_WINDOW_MINUTES}{" "}
+          minutes. Send the exact amount, then paste the transaction signature. We check it against
+          the Solana chain: that it is confirmed, that it is real USDC, that it arrived at our
+          wallet, and that it covers the bid.
+        </Rule>
+        <Rule>
+          A transaction can pay for exactly one bid. Reusing a signature is rejected.
+        </Rule>
+        <Rule>
+          Nothing reaches the board until that check passes. If it fails, the reason is shown and you
+          can paste a different signature while the window is still open. If the window closes, the
+          bid expires and you start again at whatever the price is then.
+        </Rule>
+        <Rule>
+          <span className="font-bold text-text">
+            Bids are final and non-refundable. They are advertising spend, not a deposit.
+          </span>{" "}
+          We do not hold, return or credit them. Nothing about a rank is guaranteed except that
+          somebody paid for it.
+        </Rule>
+        <Rule>
+          Send only USDC on Solana, from a wallet you control. A different token, a different chain,
+          or an amount below the bid will not be credited and cannot be recovered. We only ever
+          receive — we will never ask you for a key, a seed phrase or a signature request.
         </Rule>
       </Section>
 

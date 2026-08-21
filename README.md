@@ -3,7 +3,7 @@
 A pay-to-rank leaderboard for crypto tokens. One board, eight chains, one number that decides
 everything: the total paid on a contract address.
 
-This is a design and mechanics prototype — **mock data, no payments, nothing persisted**.
+The board seed is demo data. Payments are real: bids settle against USDC transfers on Solana.
 
 ## The mechanic
 
@@ -27,13 +27,36 @@ This is a design and mechanics prototype — **mock data, no payments, nothing p
 | Token must exist on a DEX to be listed | `src/lib/dexscreener.ts` |
 | Name, ticker, logo and socials come from DexScreener, not the bidder | `src/lib/dexscreener.ts` |
 | Launchpad link frozen by the first bid | `src/lib/store.ts` |
+| A rank only exists once a payment is confirmed on-chain | `src/lib/payments/solana.ts` |
+| One transaction signature pays for exactly one bid | `src/lib/payments/db.ts` |
+
+## Payments
+
+Bids are paid in **USDC on Solana**, to one fixed wallet, whatever chain the listed token lives on.
+
+1. The bid form creates a *pending* bid with an id and a 30-minute deadline. Nothing reaches the
+   board at this point.
+2. The payment screen shows the wallet and the exact amount, and takes a transaction signature.
+3. The server checks that signature against a public Solana RPC: the transaction is confirmed, it
+   moved the real USDC mint, it arrived at our wallet, and it covers the bid.
+4. Only then is the bid applied to the leaderboard. Failures and expiries are shown with a reason.
+
+A signature can pay for exactly one bid. That is a `UNIQUE` constraint on the payments table, not a
+check in application code, so two requests racing with the same signature cannot both win.
+
+**This project only ever receives.** It holds no private key, does no signing, and has no withdrawal
+path. The wallet is operated entirely outside it.
 
 ## Running it
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000
+cp .env.example .env.local     # then set PAYMENT_WALLET
+npm run dev                    # http://localhost:3000
 ```
+
+`PAYMENT_WALLET` has no default on purpose — without it the app refuses to take bids rather than
+collecting to some other address.
 
 ```bash
 npm test             # 60 unit tests
@@ -67,8 +90,9 @@ Each chain carries its own address family and its own launchpad allowlist. See `
 
 ## Not built yet
 
-Payments, persistence, moderation, rate limiting, on-chain address verification, pagination.
-See `DECISIONES.md` for the full analysis of what is missing and what could go wrong.
+Moderation, rate limiting, pagination, and — most importantly — any binding between a payment and
+the person who made it. The verifier proves *someone* paid; it does not prove it was the person
+looking at the screen. See `DECISIONES.md` §8 for that and the rest of the open risks.
 
 ## Documents
 

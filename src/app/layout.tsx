@@ -69,7 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 Rules
               </Link>
               <span aria-hidden>·</span>
-              <span>Demo build — mock bids, no payments.</span>
+              <span>Bids are paid in USDC on Solana and are final and non-refundable.</span>
             </p>
           </div>
         </footer>

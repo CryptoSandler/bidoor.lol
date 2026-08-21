@@ -318,3 +318,56 @@ Decisiones nuevas, mismo criterio que la tabla de §1.
 - **Rate limit de DexScreener.** Hay cache de 60s, pero no hay backoff ni cola. Con tráfico real
   hace falta.
 - **"RobinPad"** sigue sin dominio verificado (§2.2).
+
+---
+
+## 8. Tanda 3 — pagos onchain
+
+Reemplaza el mock. Un rank ahora solo existe si hay una transferencia confirmada en Solana.
+
+### Decisiones
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 27 | **`node:sqlite` en vez de una dependencia** | Node 26 lo trae incorporado. Cero dependencias nativas que compilar, y la constraint UNIQUE es real (verificado con un test que la fuerza saltándose el helper). |
+| 28 | **La firma se reclama ANTES de tocar el board** | Si el orden fuera al revés, dos requests con la misma firma podrían aplicar dos veces antes de que la constraint decida. Reclamar primero hace que la base sea el árbitro. |
+| 29 | **Verificar por deltas de token balance, no por instrucciones** | Una transferencia puede llegar como `transfer`, `transferChecked`, por CPI o mezclada con otras instrucciones. El delta sobre nuestra cuenta es el mismo en todos los casos y no se puede falsear con la forma de la instrucción. |
+| 30 | **El mint de USDC está hardcodeado** | Es lo único que no puede ser configurable: el punto de chequear el mint es que cualquiera puede deployar un token llamado "USDC". Un env var ahí movería el ataque un nivel afuera. |
+| 31 | **`PAYMENT_WALLET` sin default** | Un fallback significa que un deploy mal configurado cobra en silencio a la dirección de otro. Sin la env var, la app dice que los pagos no están configurados y no deja pujar. |
+| 32 | **Se resuelve la metadata ANTES de mandar a pagar** | Fallar antes no cuesta nada; fallar después de que mandaron USDC les cuesta plata. Se vuelve a resolver al liquidar, para que el board refleje el token como está ahora y no como estaba 30 minutos antes. |
+| 33 | **Una puja fallida NO se muere: se puede reintentar** | Pegar mal la firma es el error más común. Mientras la ventana siga abierta, se muestra el motivo y se puede pegar otra. |
+| 34 | **La expiración se evalúa al leer, no con un job** | No hay scheduler acá, y una puja que nadie mira no necesita haber expirado todavía. |
+| 35 | **Las pujas pagadas se persisten y se reaplican al arrancar** | El board sigue siendo un seed de demo, pero un pago liquidado no puede desaparecer en un restart. El seed es descartable; el pago no. |
+| 36 | **Se distingue "token equivocado" de "destino equivocado"** | Al que acaba de gastar plata hay que decirle **cuál** de los dos errores cometió, no un "no se pudo verificar". |
+
+### Lo que este diseño NO resuelve (y hay que saberlo antes de cobrarle a alguien)
+
+1. **No hay atribución del pagador.** Verificamos que *alguien* mandó USDC suficiente a nuestra
+   wallet. No verificamos que sea quien está mirando la pantalla. Concretamente: si alguien mira el
+   explorer, ve una transferencia entrante a nuestra wallet y pega esa firma antes que el dueño, se
+   queda con la puja. La constraint UNIQUE hace que solo pase una vez, pero le pasa al equivocado.
+   **Este es el agujero más serio que queda.** El fix estándar es un *memo* único por puja, o un
+   monto con centavos únicos por puja, o exigir que la firma venga de una wallet que el usuario
+   probó controlar. Ninguno está implementado.
+2. **El RPC público es frágil.** `api.mainnet-beta.solana.com` tiene rate limits agresivos y no
+   siempre sirve transacciones históricas. Con tráfico real hace falta un proveedor dedicado.
+   Hay `SOLANA_RPC_URL` para eso, pero no hay reintentos ni fallback a un segundo nodo.
+3. **`confirmed`, no `finalized`.** Elegimos `confirmed` porque `finalized` tarda ~13 segundos y la
+   espera arruina el flujo. Es la elección correcta para este monto, pero es una elección: en teoría
+   un bloque `confirmed` puede revertirse.
+4. **Sobrepago no se acredita ni se devuelve.** Si mandan de más, la puja se acredita por su monto y
+   la diferencia queda. Está dicho en las reglas ("final and non-refundable") pero es áspero.
+5. **No hay reconciliación.** Si el pago se confirma y DexScreener se cae justo en ese momento, el
+   pago queda registrado pero la entrada no se aplica. El mensaje le dice al usuario que recargue,
+   pero no hay un job que lo repare solo.
+6. **No hay rate limiting** en `/api/bid` ni en el endpoint de verificación. Crear pujas pendientes
+   es gratis y sin límite.
+
+### Preguntas que esto agrega
+
+- **¿Cómo atamos un pago a un pagador?** (§8.1). Es lo primero.
+- **¿Qué hacemos con un pago que llega tarde**, después de que la puja expiró? Hoy: nada, y la plata
+  quedó. Es defendible pero hay que decidirlo explícitamente.
+- **¿Y si mandan el monto correcto pero la puja ya la ganó otro?** El precio del puesto pudo cambiar
+  en esos 30 minutos. Hoy la puja se acredita por su monto y cae donde caiga.
+

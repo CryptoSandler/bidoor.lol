@@ -80,12 +80,10 @@
      one colour that is supposed to mean "pay", and the product only ever needs
      one thing to shout. */
 
-  /* --- Wordmark ----------------------------------------------------------
-     "DOOR" changes technique, not colour, between themes: slime type on cream
-     is 1.17:1, so there it becomes dark ink on a slime slab instead. The slab
-     is simply transparent on dark. */
-  --bd-wordmark-slab: light-dark(var(--bd-accent), transparent);
-  --bd-wordmark-door: light-dark(var(--bd-accent-ink), var(--bd-accent));
+  /* The wordmark's dot is the only accent in the lockup. It needs a ring on
+     cream, where slime is 1.17 against the page, and none on slate, where it is
+     already 15.74. */
+  --bd-wordmark-dot-ring: light-dark(var(--bd-text), transparent);
 
   /* --- Depth -------------------------------------------------------------
      The cast is what sells a light card as raised, since cream has no room to

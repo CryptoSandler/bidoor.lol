@@ -24,14 +24,14 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   // Needed for the opengraph image to resolve to an absolute URL.
   metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
-  title: "BIDOOR — pay-to-rank token leaderboard",
+  title: "BIDOOR.LOL — pay-to-rank token leaderboard",
   description: DESCRIPTION,
   openGraph: {
-    title: "BIDOOR — pay-to-rank token leaderboard",
+    title: "BIDOOR.LOL — pay-to-rank token leaderboard",
     description: DESCRIPTION,
     type: "website",
   },
-  twitter: { card: "summary_large_image", title: "BIDOOR", description: DESCRIPTION },
+  twitter: { card: "summary_large_image", title: "BIDOOR.LOL", description: DESCRIPTION },
 };
 
 export const viewport: Viewport = {
@@ -56,11 +56,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh bg-bg text-text">
         <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur-md">
           <div className="shell flex items-center justify-between py-3">
-            <Link href="/" aria-label="BIDOOR — leaderboard" className="flex items-center">
+            <Link href="/" aria-label="BIDOOR.LOL — leaderboard" className="flex items-center">
               <Wordmark height="1.25rem" />
             </Link>
             <nav className="flex items-center gap-4 text-sm text-muted sm:gap-5">
-              <Link href="/" className="transition-colors hover:text-text">
+              {/* Dropped on the smallest screens: the wordmark beside it already
+                  goes to the board, and with the .LOL suffix the two of them
+                  touch at 375px. Redundant link out, breathing room in. */}
+              <Link href="/" className="hidden transition-colors hover:text-text sm:inline">
                 Leaderboard
               </Link>
               <Link href="/rules" className="transition-colors hover:text-text">
@@ -82,7 +85,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="mt-10 border-t border-line py-6">
           <div className="shell text-xs leading-relaxed text-faint">
             <p className="max-w-xl">
-              BIDOOR ranks tokens by how much has been paid for the spot. Nothing on this board is
+              BIDOOR.LOL ranks tokens by how much has been paid for the spot. Nothing on this board is
               an endorsement, an audit, or financial advice. Token names, logos and links are read
               from DexScreener. Do your own research before you touch any token listed here.
             </p>
@@ -92,6 +95,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Link>
               <span aria-hidden>·</span>
               <span>Bids are paid in USDC on Solana and are final and non-refundable.</span>
+              <span aria-hidden>·</span>
+              {/* Neutral like every other link down here: attribution is not an
+                  action, so it does not get the accent. */}
+              <a
+                href="https://x.com/CryptoSandlerr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-muted hover:underline"
+              >
+                Built by @CryptoSandlerr
+              </a>
             </p>
           </div>
         </footer>

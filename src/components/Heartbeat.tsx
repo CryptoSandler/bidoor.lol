@@ -53,6 +53,7 @@ export function Heartbeat({ minOnline, initialVisitors }: { minOnline: number; i
 
   return (
     <p className="money mt-3 text-center text-2xs text-faint sm:text-xs">
+      <span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 rounded-pill bg-accent align-middle" />
       <span className="font-bold text-text">{compactCount(online)} online</span>
       <span aria-hidden> · </span>
       {initialVisitors.toLocaleString("en-US")} visitors since launch

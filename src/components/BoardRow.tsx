@@ -36,11 +36,12 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
     >
       <span
         className={
-          isLeader
+          // All three podium pills are filled now, not just the leader's: the
+          // podium is the part of the board that is for sale, so it is the part
+          // that carries the accent. Rows below stay neutral.
+          isPodium
             ? "num inline-flex shrink-0 items-center justify-center rounded-pill bg-accent px-2 py-0.5 text-xs font-bold text-accent-ink"
-            : isPodium
-              ? "num inline-flex shrink-0 items-center justify-center rounded-pill bg-surface-2 px-2 py-0.5 text-xs font-bold"
-              : "num w-7 shrink-0 text-center text-sm font-medium text-faint sm:w-8"
+            : "num w-7 shrink-0 text-center text-sm font-medium text-faint sm:w-8"
         }
       >
         {isPodium ? `#${entry.rank}` : entry.rank}

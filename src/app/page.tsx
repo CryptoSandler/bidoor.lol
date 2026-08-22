@@ -57,7 +57,7 @@ export default async function LeaderboardPage({
           Claim #1 for <span className="money-fill">{usd(priceForFirst)}</span>
         </h1>
         <p className="mx-auto mt-2.5 max-w-xl text-xs leading-relaxed text-muted text-balance sm:mt-3 sm:text-sm">
-          <span className="font-bold text-text">New listings start at {usd(BOARD.minBidUsd)}.</span> Paying
+          <span className="money-fill font-bold">New listings start at {usd(BOARD.minBidUsd)}.</span> Paying
           less than #1 still puts you on the board, at whatever rank your total buys. Every chain in
           one list, every bidoor in the same queue.
         </p>

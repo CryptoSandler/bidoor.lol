@@ -1,21 +1,37 @@
 /**
  * Applies every migration in ./migrations, in filename order, once each.
  *
- *   npm run db:migrate
+ *   npm run db:migrate          # against DATABASE_URL
+ *   npm run db:migrate -- --test  # against TEST_DATABASE_URL
  *
  * Each file is idempotent on its own (IF NOT EXISTS everywhere) and records
  * itself in schema_migrations, so running this against a database that is
  * already up to date does nothing.
  */
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Pool } from "pg";
 
-const url = process.env.DATABASE_URL?.trim();
+// Loaded here rather than relying on the shell, so the connection string never
+// has to be typed on a command line where it would land in shell history.
+if (existsSync(".env.local")) {
+  for (const line of readFileSync(".env.local", "utf8").split("\n")) {
+    const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].trim();
+  }
+}
+
+const useTest = process.argv.includes("--test");
+const variable = useTest ? "TEST_DATABASE_URL" : "DATABASE_URL";
+const url = process.env[variable]?.trim();
+
 if (!url) {
-  console.error("DATABASE_URL is not set. See README for how to start a local Postgres.");
+  console.error(`${variable} is not set. See README for how to configure it.`);
   process.exit(1);
 }
+
+const host = url.match(/ep-[a-z0-9-]*/)?.[0] ?? url.match(/localhost:\d+/)?.[0] ?? "unknown host";
+console.log(`Migrating ${variable} (${host})`);
 
 const pool = new Pool({ connectionString: url });
 

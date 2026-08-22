@@ -670,3 +670,57 @@ auditoría, que deja rastro de quién aplicó qué. Sigue faltando mostrar el re
 **M-6** (salt de IP con default vacío) y **B-3/B-4** siguen abiertos. Y la tanda de infra —cabeceras
 de seguridad y cifrado en reposo— sigue siendo **bloqueante de deploy**.
 
+---
+
+## 17. Tanda 11 — infraestructura: cabeceras, A-3 y Neon
+
+### Cabeceras de seguridad
+
+No había **ninguna**. Ahora `next.config.ts` sirve CSP, HSTS (2 años, subdominios, preload),
+`nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` y
+`Cross-Origin-Opener-Policy` en toda respuesta, más `no-store` y `noindex` en `/admin` y `/api/*`.
+`poweredByHeader` apagado.
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 84 | **`img-src` restringido al CDN de DexScreener** | Es el mismo allowlist que ya aplica el resolver de metadata, repetido donde lo puede aplicar el navegador. Defensa en profundidad barata. |
+| 85 | **`connect-src 'self'`** | El RPC de Solana y DexScreener se llaman desde el servidor. Si algún día aparecen en una petición del navegador, es porque algo se rompió o alguien inyectó código. |
+| 86 | **`frame-ancestors 'none'` + `X-Frame-Options: DENY`** | Redundantes a propósito: el segundo cubre navegadores que no aplican el primero. |
+| 87 | **`'unsafe-inline'` en `script-src` — y está anotado como deuda** | Next inyecta scripts inline de bootstrap. Sacarlo necesita nonces por request, que es un cambio propio. Prefiero dejarlo dicho acá que poner un comentario diciendo que está bien. |
+
+Verificado sirviendo de verdad: las siete cabeceras presentes, y la página carga con **16 filas, 29
+de 29 logos del CDN y cero violaciones de CSP** en un browser real.
+
+### A-3 — el remitente on-chain en la cola de unmatched
+
+Era el último hallazgo alto abierto. La cola mostraba un pago suelto al lado de un `bid_id` que
+**eligió quien pegó la firma**, así que aplicarlo era confiar en esa asociación — el camino limpio
+para que a un operador lo convenzan de pagar el puesto de un atacante con plata ajena.
+
+El verificador ahora extrae el remitente de los mismos deltas de balance de los que sale el monto:
+qué wallets vieron bajar su USDC, y quién pagó el fee. Se persiste en `unmatched_payments` y la
+consola lo muestra arriba de las pujas candidatas, con el texto de que el bid al que se archivó lo
+eligió quien mandó la firma, no nosotros.
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 88 | **Se listan TODOS los wallets debitados, no uno** | Una transferencia ruteada por un agregador tiene más de uno. Mostrar el primero en silencio sería peor que mostrarlos todos. Si hay más de uno, la UI lo dice explícitamente. |
+| 89 | **Un pago sin remitente conocido se marca en rojo** | Las filas anteriores a esta migración no lo tienen. Decir "verificalo en un explorer antes de aplicar" es mejor que un campo vacío que parece normal. |
+
+### Neon
+
+Las dos bases conectan (Postgres 18.6) y quedaron migradas. Dos cosas que aparecieron:
+
+1. **`.env.local` tenía cada variable duplicada**, con una `DATABASE_URL=` vacía en el medio.
+   Resolvía bien de casualidad (dotenv se queda con la última), pero ambigüedad sobre a qué base se
+   conecta la app no es algo para dejar pasar. Deduplicado.
+2. **`sslmode=require` pasó a `sslmode=verify-full`.** `pg` avisa que hoy los trata igual pero que
+   va a cambiar, y que después `require` va a ser el más débil. Hacerlo explícito no cambia nada hoy
+   y evita una degradación silenciosa en una actualización futura.
+
+**La suite contra Neon expuso un problema real de diseño de tests:** cada `beforeEach` recargaba el
+fixture con una query por fila — 46 round-trips. Contra Docker local eso es invisible; contra una
+base remota hacía timeout **todos** los tests. El seed pasó a dos INSERT multi-fila y el truncate a
+una sola sentencia. De timeout total a 16/16 en un archivo. Sigue siendo mucho más lento que local,
+que es esperable y está dicho en el README: local para iterar, Neon para verificar.
+

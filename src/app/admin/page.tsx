@@ -75,6 +75,7 @@ export default async function AdminPage({
         expected: formatUsdc(payment.expectedBaseUnits),
         reason: payment.reason,
         createdAt: payment.createdAt,
+        sender: payment.sender,
       },
       candidates: (await candidateBidsForAmount(payment.receivedBaseUnits)).map((bid) => ({
         id: bid.id,

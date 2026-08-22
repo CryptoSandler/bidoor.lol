@@ -13,6 +13,11 @@ type Candidate = {
   status: string;
 };
 
+type Sender = {
+  feePayer: string | null;
+  debited: { owner: string; amountBaseUnits: string }[];
+} | null;
+
 type QueueItem = {
   payment: {
     id: string;
@@ -21,6 +26,7 @@ type QueueItem = {
     expected: string;
     reason: string;
     createdAt: string;
+    sender: Sender;
   };
   candidates: Candidate[];
 };
@@ -89,8 +95,14 @@ export function AdminActions({ queue, entries }: { queue: QueueItem[]; entries: 
                 </p>
                 <p className="num mt-1 text-2xs break-all text-faint">{item.payment.signature}</p>
 
+                <SenderPanel sender={item.payment.sender} />
+
                 <p className="mt-3 text-2xs font-bold tracking-widest text-faint uppercase">
                   Closest bids
+                </p>
+                <p className="text-2xs text-faint">
+                  Ranked by amount only. The bid this was filed against was chosen by whoever
+                  submitted the signature, not by us — check the sender above before applying.
                 </p>
                 <ul className="mt-1.5 space-y-1.5">
                   {item.candidates.map((candidate) => (
@@ -233,5 +245,52 @@ function DelistRow({
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * Who the chain says paid.
+ *
+ * The queue used to show a stray payment next to a bid id, and that id came
+ * from whoever pasted the signature. Applying on that basis is how an operator
+ * gets talked into paying an attacker's rank with a stranger's money. This is
+ * the one fact in the row the claimant cannot choose.
+ */
+function SenderPanel({ sender }: { sender: Sender }) {
+  if (!sender || (!sender.feePayer && sender.debited.length === 0)) {
+    return (
+      <p className="mt-3 rounded-sm border border-line bg-bg px-2.5 py-2 text-2xs text-danger">
+        Sender unknown — this payment was recorded before senders were captured. Verify it on a
+        block explorer before applying it to anything.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-sm border border-accent-line bg-accent-tint px-2.5 py-2">
+      <p className="text-2xs font-bold tracking-widest text-faint uppercase">Paid by</p>
+      {sender.debited.length > 0 ? (
+        <ul className="mt-1 space-y-0.5">
+          {sender.debited.map((entry) => (
+            <li key={entry.owner} className="num text-2xs break-all">
+              {entry.owner}{" "}
+              <span className="text-faint">
+                (−{(Number(entry.amountBaseUnits) / 1_000_000).toFixed(6)} USDC)
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1 text-2xs text-muted">No USDC was debited from any single wallet.</p>
+      )}
+      {sender.feePayer && (
+        <p className="num mt-1 text-2xs break-all text-faint">fee payer: {sender.feePayer}</p>
+      )}
+      {sender.debited.length > 1 && (
+        <p className="mt-1 text-2xs text-danger">
+          More than one wallet was debited. Look harder, not less.
+        </p>
+      )}
+    </div>
   );
 }

@@ -77,10 +77,14 @@ describe("two pending bids can never ask for the same amount", () => {
   });
 
   it("keeps every amount distinct across many concurrent bids", async () => {
-    const amounts = new Set<string>();
-    for (let i = 0; i < 60; i++) {
-      amounts.add((await createPendingBid(bidFor(50))).paymentBaseUnits.toString());
-    }
+    // Genuinely concurrent, which is what the name claims and what actually
+    // exercises the unique index: sixty inserts racing, each redrawing its
+    // fraction when the database rejects the one it picked.
+    const bids = await Promise.all(
+      Array.from({ length: 60 }, () => createPendingBid(bidFor(50))),
+    );
+
+    const amounts = new Set(bids.map((bid) => bid.paymentBaseUnits.toString()));
     expect(amounts.size).toBe(60);
   });
 

@@ -43,7 +43,25 @@ export type VerifyResult =
        * instead of letting somebody's money vanish.
        */
       receivedBaseUnits?: bigint;
+      /**
+       * Who the transfer came from, when we can tell. An operator reuniting a
+       * stray payment with a bid is otherwise trusting a bid id supplied by
+       * whoever pasted the signature — which is exactly how you get talked into
+       * paying an attacker's rank with a stranger's money.
+       */
+      sender?: SenderInfo;
     };
+
+export type SenderInfo = {
+  /** Fee payer: the first signer on the transaction. */
+  feePayer: string | null;
+  /**
+   * Wallets whose USDC balance went DOWN in this transaction — whoever actually
+   * funded it. Usually one; more than one means the operator should look
+   * harder, not less.
+   */
+  debited: { owner: string; amountBaseUnits: string }[];
+};
 
 type TokenBalance = {
   accountIndex?: number;
@@ -52,10 +70,16 @@ type TokenBalance = {
   uiTokenAmount?: { amount?: string };
 };
 
+/** Enough of the parsed transaction to name who signed and paid the fee. */
+type TransactionMessage = {
+  accountKeys?: { pubkey?: string; signer?: boolean }[];
+};
+
 export type SolanaTransaction = {
   slot?: number;
   /** Unix seconds. Absent on very old transactions and on some light nodes. */
   blockTime?: number | null;
+  transaction?: { message?: TransactionMessage };
   meta?: {
     err?: unknown;
     preTokenBalances?: TokenBalance[];
@@ -84,6 +108,36 @@ function sumFor(balances: TokenBalance[] | undefined, wallet: string, mint: stri
 
 function touchedWallet(balances: TokenBalance[] | undefined, wallet: string): boolean {
   return (balances ?? []).some((balance) => balance.owner === wallet);
+}
+
+/**
+ * Works out who paid, from the same balance deltas the amount comes from.
+ *
+ * Deliberately reports every debited owner rather than picking one: a transfer
+ * routed through an aggregator has more than one, and quietly showing the first
+ * would be worse than showing all of them.
+ */
+function senderOf(transaction: NonNullable<SolanaTransaction>, wallet: string): SenderInfo {
+  const pre = transaction.meta?.preTokenBalances ?? [];
+  const post = transaction.meta?.postTokenBalances ?? [];
+
+  const owners = new Set<string>();
+  for (const balance of [...pre, ...post]) {
+    if (balance.owner && balance.owner !== wallet && balance.mint === USDC_MINT) {
+      owners.add(balance.owner);
+    }
+  }
+
+  const debited: SenderInfo["debited"] = [];
+  for (const owner of owners) {
+    const delta = sumFor(post, owner, USDC_MINT) - sumFor(pre, owner, USDC_MINT);
+    if (delta < 0n) debited.push({ owner, amountBaseUnits: (-delta).toString() });
+  }
+
+  const feePayer =
+    transaction.transaction?.message?.accountKeys?.find((key) => key.signer)?.pubkey ?? null;
+
+  return { feePayer, debited };
 }
 
 export async function verifyPayment(params: {
@@ -225,6 +279,7 @@ export async function verifyPayment(params: {
         `Your ${formatUsdc(received)} is recorded against this bid and is not lost, but this ` +
         `transaction is now spent and cannot be submitted again.`,
       receivedBaseUnits: received,
+      sender: senderOf(transaction, params.wallet),
     };
   }
 

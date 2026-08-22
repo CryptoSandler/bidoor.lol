@@ -50,6 +50,15 @@ An empty board is filled with a demo fixture in development. It never runs under
 `NODE_ENV=production`, and `LOAD_DEMO_SEED=false` switches it off anywhere. The production board
 starts empty and fills only with real, paid bids.
 
+## Security headers
+
+`next.config.ts` sets CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+`Permissions-Policy` and `Cross-Origin-Opener-Policy` on every response, applied at the edge on
+Vercel. `/admin` and `/api/*` additionally get `no-store` and `noindex`.
+
+The CSP still allows `'unsafe-inline'` for scripts, which Next needs for its bootstrap. Removing it
+requires per-request nonces — recorded as open in `DECISIONES.md` rather than papered over.
+
 ## Checks
 
 ```bash

@@ -125,6 +125,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         receivedBaseUnits: verified.receivedBaseUnits,
         expectedBaseUnits: bid.paymentBaseUnits,
         reason: verified.reason,
+        // Recorded so the operator queue can show who actually paid, instead of
+        // only the bid id that whoever pasted the signature chose.
+        sender: verified.sender ?? null,
       });
     }
 

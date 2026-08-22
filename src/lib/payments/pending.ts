@@ -1,6 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { execute, isUniqueViolation, query, queryOne, violatedConstraint } from "../db";
 import type { TokenMetadata } from "../dexscreener";
+import type { SenderInfo } from "./solana";
 import type { NormalizedBid } from "../validation";
 import { FRACTION_MAX, FRACTION_MIN, PAYMENT_WINDOW_MINUTES, paymentBaseUnits } from "./config";
 
@@ -292,6 +293,8 @@ export type UnmatchedPayment = {
   expectedBaseUnits: bigint;
   reason: string;
   createdAt: string;
+  /** Who the chain says paid. Null when the transaction predates this column. */
+  sender: SenderInfo | null;
   status: UnmatchedStatus;
   resolvedAt: string | null;
   resolutionNote: string | null;
@@ -306,6 +309,8 @@ type UnmatchedRow = {
   expected_base_units: string;
   reason: string;
   created_at: Date;
+  sender_fee_payer: string | null;
+  sender_debited: SenderInfo["debited"];
   status: string;
   resolved_at: Date | null;
   resolution_note: string | null;
@@ -321,6 +326,10 @@ function toUnmatched(row: UnmatchedRow): UnmatchedPayment {
     expectedBaseUnits: BigInt(row.expected_base_units),
     reason: row.reason,
     createdAt: row.created_at.toISOString(),
+    sender:
+      row.sender_fee_payer || (row.sender_debited?.length ?? 0) > 0
+        ? { feePayer: row.sender_fee_payer, debited: row.sender_debited ?? [] }
+        : null,
     status: row.status as UnmatchedStatus,
     resolvedAt: row.resolved_at ? row.resolved_at.toISOString() : null,
     resolutionNote: row.resolution_note,
@@ -339,11 +348,13 @@ export async function recordUnmatchedPayment(params: {
   receivedBaseUnits: bigint;
   expectedBaseUnits: bigint;
   reason: string;
+  sender?: SenderInfo | null;
 }): Promise<void> {
   await execute(
     `INSERT INTO unmatched_payments
-       (id, signature, bid_id, received_base_units, expected_base_units, reason, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
+       (id, signature, bid_id, received_base_units, expected_base_units, reason,
+        created_at, sender_fee_payer, sender_debited)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      ON CONFLICT (signature) DO NOTHING`,
     [
       randomUUID(),
@@ -353,6 +364,8 @@ export async function recordUnmatchedPayment(params: {
       params.expectedBaseUnits.toString(),
       params.reason,
       new Date(),
+      params.sender?.feePayer ?? null,
+      JSON.stringify(params.sender?.debited ?? []),
     ],
   );
 }

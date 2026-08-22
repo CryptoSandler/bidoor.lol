@@ -33,48 +33,69 @@ export async function loadDemoSeed(): Promise<SeedOutcome> {
 
   const now = Date.now();
 
-  await transaction(async (client) => {
-    for (const spec of SEED) {
-      const entryId = `entry_${randomUUID()}`;
-      const events = spec.bids
-        .map(([amountUsd, ago]) => ({ amountUsd, at: new Date(now - ago) }))
-        .sort((a, b) => a.at.getTime() - b.at.getTime());
+  // Built as two multi-row inserts rather than one query per row. Against a
+  // local database the difference is invisible; against a hosted one it is the
+  // difference between a fixture that loads in a round-trip and one that takes
+  // ~46 of them, which is enough to time out every test that reloads it.
+  const entryRows: unknown[] = [];
+  const entryPlaceholders: string[] = [];
+  const bidRows: unknown[] = [];
+  const bidPlaceholders: string[] = [];
 
-      await client.query(
-        `INSERT INTO entries
-           (id, chain_id, contract, contract_key, name, ticker, logo_url, links,
-            metadata_fetched_at, launchpad_url, launchpad_host, launchpad_verified,
-            click_url, clicks, created_at, last_bid_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-        [
-          entryId,
-          spec.chainId,
-          spec.contract,
-          // The same canonical key the validator produces. Lowercasing blindly
-          // would break every non-EVM chain, where case is significant.
-          contractKeyFor(spec.chainId, spec.contract)!,
-          spec.name,
-          spec.ticker,
-          spec.logoUrl ?? null,
-          JSON.stringify(spec.links),
-          new Date(now),
-          spec.launchpadUrl ?? null,
-          spec.launchpadUrl ? new URL(spec.launchpadUrl).hostname : null,
-          launchpadVerifiedFor(spec.chainId, spec.launchpadUrl ?? null),
-          spec.launchpadUrl ?? spec.links.website ?? null,
-          spec.clicks,
-          events[0].at,
-          events[events.length - 1].at,
-        ],
+  SEED.forEach((spec, index) => {
+    const entryId = `entry_${randomUUID()}`;
+    const events = spec.bids
+      .map(([amountUsd, ago]) => ({ amountUsd, at: new Date(now - ago) }))
+      .sort((a, b) => a.at.getTime() - b.at.getTime());
+
+    const base = index * 16;
+    entryPlaceholders.push(
+      `(${Array.from({ length: 16 }, (_, i) => `$${base + i + 1}`).join(",")})`,
+    );
+    entryRows.push(
+      entryId,
+      spec.chainId,
+      spec.contract,
+      // The same canonical key the validator produces. Lowercasing blindly
+      // would break every non-EVM chain, where case is significant.
+      contractKeyFor(spec.chainId, spec.contract)!,
+      spec.name,
+      spec.ticker,
+      spec.logoUrl ?? null,
+      JSON.stringify(spec.links),
+      new Date(now),
+      spec.launchpadUrl ?? null,
+      spec.launchpadUrl ? new URL(spec.launchpadUrl).hostname : null,
+      launchpadVerifiedFor(spec.chainId, spec.launchpadUrl ?? null),
+      spec.launchpadUrl ?? spec.links.website ?? null,
+      spec.clicks,
+      events[0].at,
+      events[events.length - 1].at,
+    );
+
+    for (const event of events) {
+      const bidBase = bidRows.length;
+      bidPlaceholders.push(
+        `($${bidBase + 1},$${bidBase + 2},$${bidBase + 3},$${bidBase + 4})`,
       );
-
-      for (const event of events) {
-        await client.query(
-          `INSERT INTO entry_bids (id, entry_id, amount_usd, created_at) VALUES ($1,$2,$3,$4)`,
-          [`bid_${randomUUID()}`, entryId, event.amountUsd, event.at],
-        );
-      }
+      bidRows.push(`bid_${randomUUID()}`, entryId, event.amountUsd, event.at);
     }
+  });
+
+  await transaction(async (client) => {
+    await client.query(
+      `INSERT INTO entries
+         (id, chain_id, contract, contract_key, name, ticker, logo_url, links,
+          metadata_fetched_at, launchpad_url, launchpad_host, launchpad_verified,
+          click_url, clicks, created_at, last_bid_at)
+       VALUES ${entryPlaceholders.join(",")}`,
+      entryRows,
+    );
+    await client.query(
+      `INSERT INTO entry_bids (id, entry_id, amount_usd, created_at)
+       VALUES ${bidPlaceholders.join(",")}`,
+      bidRows,
+    );
   });
 
   return { loaded: true, entries: SEED.length };
@@ -88,15 +109,14 @@ export async function truncateAll(): Promise<void> {
   // admin_audit_log refuses TRUNCATE by trigger — that is the point of it. Tests
   // still need a clean slate, so the trigger is lifted for this one statement
   // and put straight back. The production guard above is what keeps this honest.
-  await query(`ALTER TABLE admin_audit_log DISABLE TRIGGER admin_audit_log_no_mutation`);
-  try {
-    await query(`
-      TRUNCATE entry_bids, entries, payments, consumed_signatures, unmatched_payments,
-               accepted_bids, verification_attempts, pending_bids,
-               admin_sessions, admin_login_attempts, admin_audit_log
-      RESTART IDENTITY CASCADE
-    `);
-  } finally {
-    await query(`ALTER TABLE admin_audit_log ENABLE TRIGGER admin_audit_log_no_mutation`);
-  }
+  // One round-trip, not three: the whole thing runs as a single simple query,
+  // which matters when the database is across a network.
+  await query(`
+    ALTER TABLE admin_audit_log DISABLE TRIGGER admin_audit_log_no_mutation;
+    TRUNCATE entry_bids, entries, payments, consumed_signatures, unmatched_payments,
+             accepted_bids, verification_attempts, pending_bids,
+             admin_sessions, admin_login_attempts, admin_audit_log
+    RESTART IDENTITY CASCADE;
+    ALTER TABLE admin_audit_log ENABLE TRIGGER admin_audit_log_no_mutation;
+  `);
 }

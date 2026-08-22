@@ -839,3 +839,19 @@ El borde fuerte `#6A7F97` tiene cast azulado y un chequeo automático de restos 
 celeste lo marcó. **Se deja:** está sobre el mismo rayo cromático que `bg`,
 `card` y `lift` — es la propia rampa fría del tema, no un acento sobreviviente.
 
+---
+
+## 23. Tanda 17 — marca y podio verde
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 118 | **Marca: arco + chevron (opción B)** | Es la única de las cuatro donde la puerta y el "up only" son la misma forma en vez de dos ideas superpuestas, y la que menos pierde al achicarse. |
+| 119 | **La marca es slime sola, y neutra en el header** | El header ya gasta su slime en el botón. Un mark verde al lado del wordmark recrea exactamente el problema que resolvió el wordmark de un color. |
+| 120 | **Los montos del podio son relleno, no letra slime** | La regla de contraste no se levantó: slime como texto sobre crema es 1.17. Se extendió *dónde* aparece el slime, no *cómo*. |
+| 121 | **El borde slime del podio se acepta sabiendo que da 1.08 en claro** | Es decoración con redundancia: el podio ya es card con sombra contra filas planas. Si fuera la única señal del ranking, no sería aceptable. |
+
+**Se frenó la tanda para preguntar.** El pedido llegó con `[A/B/C/D]` sin
+completar. Elegir el logo en su lugar habría significado rehacer cuatro artefactos
+si acertaba mal, así que se preguntó antes de tocar nada y se avanzó con el
+resto recién con la respuesta.
+

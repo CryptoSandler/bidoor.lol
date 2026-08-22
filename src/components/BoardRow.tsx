@@ -18,11 +18,13 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
     <li
       className={
         isPodium
-          ? // The leader is marked by a bar of slime down its edge. It is
-            // decoration, so it never has to be legible as type — which is what
-            // lets it be exactly the same colour in both themes.
-            `flex items-center gap-3 rounded-card border border-line bg-surface shadow-card sm:gap-4 ${
-              isLeader ? "border-l-[5px] border-l-accent-line" : ""
+          ? // The whole podium is edged in slime, and the leader's left edge is
+            // thicker still. This is decoration and never the only signal: on
+            // cream the slime edge is 1.08 against the card, so it is carried by
+            // hue rather than by luminance, and the podium is already a shadowed
+            // card against flat rows before any colour is involved.
+            `flex items-center gap-3 rounded-card border border-accent-line bg-surface shadow-card sm:gap-4 ${
+              isLeader ? "border-l-[5px]" : ""
             }`
           : "flex items-center gap-3 border-b border-line sm:gap-4"
       }
@@ -98,11 +100,12 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         <span
-          // Only the leader's total is filled. Every other amount is ordinary
-          // type carrying weight — slime spent on all fifty rows would stop
-          // being an accent, and on cream it would not be readable at all.
-          className={`money font-bold ${
-            isLeader ? "money-fill text-xl" : isPodium ? "text-lg" : "text-base"
+          // The podium's three totals are filled; everything below stays
+          // ordinary type carrying weight. Filled rather than coloured even
+          // here, because slime type on cream is 1.17 and would not be readable
+          // — the ink is what carries the contrast, at 15.76.
+          className={`money font-bold ${isPodium ? "money-fill" : ""} ${
+            isLeader ? "text-xl" : isPodium ? "text-lg" : "text-base"
           }`}
           title={usd(entry.totalUsd)}
         >

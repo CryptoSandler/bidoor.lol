@@ -265,3 +265,36 @@ los chips en 1.1:1, una capa más abajo. Ahora las tres capas se miden siempre.
 
 Chips de chain: 5.01 mínimo en claro, 6.74 en oscuro. Tinta sobre slime: 15.76.
 
+---
+
+## 11. La marca
+
+Un arco con un chevron subiendo adentro: **la puerta ES el podio**. Las dos ideas
+colapsan en una sola forma en vez de apilarse, y por eso aguanta achicarse — a
+16px la flecha todavía se lee. Dos colores planos, sin gradiente: slime `#C6FF00`
+sobre el slate `#0F1316`.
+
+Se exploraron cuatro direcciones (puerta derramando slime, puerta-podio, moneda
+cruzando el umbral, puerta pixel-art). La lámina está en
+`design-compare/logo-options.png` y los vectores en `design-compare/logo-svg/`.
+
+**Dónde va en slime y dónde no.** Sola sobre oscuro —favicon, apple-icon, avatar
+de X, la tarjeta de link— la marca es slime. **En el header del sitio no**: ahí
+pinta en `currentColor` y queda neutra, porque esa fila ya gasta su slime en el
+botón Bid. Es el mismo argumento que dejó el wordmark en un solo color, y no
+deja de ser cierto porque lo que está al lado sea un logo.
+
+### El podio se pone verde
+
+Las tres cards del top 3 llevan borde slime, la del #1 con el borde izquierdo más
+grueso, y **los tres montos del podio van en relleno slime**. De la fila 4 para
+abajo no cambia nada: tipografía neutra con peso.
+
+Relleno y no color de letra, también acá: el slime como texto sobre crema da
+1.17. La tinta `#141210` es la que carga el contraste, a 15.76.
+
+**El borde slime es decoración y nunca la única señal.** Sobre la card del tema
+claro da **1.08** de luminancia: lo hace visible el matiz, no el brillo. Se banca
+porque el podio ya se distingue antes de cualquier color —es una card con sombra
+contra filas planas— así que nadie que no perciba el verde pierde información.
+

@@ -34,31 +34,29 @@ export default function OpengraphImage() {
           fontFamily: "sans-serif",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          {/* The same mark as the favicon: a bid stepping up off a floor. */}
-          <div
-            style={{
-              display: "flex",
-              width: 64,
-              height: 64,
-              borderRadius: 14,
-              background: SLIME,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <svg width="64" height="64" viewBox="0 0 64 64">
-              <path
-                d="M14 34 L32 16 L50 34"
-                fill="none"
-                stroke={SLIME_INK}
-                strokeWidth="9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <rect x="18" y="43" width="28" height="7" rx="3.5" fill={SLIME_INK} opacity="0.75" />
-            </svg>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          {/* The lockup, exactly as the favicon draws it: the doorway is the
+              podium. Slime here, because the mark is standing on the dark on its
+              own — in the site header it goes neutral instead, since that row
+              already spends its slime on the button. */}
+          <svg width="72" height="72" viewBox="0 0 64 64">
+            <path
+              d="M14 58 L14 26 A18 18 0 0 1 50 26 L50 58"
+              fill="none"
+              stroke={SLIME}
+              strokeWidth="8"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M23 40 L32 30 L41 40"
+              fill="none"
+              stroke={SLIME}
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <rect x="28" y="34" width="8" height="18" rx="2" fill={SLIME} />
+          </svg>
           <div style={{ display: "flex", fontSize: 44, fontWeight: 700, letterSpacing: -1 }}>
             BIDOOR
           </div>

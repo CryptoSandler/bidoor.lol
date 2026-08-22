@@ -184,7 +184,7 @@ export default function RulesPage() {
             <div key={chain.id} className="flex flex-wrap items-baseline gap-x-2.5 text-sm">
               <span
                 className="w-32 shrink-0 font-bold"
-                style={{ color: `var(--bd-chain-${chain.id}-ink)` }}
+                style={{ color: `var(--bd-chain-${chain.id})` }}
               >
                 {chain.name}
               </span>
@@ -233,7 +233,7 @@ export default function RulesPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-2xs font-bold tracking-widest text-accent uppercase">{title}</h2>
+      <h2 className="text-2xs font-bold tracking-widest text-sky uppercase">{title}</h2>
       <div className="mt-3 space-y-3">{children}</div>
     </section>
   );

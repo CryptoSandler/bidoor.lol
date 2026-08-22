@@ -6,44 +6,59 @@
    consume these through Tailwind's @theme mapping and must never hardcode a hex
    value or a pixel size. Re-skinning the product is editing this file.
 
-   The palette is warm on purpose: no grey here is neutral, every one is pushed
-   toward red/yellow. Dropping a neutral #fafafa next to these reads cold and
-   dead. See DESIGN.md for where this came from.
+   The palette is a duotone: one blue ramp and one green ramp, and nothing else.
+   There is no black, grey, white or cream anywhere — the "dark" role is played
+   by the deep end of the blue ramp and the "light" role by the pale end of the
+   green ramp, so the two families also carry the parts a neutral would normally
+   do quietly: borders, muted text, card grounds.
+
+   The division of labour is strict and worth keeping strict:
+     slime (green) = money and action — amounts, the CTA, rank pills, the leader
+     sky   (blue)  = structure and navigation — links, dots, secondary state
+
+   They never appear on the same element. Two exceptions are documented at the
+   bottom of this file, both because they carry meaning rather than style.
+
+   There is deliberately no light theme. The palette forbids cream, so there is
+   nothing for one to be made of; a second theme would have to break the rule
+   the palette exists to hold.
+
+   Every text ratio here is measured against WCAG AA (4.5:1). See DECISIONES.md.
    ========================================================================== */
 
 :root {
-  /* --- Surfaces ---------------------------------------------------------- */
-  --bd-bg: #fffdfa;
-  --bd-surface: #fbfaf7;
-  --bd-surface-2: #f6f3ef;
+  /* --- Surfaces: the deep end of the blue ramp ---------------------------- */
+  --bd-bg: #002b66;
+  --bd-surface: #003d80;
+  --bd-surface-2: #004a99;
 
-  /* --- Ink --------------------------------------------------------------- */
-  --bd-text: #282624;
-  --bd-text-muted: #67625d;
-  --bd-text-faint: #96908a;
+  /* --- Ink: the pale end of the green ramp, then blue for the quieter tiers */
+  --bd-text: #e8ffa8; /* 12.55 on bg */
+  --bd-text-muted: #7fdcf7; /* 8.77 on bg */
+  --bd-text-faint: #41c6f0; /* 6.87 on bg */
 
   /* --- Lines ------------------------------------------------------------- */
-  --bd-border: #e6e0da;
-  --bd-border-strong: #d6cec6;
+  --bd-border: #0071c5;
+  --bd-border-strong: #00a8f0;
 
-  /* --- Accent -----------------------------------------------------------
-     A more saturated persimmon than the reference's softer coral: same warm
-     family, clearly not the same brand. Used with discipline — price, rank,
-     CTA, links, and nothing else. */
-  /* Hot magenta against warm cream: loud, closer to how Crypto Twitter actually
-     looks than a soft coral, and it clears AA everywhere it is used — the old
-     persimmon did not (3.68 as 16px bold text on the page background).
-     Green was the obvious "degen" alternative and was rejected: green already
-     means "positive" in this palette, and an accent that collides with a status
-     colour makes both of them mean less. Still exactly one accent. */
-  --bd-accent: #c4006a;
-  --bd-accent-ink: #ffffff;
-  --bd-accent-tint: #fdeaf3;
-  --bd-accent-line: #f3bfd8;
+  /* --- Slime: money and action ------------------------------------------
+     Reserved for amounts, the primary button, rank pills and the leader row.
+     Ink on it is the deep blue, never a light colour: 11.52 against slime,
+     where a pale ink would be around 1.2 and illegible. */
+  --bd-accent: #c6ff00; /* 11.52 on bg, 8.95 on surface */
+  --bd-accent-ink: #002b66;
+  --bd-accent-tint: #003d80; /* leader row ground */
+  --bd-accent-line: #c6ff00; /* leader row border */
 
-  /* Darkened from #1a8f5a, which was 4.04 on the page background. */
-  --bd-positive: #157a4c;
-  --bd-danger: #c62828;
+  /* --- Sky: structure and navigation ------------------------------------
+     Links, the wordmark's "OOR", panel dots, verified marks, secondary state. */
+  --bd-sky: #00a8f0; /* 5.11 on bg */
+  --bd-sky-strong: #41c6f0; /* 6.87 on bg */
+  --bd-sky-tint: #001a40;
+
+  /* Positive state is sky rather than a second green: green is spoken for, and
+     an accent that collides with a status colour makes both mean less. */
+  --bd-positive: #41c6f0;
 
   /* --- Type -------------------------------------------------------------- */
   --bd-font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
@@ -82,7 +97,7 @@
   --bd-row-pad-y: 0.75rem;
   --bd-row-logo: 2.25rem;
 
-  --bd-shadow-card: 0 1px 2px rgba(40, 38, 36, 0.04);
+  --bd-shadow-card: none;
 }
 
 /* Small phones get a tighter podium so the top three still clear the fold.
@@ -96,86 +111,32 @@
   }
 }
 
-/* Dark theme. Same structure, same warmth, inverted. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bd-bg: #1a1512;
-    --bd-surface: #231e1b;
-    --bd-surface-2: #2d2824;
-    --bd-text: #f7f5f1;
-    --bd-text-muted: #aba39b;
-    --bd-text-faint: #857d75;
-    --bd-border: #ffffff1a;
-    --bd-border-strong: #ffffff2e;
-    --bd-accent: #ff5fae;
-    --bd-accent-ink: #1a1512;
-    --bd-accent-tint: #2f1322;
-    --bd-accent-line: #5e2440;
-    --bd-positive: #4ade80;
-    --bd-danger: #ff6568;
-    --bd-shadow-card: none;
-  }
-}
-
-:root[data-theme="dark"] {
-  --bd-bg: #1a1512;
-  --bd-surface: #231e1b;
-  --bd-surface-2: #2d2824;
-  --bd-text: #f7f5f1;
-  --bd-text-muted: #aba39b;
-  --bd-text-faint: #857d75;
-  --bd-border: #ffffff1a;
-  --bd-border-strong: #ffffff2e;
-  --bd-accent: #ff5fae;
-  --bd-accent-ink: #1a1512;
-  --bd-accent-tint: #2f1322;
-  --bd-accent-line: #5e2440;
-  --bd-positive: #4ade80;
-  --bd-danger: #ff6568;
-  --bd-shadow-card: none;
-}
-
-/* --- Per-chain accents ------------------------------------------------------
-   Our own addition: the reference has no concept of chains. Each pair is a tint
-   plus an ink that stays legible on it in both themes. */
+/* --- Documented exception 1: failure ----------------------------------------
+   Red is in neither family, and it stays. A payment screen where the failure
+   message is the same colour as everything else is a payment screen where
+   people miss the failure. This is semantics, not palette. */
 :root {
-  --bd-chain-solana-tint: #e7f7f1;
-  --bd-chain-solana-ink: #0f7a5a;
-  --bd-chain-bnb-tint: #fdf3d8;
-  --bd-chain-bnb-ink: #8a6d08;
-  --bd-chain-robinhood-tint: #e6f7ea;
-  --bd-chain-robinhood-ink: #1a7a35;
-  --bd-chain-base-tint: #e8edfd;
-  --bd-chain-base-ink: #2b4bc4;
-  --bd-chain-ethereum-tint: #eeecfb;
-  --bd-chain-ethereum-ink: #4b40a8;
-  --bd-chain-ton-tint: #e4f2fb;
-  --bd-chain-ton-ink: #1a6d9e;
-  --bd-chain-tron-tint: #fdeaea;
-  --bd-chain-tron-ink: #b52b2b;
-  --bd-chain-hyperliquid-tint: #e2f6f3;
-  --bd-chain-hyperliquid-ink: #0d7a6c;
-  --bd-chain-unknown-tint: var(--bd-surface-2);
-  --bd-chain-unknown-ink: var(--bd-text-muted);
+  --bd-danger: #ff8a95; /* 6.06 on bg */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bd-chain-solana-tint: #102a22;
-    --bd-chain-solana-ink: #5fe9c4;
-    --bd-chain-bnb-tint: #2c2712;
-    --bd-chain-bnb-ink: #f0b90b;
-    --bd-chain-robinhood-tint: #14261b;
-    --bd-chain-robinhood-ink: #7be38b;
-    --bd-chain-base-tint: #161e38;
-    --bd-chain-base-ink: #8aa2ff;
-    --bd-chain-ethereum-tint: #1d1c2e;
-    --bd-chain-ethereum-ink: #a2a0f0;
-    --bd-chain-ton-tint: #11242f;
-    --bd-chain-ton-ink: #54b8e8;
-    --bd-chain-tron-tint: #2c1618;
-    --bd-chain-tron-ink: #f06a6a;
-    --bd-chain-hyperliquid-tint: #122a28;
-    --bd-chain-hyperliquid-ink: #63e0ce;
-  }
+/* --- Documented exception 2: chain chips ------------------------------------
+   Each chain keeps its own ink, because the chip encodes which chain a token is
+   on. Flattening them into the duotone would cost a reader information that a
+   screenshot cannot recover, which is the whole distribution channel.
+
+   The tint is uniform and comes from the blue ramp — one step deeper than the
+   page, so a chip reads as recessed. The chain identity lives in the ink. The
+   previous per-chain tints were built for a warm brown ground and sat at 1.1:1
+   against this one, which made every chip dissolve into the page. */
+:root {
+  --bd-chain-tint: #001a40;
+  --bd-chain-solana: #5fe9c4;
+  --bd-chain-bnb: #f0b90b;
+  --bd-chain-robinhood: #7be38b;
+  --bd-chain-base: #8aa2ff;
+  --bd-chain-ethereum: #a2a0f0;
+  --bd-chain-ton: #54b8e8;
+  --bd-chain-tron: #ff8a95;
+  --bd-chain-hyperliquid: #63e0ce;
+  --bd-chain-unknown: #7fdcf7;
 }

@@ -122,3 +122,47 @@ Todo lo de arriba vive en **`src/app/tokens.css`** y solo ahí: color, tipograf�
 alturas de fila, ancho de contenedor. Los componentes no llevan ni un color ni un tamaño
 hardcodeado — consumen `var(--…)` vía el mapeo `@theme` de Tailwind. Cambiar la identidad más
 adelante es editar ese archivo, no recorrer componentes.
+
+---
+
+## 9. Duotono azul + verde (paleta actual)
+
+Reemplaza el magenta sobre crema. **Dos familias y nada más**: no hay negro, gris, blanco ni crema
+en ninguna parte. El rol de "oscuro" lo cumple el extremo profundo del azul y el de "claro" el
+extremo pálido del verde, así que las dos rampas cargan también lo que normalmente hace un neutro
+en silencio: bordes, texto secundario, fondos de card.
+
+| Rol | Valor | Contraste sobre el fondo |
+|---|---|---|
+| fondo | `#002B66` | — |
+| card | `#003D80` | — |
+| texto | `#E8FFA8` verde pálido | 12.55 |
+| muted | `#7FDCF7` | 8.77 |
+| faint | `#41C6F0` | 6.87 |
+| **slime** (plata y acción) | `#C6FF00` | 11.52 · 8.95 sobre card |
+| **celeste** (estructura y navegación) | `#00A8F0` | 5.11 |
+| tinta sobre slime | `#002B66` | 11.52 |
+
+La división es estricta: **slime sólo para dinero y acción** (montos, el CTA, los pills de rank, la
+fila del #1) y **celeste sólo para estructura y navegación** (links, el "OOR" del wordmark, los dots
+de los paneles, marcas de verificado, estado secundario). Nunca los dos en el mismo elemento.
+
+### Un solo tema, a propósito
+
+Se eliminó el tema claro. La paleta prohíbe el crema, así que no hay de qué hacerlo — un segundo
+tema tendría que romper justamente la regla que la paleta existe para sostener. `tokens.css` ya no
+tiene bloques de `prefers-color-scheme` ni de `data-theme`.
+
+### Dos excepciones documentadas
+
+1. **El rojo de error se queda.** No pertenece a ninguna familia, y aun así se queda: una pantalla
+   de pago donde el mensaje de fallo tiene el mismo color que todo lo demás es una pantalla donde la
+   gente no ve el fallo. Es semántica, no paleta. `#FF8A95`, 6.06 sobre el fondo.
+2. **Los chips de chain conservan su color.** El chip codifica en qué chain está el token, que es
+   información que un screenshot no puede recuperar de otro modo.
+
+   Acá hubo que rehacerlos, y el número lo mostró: los tintes por chain estaban construidos para el
+   marrón cálido anterior y contra el azul quedaban en **1.09–1.24**, o sea que cada chip se disolvía
+   en la página. Ahora el tinte es uniforme (`#001A40`, un paso más profundo que el fondo, así el
+   chip se lee hundido) y **la identidad de la chain vive en la tinta**, que va de 5.65 a 11.41.
+

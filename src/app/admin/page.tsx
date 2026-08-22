@@ -156,7 +156,7 @@ export default async function AdminPage({
                   {new Date(entry.createdAt).toISOString().replace("T", " ").slice(0, 19)}
                 </span>{" "}
                 <span className="font-bold text-text">{entry.actor}</span>{" "}
-                <span className="text-accent">{entry.action}</span>
+                <span className="text-sky">{entry.action}</span>
                 {entry.targetId && (
                   <span className="num block truncate text-faint">{entry.targetId}</span>
                 )}

@@ -53,7 +53,7 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
               href={`/go/${entry.id}`}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className={`truncate font-bold hover:text-accent ${isPodium ? "text-base" : "text-sm sm:text-base"}`}
+              className={`truncate font-bold hover:text-sky ${isPodium ? "text-base" : "text-sm sm:text-base"}`}
             >
               {entry.name}
             </a>

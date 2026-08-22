@@ -18,6 +18,9 @@
   --color-accent-ink: var(--bd-accent-ink);
   --color-accent-tint: var(--bd-accent-tint);
   --color-accent-line: var(--bd-accent-line);
+  --color-sky: var(--bd-sky);
+  --color-sky-strong: var(--bd-sky-strong);
+  --color-sky-tint: var(--bd-sky-tint);
   --color-positive: var(--bd-positive);
   --color-danger: var(--bd-danger);
 

@@ -9,10 +9,13 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const alt = "BIDOOR — pay-to-rank token leaderboard";
 
-const ACCENT = "#c4006a";
-const CREAM = "#fffdfa";
-const INK = "#282624";
-const MUTED = "#67625d";
+// Same duotone as the board: deep blue ground, pale green ink, slime for the
+// line that carries the product, sky for the wordmark's second half.
+const GROUND = "#002b66";
+const SLIME = "#c6ff00";
+const SKY = "#00a8f0";
+const INK = "#e8ffa8";
+const MUTED = "#7fdcf7";
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -25,7 +28,7 @@ export default function OpengraphImage() {
           flexDirection: "column",
           justifyContent: "center",
           padding: "80px",
-          background: CREAM,
+          background: GROUND,
           color: INK,
           fontFamily: "sans-serif",
         }}
@@ -38,7 +41,7 @@ export default function OpengraphImage() {
               width: 64,
               height: 64,
               borderRadius: 14,
-              background: ACCENT,
+              background: SLIME,
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -47,16 +50,16 @@ export default function OpengraphImage() {
               <path
                 d="M14 34 L32 16 L50 34"
                 fill="none"
-                stroke={CREAM}
+                stroke={GROUND}
                 strokeWidth="9"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <rect x="18" y="43" width="28" height="7" rx="3.5" fill={CREAM} opacity="0.75" />
+              <rect x="18" y="43" width="28" height="7" rx="3.5" fill={GROUND} opacity="0.75" />
             </svg>
           </div>
           <div style={{ display: "flex", fontSize: 44, fontWeight: 700, letterSpacing: -1 }}>
-            BID<span style={{ color: ACCENT }}>OOR</span>
+            BID<span style={{ color: SKY }}>OOR</span>
           </div>
         </div>
 
@@ -78,7 +81,7 @@ export default function OpengraphImage() {
             fontSize: 84,
             fontWeight: 700,
             letterSpacing: -3,
-            color: ACCENT,
+            color: SLIME,
             lineHeight: 1.02,
           }}
         >

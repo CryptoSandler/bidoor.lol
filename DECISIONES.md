@@ -774,3 +774,23 @@ pasaba limpio por los dos checks que había.
 `finally` en vez de restaurar el valor previo, y con el guard nuevo eso dejaba al test siguiente sin
 poder sembrar. Pasó a `vi.stubEnv` + `vi.unstubAllEnvs`, que restaura en vez de borrar.
 
+---
+
+## 20. Tanda 14 — paleta duotono
+
+Elegida la variante A de la exploración: fondo azul profundo, texto verde pálido, slime para dinero
+y acción. Los detalles de color están en `DESIGN.md` §9; acá van las decisiones.
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 99 | **Se elimina el tema claro** | La paleta prohíbe el crema, así que no hay material para un segundo tema. Mantener uno obligaría a romper la regla que la paleta existe para sostener. |
+| 100 | **`positive` deja de ser verde y pasa a celeste** | El verde ya es dinero. Un color de estado que colisiona con el acento hace que los dos signifiquen menos — el mismo razonamiento por el que se descartó el verde ácido cuando el acento era magenta. |
+| 101 | **El rojo de error sobrevive al duotono** | Es la única excepción por seguridad: si el mensaje de fallo en la pantalla de pago se ve igual que el resto, la gente no lo ve. Documentado como semántica, no como paleta. |
+| 102 | **Los chips de chain se rehicieron, no sólo se conservaron** | Conservar sus tintes anteriores los habría dejado en 1.09–1.24 de contraste contra el azul: invisibles. Tinte uniforme del ramp azul, identidad en la tinta. |
+| 103 | **"OOR" en celeste, "BID" en verde pálido** | En la variante original el wordmark quedaba flojo porque las dos mitades eran verdes. El celeste lo parte de verdad y respeta la regla: el wordmark es identidad/navegación, no dinero. |
+
+**Reasignaciones concretas** para que la regla se sostenga en los componentes, no sólo en los
+tokens: los títulos de sección de Rules, el nombre de acción en el log de auditoría, los dots de
+los paneles y el hover del nombre de token pasaron de acento a celeste. Los montos, el CTA, los
+pills de rank y el hover del botón "Take #N" siguen en slime.
+

@@ -9,13 +9,12 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const alt = "BIDOOR — pay-to-rank token leaderboard";
 
-// The board's own values: neutral slate ground and neutral type, with the two
-// accents spent exactly where the site spends them. Slime is a fill with dark
-// ink on it — never letters — so the card obeys the same rule as the page.
+// The board's own values: neutral slate ground, neutral type, and one accent.
+// Slime is a fill with dark ink on it — never letters — so the card obeys the
+// same rule as the page, and it appears exactly once.
 const GROUND = "#0f1316";
 const SLIME = "#c6ff00";
 const SLIME_INK = "#141210";
-const SKY = "#00a8f0";
 const INK = "#f1f5f8";
 const MUTED = "#c8d1d8";
 
@@ -61,7 +60,7 @@ export default function OpengraphImage() {
             </svg>
           </div>
           <div style={{ display: "flex", fontSize: 44, fontWeight: 700, letterSpacing: -1 }}>
-            BID<span style={{ color: SKY }}>OOR</span>
+            BIDOOR
           </div>
         </div>
 

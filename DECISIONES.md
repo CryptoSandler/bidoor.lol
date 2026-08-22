@@ -822,3 +822,20 @@ dos temas". El slime lo cumple: mismo hex, mismo rol de relleno. El celeste no
 puede — `#00A8F0` sobre crema es 2.63 — así que cambia de valor pero no de rol.
 La alternativa era dejarlo fallando AA, y ésa no es una opción disponible.
 
+---
+
+## 22. Tanda 16 — un solo acento
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 112 | **El celeste se elimina como acento** | Un color reservado para "info" compite con el único que tiene que significar "pagá". El producto necesita que grite una sola cosa. |
+| 113 | **Nada recibe slime en reemplazo del celeste** | Era el riesgo obvio de la tanda: repintar de verde lo que era celeste habría dado el mismo problema con otro color. Lo que no califica para relleno, va neutro. |
+| 114 | **Los links se afirman con subrayado, no con color** | Es la señal que no gasta paleta. Funciona igual en los dos temas y no compite con nada. |
+| 115 | **`--bd-positive` se elimina en vez de volverse neutro** | Un token llamado "positive" que es el color del texto miente sobre lo que hace. Los estados pasan a texto con peso, explícito en el componente. |
+| 116 | **Wordmark en un color** | Con "OOR" en slime, el bloque del wordmark es más grande y está más a la izquierda que el CTA: se lee primero y le roba el trabajo. |
+| 117 | **`faint` y `danger` se corrigieron: fallaban sobre `surface-2`** | Estaban medidos contra la página y la card. Sobre la tercera capa daban 3.98 y 3.65. La regla ahora es medir las tres capas siempre, no dos. |
+
+El borde fuerte `#6A7F97` tiene cast azulado y un chequeo automático de restos de
+celeste lo marcó. **Se deja:** está sobre el mismo rayo cromático que `bg`,
+`card` y `lift` — es la propia rampa fría del tema, no un acento sobreviviente.
+

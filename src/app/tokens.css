@@ -11,10 +11,10 @@
    carries everything, there is nothing left for it to stand out against. So the
    ground and the type are neutral, and exactly two accents are spent on purpose:
 
-     slime #C6FF00 = money and action
-     sky           = navigation and info
+     slime #C6FF00 = money and action, and nothing else is an accent at all.
 
-   They never appear on the same element.
+   Navigation, info and status are neutral type. Two accents were tried and the
+   second one only ever diluted the first.
 
    HOW SLIME IS ALLOWED TO APPEAR. Slime is 1.17:1 on cream. That is not a
    contrast to be tuned, it is a colour that is not there — so slime is never a
@@ -23,9 +23,9 @@
    amounts are neutral type carrying weight. An accent used everywhere stops
    being an accent, which is the lesson the duotone rounds paid for twice.
 
-   Sky needed the same care, less obviously: #00A8F0 is 2.63 on cream, so the
-   light theme darkens it. Unlike slime, the hue survives being darkened, which
-   is why sky can stay type and slime cannot.
+   Nothing that lost its colour got slime as a consolation. An element that
+   does not qualify for a slime fill goes neutral, because the accent hits
+   hardest when it is rare.
 
    TWO THEMES, ONE DECLARATION EACH. light-dark() keeps both values on the same
    line, so the two themes cannot drift apart the way two duplicated blocks do.
@@ -52,10 +52,12 @@
   --bd-surface-2: light-dark(#dbd3c5, #43505f); /* 1.16 light · 1.51 dark */
 
   /* --- Ink ---------------------------------------------------------------
-     Ratios are page / card. */
-  --bd-text: light-dark(#1a1714, #f1f5f8); /* 17.58/13.98 · 17.03/11.35 */
-  --bd-text-muted: light-dark(#4e4740, #c8d1d8); /* 9.00/7.16 · 12.06/8.04 */
-  --bd-text-faint: light-dark(#6b6359, #aab6be); /* 5.82/4.63 · 9.02/6.01 */
+     Ratios are page / card / lift. All three, because surface-2 is a real
+     background — pills, the token preview, the operator panels — and an ink
+     checked only against the first two fails quietly on the third. */
+  --bd-text: light-dark(#1a1714, #f1f5f8); /* 17.58/13.98/12.01 · 17.03/11.35/7.51 */
+  --bd-text-muted: light-dark(#4e4740, #c8d1d8); /* 9.00/7.16/6.15 · 12.06/8.04/5.32 */
+  --bd-text-faint: light-dark(#605950, #b7c4cd); /* 6.80/5.41/4.65 · 10.48/6.98/4.62 */
 
   /* --- Lines -------------------------------------------------------------
      border is the quiet separator; border-strong bounds interactive pills and
@@ -72,15 +74,11 @@
      never has to be legible as type. */
   --bd-accent-line: var(--bd-accent);
 
-  /* --- Sky: navigation and info -----------------------------------------
-     Safe as type on the page AND on a card in both themes. "Strong" means more
-     contrast, which is lighter in dark and darker in light. */
-  --bd-sky: light-dark(#00658f, #00a8f0); /* 6.35/5.05 · 6.99/4.66 */
-  --bd-sky-strong: light-dark(#004c6b, #41c6f0); /* 9.21/7.33 · 9.39/6.26 */
-
-  /* Positive state is sky, not a second green: green is spoken for, and a
-     status colour that collides with the accent makes both mean less. */
-  --bd-positive: var(--bd-sky-strong);
+  /* There is no second accent. Navigation, info and status all resolve in the
+     neutral ramp — a link is body type that underlines on hover, a status is
+     body type carrying weight. A colour reserved for "info" competes with the
+     one colour that is supposed to mean "pay", and the product only ever needs
+     one thing to shout. */
 
   /* --- Depth -------------------------------------------------------------
      The cast is what sells a light card as raised, since cream has no room to
@@ -150,7 +148,7 @@
    failure message is the same colour as everything else is a payment screen
    where people miss the failure. This is semantics, not palette. */
 :root {
-  --bd-danger: light-dark(#945056, #ff8a95); /* 5.84/4.65 · 8.29/5.52 */
+  --bd-danger: light-dark(#86484e, #ffb0b8); /* 6.78/5.39/4.63 · 10.80/7.20/4.76 */
 }
 
 /* --- Documented exception 2: chain chips ------------------------------------

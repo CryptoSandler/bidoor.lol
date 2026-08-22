@@ -45,7 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="shell flex items-center justify-between py-3">
             <Link href="/" className="flex items-baseline gap-2">
               <span className="text-lg font-bold tracking-tight">
-                BID<span className="text-sky">OOR</span>
+                BIDOOR
               </span>
             </Link>
             <nav className="flex items-center gap-4 text-sm text-muted sm:gap-5">

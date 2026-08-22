@@ -19,7 +19,7 @@ export function ActivityPanels({ entries, now }: { entries: RankedEntry[]; now: 
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Panel title="Trending right now" dotClass="bg-sky">
+      <Panel title="Trending right now" dotClass="bg-muted">
         {trending.map((entry) => (
           <Line key={entry.id}>
             <TokenMark name={entry.name} logoUrl={entry.logoUrl} size="1.25rem" />
@@ -32,7 +32,7 @@ export function ActivityPanels({ entries, now }: { entries: RankedEntry[]; now: 
         ))}
       </Panel>
 
-      <Panel title="Latest activity" dotClass="bg-sky-strong">
+      <Panel title="Latest activity" dotClass="bg-faint">
         {latest.map(({ entry, bid }) => (
           <Line key={bid.id}>
             <TokenMark name={entry.name} logoUrl={entry.logoUrl} size="1.25rem" />

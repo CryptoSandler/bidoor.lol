@@ -111,7 +111,7 @@ export default async function AdminPage({
             {resolved.map((payment) => (
               <li key={payment.id} className="border-b border-line py-2 text-xs text-muted">
                 <span
-                  className={`font-bold ${payment.status === "applied" ? "text-positive" : "text-faint"}`}
+                  className={`font-bold ${payment.status === "applied" ? "text-text" : "text-faint"}`}
                 >
                   {payment.status}
                 </span>{" "}
@@ -156,7 +156,7 @@ export default async function AdminPage({
                   {new Date(entry.createdAt).toISOString().replace("T", " ").slice(0, 19)}
                 </span>{" "}
                 <span className="font-bold text-text">{entry.actor}</span>{" "}
-                <span className="text-sky">{entry.action}</span>
+                <span className="font-medium text-text">{entry.action}</span>
                 {entry.targetId && (
                   <span className="num block truncate text-faint">{entry.targetId}</span>
                 )}

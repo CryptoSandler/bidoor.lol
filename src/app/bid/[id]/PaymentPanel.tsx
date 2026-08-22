@@ -75,7 +75,7 @@ export function PaymentPanel({
   if (settled) {
     return (
       <div className="mt-5 rounded-card border border-line bg-surface p-4">
-        <p className="text-2xs font-bold tracking-widest text-positive uppercase">
+        <p className="text-2xs font-bold tracking-widest text-text uppercase">
           Payment confirmed
         </p>
         <p className="mt-2"><span className="money money-fill text-4xl font-bold">#{settled.rank}</span></p>

@@ -267,7 +267,7 @@ function SenderPanel({ sender }: { sender: Sender }) {
   }
 
   return (
-    <div className="mt-3 rounded-sm border border-line border-l-[4px] border-l-sky bg-surface-2 px-2.5 py-2">
+    <div className="mt-3 rounded-sm border border-line border-l-[4px] border-l-line-strong bg-surface-2 px-2.5 py-2">
       <p className="text-2xs font-bold tracking-widest text-faint uppercase">Paid by</p>
       {sender.debited.length > 0 ? (
         <ul className="mt-1 space-y-0.5">

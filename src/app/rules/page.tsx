@@ -164,7 +164,7 @@ export default function RulesPage() {
         <Rule>
           <span className="font-bold text-text">Known launchpads get a verified badge.</span> If the
           link points at a launchpad we recognise for that chain, the row shows a{" "}
-          <span className="font-bold text-positive">✓</span>. That is all the badge means — it is not
+          <span className="font-bold text-text">✓</span>. That is all the badge means — it is not
           a review of the token, and its absence is not a warning.
         </Rule>
         <Rule>
@@ -233,7 +233,7 @@ export default function RulesPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-2xs font-bold tracking-widest text-sky uppercase">{title}</h2>
+      <h2 className="text-2xs font-bold tracking-widest text-text uppercase">{title}</h2>
       <div className="mt-3 space-y-3">{children}</div>
     </section>
   );

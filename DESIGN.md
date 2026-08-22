@@ -232,3 +232,36 @@ necesitan **dos juegos de tinta**: los brillantes dan 1.26 sobre un chip claro,
 así que la crema tiene el suyo oscurecido. Oscuro pasa 6.74 en el peor caso,
 claro 5.01.
 
+### 10.1 Un solo acento (simplificación posterior)
+
+El celeste sale. **El slime `#C6FF00` es el único acento de la marca.**
+
+Todo lo que era celeste se resuelve ahora sin color de acento: los links son
+tipografía base que se subraya al hover, el nav es texto neutro, los dots de los
+paneles son `muted` y `faint`, los estados de "verificado" y "pago confirmado"
+son texto con peso. **Nada de lo que perdió el celeste recibió slime como
+consuelo** — si un elemento no califica para relleno slime, va neutro.
+
+La regla del slime no cambió: relleno con tinta oscura encima, sólo en el título,
+el CTA y la fila del #1. En la home aparece cuatro veces y ninguna más.
+
+**Wordmark:** "BIDOOR" entero en un color. Se probó "OOR" en slime-relleno y el
+bloque queda más grande y más a la izquierda que el CTA, así que se lee primero
+y le roba el trabajo — en la misma fila, dos slimes compiten. Capturas en
+`design-compare/wordmark-A-un-color.png` y `-B-oor-slime.png`.
+
+**Corrección de contraste que salió de esta tanda.** Las tintas estaban medidas
+contra la página y la card, pero no contra `surface-2`, que es un fondo real —
+pills, la preview de token, los paneles del admin. Sobre esa tercera capa
+`faint` daba 3.98 y `danger` 3.65: fallaban. Es la misma clase de error que dejó
+los chips en 1.1:1, una capa más abajo. Ahora las tres capas se miden siempre.
+
+| tinta | claro (page/card/lift) | oscuro (page/card/lift) |
+|---|---|---|
+| texto `#1A1714` / `#F1F5F8` | 17.58 / 13.98 / 12.01 | 17.03 / 11.35 / 7.51 |
+| muted `#4E4740` / `#C8D1D8` | 9.00 / 7.16 / 6.15 | 12.06 / 8.04 / 5.32 |
+| faint `#605950` / `#B7C4CD` | 6.80 / 5.41 / 4.65 | 10.48 / 6.98 / 4.62 |
+| danger `#86484E` / `#FFB0B8` | 6.78 / 5.39 / 4.63 | 10.80 / 7.20 / 4.76 |
+
+Chips de chain: 5.01 mínimo en claro, 6.74 en oscuro. Tinta sobre slime: 15.76.
+

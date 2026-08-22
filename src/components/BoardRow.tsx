@@ -60,7 +60,7 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
               href={`/go/${entry.id}`}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className={`truncate font-bold hover:text-sky ${isPodium ? "text-base" : "text-sm sm:text-base"}`}
+              className={`truncate font-bold hover:underline ${isPodium ? "text-base" : "text-sm sm:text-base"}`}
             >
               {entry.name}
             </a>
@@ -72,7 +72,7 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
           <span className="num shrink-0 text-2xs text-faint">{entry.ticker}</span>
           {entry.launchpadVerified && (
             <span
-              className="shrink-0 text-2xs leading-none text-positive"
+              className="shrink-0 text-2xs leading-none font-bold text-muted"
               title={`Verified launchpad — launched on ${entry.launchpadHost}`}
               aria-label={`Verified launchpad: ${entry.launchpadHost}`}
             >
@@ -110,7 +110,7 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
         </span>
         <Link
           href={`/bid?rank=${entry.rank}`}
-          className="money rounded-pill border border-line-strong px-2 py-0.5 text-2xs whitespace-nowrap text-muted transition-colors hover:border-sky hover:text-sky"
+          className="money rounded-pill border border-line-strong px-2 py-0.5 text-2xs whitespace-nowrap text-muted transition-colors hover:border-text hover:text-text"
         >
           <span className="hidden sm:inline">Take #{entry.rank} · </span>
           <span aria-hidden className="sm:hidden">↑ </span>

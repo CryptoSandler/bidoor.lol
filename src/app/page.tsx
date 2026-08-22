@@ -37,7 +37,7 @@ export default async function LeaderboardPage({
           which is the only real objection before paying. */}
       <div className="flex justify-center">
         <p className="money inline-flex items-center gap-2 rounded-pill bg-surface-2 px-3.5 py-1.5 text-xs text-muted">
-          <span aria-hidden className="h-1.5 w-1.5 rounded-pill bg-sky" />
+          <span aria-hidden className="h-1.5 w-1.5 rounded-pill bg-muted" />
           {allEntries.length} tokens on the board
           <span aria-hidden>·</span>
           {usdCompact(potUsd)} bid to date
@@ -99,7 +99,7 @@ export default async function LeaderboardPage({
           <Link
             href={`/?show=${visible + BOARD.pageSize}`}
             scroll={false}
-            className="inline-block rounded-pill border border-line-strong px-4 py-2 text-sm text-muted transition-colors hover:border-sky hover:text-sky"
+            className="inline-block rounded-pill border border-line-strong px-4 py-2 text-sm text-muted transition-colors hover:border-text hover:text-text"
           >
             Show more · {remaining} left
           </Link>

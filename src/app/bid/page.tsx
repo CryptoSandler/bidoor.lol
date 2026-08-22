@@ -42,10 +42,17 @@ export default async function BidPage({
       </p>
 
       {target && (
-        <p className="mt-4 rounded-card border border-line bg-surface px-3.5 py-2.5 text-sm text-muted">
-          Aiming at <span className="font-bold text-text">#{target.rank}</span> ({target.name}).
-          Taking that spot costs{" "}
-          <span className="money font-bold text-text">{usd(target.priceToClaim)}</span>.
+        <p className="mt-4 rounded-card border border-line border-l-[5px] border-l-accent-line bg-surface px-3.5 py-2.5 text-sm leading-relaxed text-muted">
+          <span className="font-bold text-text">
+            Aiming at #{target.rank}, held by {target.name} with {usd(target.totalUsd)}.
+          </span>{" "}
+          {/* The thing people get wrong: a rank is taken by paying for your own
+              token, not by paying towards somebody else's. */}
+          You take that spot by putting{" "}
+          <span className="money font-bold text-text">{usd(target.priceToClaim)}</span> behind{" "}
+          <span className="font-bold text-text">your own token</span> — not by bidding on{" "}
+          {target.name}. Paste your contract below. If it is already on the board, this adds to its
+          total instead of creating a second row.
         </p>
       )}
 

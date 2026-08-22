@@ -23,10 +23,10 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
             // cream the slime edge is 1.08 against the card, so it is carried by
             // hue rather than by luminance, and the podium is already a shadowed
             // card against flat rows before any colour is involved.
-            `flex items-center gap-3 rounded-card border border-accent-line bg-surface shadow-card sm:gap-4 ${
+            `group flex items-center gap-3 rounded-card border border-accent-line bg-surface shadow-card sm:gap-4 ${
               isLeader ? "border-l-[5px]" : ""
             }`
-          : "flex items-center gap-3 border-b border-line sm:gap-4"
+          : "group flex items-center gap-3 border-b border-line sm:gap-4"
       }
       style={
         isPodium
@@ -104,19 +104,40 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
           // ordinary type carrying weight. Filled rather than coloured even
           // here, because slime type on cream is 1.17 and would not be readable
           // — the ink is what carries the contrast, at 15.76.
-          className={`money font-bold ${isPodium ? "money-fill" : ""} ${
+          //
+          // On a pointer device it steps aside on hover so the claim price can
+          // take its place. The row swaps one number for another rather than
+          // growing a second one, which is also why hovering never adds an
+          // extra patch of slime to the page.
+          className={`money font-bold sm:group-hover:hidden ${isPodium ? "money-fill" : ""} ${
             isLeader ? "text-xl" : isPodium ? "text-lg" : "text-base"
           }`}
           title={usd(entry.totalUsd)}
         >
           {usdCompact(entry.totalUsd)}
         </span>
+
+        {/* What it costs to take this spot — the occupant's total plus the
+            increment, never the total itself. Hidden until hover on a pointer
+            device; on a phone there is no hover, so it simply stays. */}
         <Link
           href={`/bid?rank=${entry.rank}`}
-          className="money rounded-pill border border-line-strong px-2 py-0.5 text-2xs whitespace-nowrap text-muted transition-colors hover:border-text hover:text-text"
+          title={`Claim #${entry.rank} for ${usd(entry.priceToClaim)} — you bid on your own token`}
+          className={`money hidden whitespace-nowrap sm:group-hover:inline-flex ${
+            isLeader ? "sm:text-xl" : isPodium ? "sm:text-lg" : "sm:text-base"
+          } items-center rounded-sm bg-accent px-1.5 font-bold text-accent-ink`}
         >
-          <span className="hidden sm:inline">Take #{entry.rank} · </span>
-          <span aria-hidden className="sm:hidden">↑ </span>
+          <span className="hidden sm:inline">Claim #{entry.rank} for&nbsp;</span>
+          {usdCompact(entry.priceToClaim)}
+        </Link>
+
+        {/* The phone version: always visible, and quieter, because there is no
+            hover to reveal it and it must not shout over the total. */}
+        <Link
+          href={`/bid?rank=${entry.rank}`}
+          className="money rounded-pill border border-line-strong px-2 py-0.5 text-2xs whitespace-nowrap text-muted sm:hidden"
+        >
+          <span aria-hidden>↑ </span>
           {usdCompact(entry.priceToClaim)}
         </Link>
       </div>

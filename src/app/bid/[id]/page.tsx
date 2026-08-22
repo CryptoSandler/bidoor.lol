@@ -54,9 +54,10 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
             <span className="font-bold text-text">
               Send this exact amount. Do not round it.
             </span>{" "}
-            All six decimals matter — the fraction is unique to this bid and is how we match your
-            payment to it. Rounding to {usd(bid.amountUsd)}, or to any other figure, will not match.
-            Your rank is still counted as {usd(bid.amountUsd)}.
+            All six decimals matter. The extra cents are your payment ID — since there are no
+            accounts and no wallet connections, that unique fraction is how we match your on-chain
+            transfer to this bid. Rounding to {usd(bid.amountUsd)}, or to any other figure, will not
+            match. Your rank counts the {usd(bid.amountUsd)} you chose.
           </span>
         </Cell>
         <Cell label="Send to">

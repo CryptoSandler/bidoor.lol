@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminConfigured, authenticateAdmin, recordAdminAction } from "@/lib/admin";
 import { reconcileSettledPayments } from "@/lib/payments/reconcile";
+import { rollUpStats } from "@/lib/stats";
 import { purgeExpiredIdentifiers } from "@/lib/retention";
 
 /**
@@ -23,6 +24,9 @@ export async function POST(request: Request) {
   }
 
   const outcome = await reconcileSettledPayments();
+  // Folding finished days into the counter and sweeping stale presence rides
+  // on the hourly cron, so no visitor ever pays for the maintenance.
+  const stats = await rollUpStats();
 
   // Same schedule, because both are "housekeeping the request path cannot do".
   // Caller identifiers stop being useful for counting long before they stop
@@ -40,5 +44,5 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, ...outcome, retention });
+  return NextResponse.json({ ok: true, ...outcome, retention, stats });
 }

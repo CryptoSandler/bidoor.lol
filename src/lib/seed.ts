@@ -154,7 +154,8 @@ export async function truncateAll(): Promise<void> {
     ALTER TABLE admin_audit_log DISABLE TRIGGER admin_audit_log_no_mutation;
     TRUNCATE entry_bids, entries, payments, consumed_signatures, unmatched_payments,
              accepted_bids, verification_attempts, pending_bids,
-             admin_sessions, admin_login_attempts, admin_audit_log
+             admin_sessions, admin_login_attempts, admin_audit_log,
+             presence, visitors, visitor_totals
     RESTART IDENTITY CASCADE;
     ALTER TABLE admin_audit_log ENABLE TRIGGER admin_audit_log_no_mutation;
   `);

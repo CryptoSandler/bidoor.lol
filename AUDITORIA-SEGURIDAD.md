@@ -3,8 +3,12 @@
 **Fecha:** 2026-08-21 · **Commit auditado:** `5a05cbb` · **Alcance:** todo `src/`, esquema SQLite,
 configuración de entorno.
 
-> **Estado de remediación (2026-08-21).** Se corrigieron **C-1, C-2, A-1, A-2, A-4, M-1, M-2, M-3,
-> M-5 y B-1**, cada uno con tests. Ver DECISIONES.md §11, §15 y §16 para el detalle. El estado de cada hallazgo está marcado en su título. Lo pendiente está resumido en
+> **Estado de remediación (2026-08-21).** Se corrigieron **C-1, C-2, A-1, A-2, A-3, A-4, M-1, M-2,
+> M-3, M-5, M-6 y B-1**, cada uno con tests. Ver DECISIONES.md §11, §15, §16 y §17.
+>
+> La **tanda de infra ya no es bloqueante**: las cabeceras de seguridad están puestas, y el ítem de
+> "cifrado en reposo" se cerró — ver §"Tanda de infra" al final, que se reescribió con lo que
+> efectivamente hay que hacer en lugar de lo que yo había supuesto. El estado de cada hallazgo está marcado en su título. Lo pendiente está resumido en
 > §"Estado de remediación" al final, junto con una tanda de deploy que sigue **bloqueante**.
 
 **Modelo de amenaza asumido:** adversario activo, con incentivo económico, capacidad de leer la
@@ -178,7 +182,7 @@ monto está saturado, asignar automáticamente un monto base contiguo (`$1` → 
 y si se agota, ofrecer `$2`) en vez de rechazar. Y subir el espacio de fracciones a 6 decimales
 (USDC lo soporta) elimina la escasez de raíz.
 
-## A-3 · 🟡 MITIGADO PARCIAL · La cola de pagos no coincidentes es escribible por cualquiera y sirve para engañar al operador
+## A-3 · ✅ CORREGIDO · La cola de pagos no coincidentes es escribible por cualquiera y sirve para engañar al operador
 
 **Archivos:** `src/app/api/bid/[id]/verify/route.ts:62-70`,
 `src/lib/payments/pending.ts:281-320`, `src/app/admin/AdminActions.tsx` (render de la cola).
@@ -205,7 +209,7 @@ el operador lo coteje; (b) marcar visualmente que `bid_id` es un dato aportado p
 firma, no una atribución del sistema; (c) exigir doble confirmación con el monto tipeado a mano;
 (d) rate-limitar `/api/bid/[id]/verify` (ver A-4) para cortar la inundación.
 
-## A-4 · 🟡 CORREGIDO EN PARTE · `/api/bid/[id]/verify` y `/api/token` no tienen ningún límite: quema de cuota de RPC y de DexScreener a pedido
+## A-4 · ✅ CORREGIDO · `/api/bid/[id]/verify` y `/api/token` no tienen ningún límite: quema de cuota de RPC y de DexScreener a pedido
 
 **Archivos:** `src/app/api/bid/[id]/verify/route.ts` (sin `checkBidCreationLimits`),
 `src/app/api/token/route.ts` (sin auth ni límite), `src/lib/payments/solana.ts:204-222`.
@@ -312,7 +316,7 @@ componente que lleva la cuenta del dinero, y el mismo patrón se repite en la ru
 transacción con `UPDATE pending_bids SET status='paid' WHERE id=? AND status<>'paid'` y comprobar
 `changes === 1`.
 
-## M-6 · ⚠️ ABIERTO · El salt del hash de IP tiene default vacío
+## M-6 · ✅ CORREGIDO · El salt del hash de IP tiene default vacío
 
 **Archivo:** `src/lib/payments/config.ts:79`.
 
@@ -545,18 +549,65 @@ puede además reclamarla él), **M-1/M-2/M-3** (la cookie de admin **es** el sec
 límite de intentos ni registro, y con fuga de longitud por timing), **M-4** (metadata de DexScreener
 sin normalizar Unicode ni acotar longitud), **M-6** (salt de IP con default vacío), **B-3** y **B-4**.
 
-## Tanda aparte — BLOQUEANTE DE DEPLOY, no implementada
+## Tanda de infra — reescrita, y ya no bloqueante
 
-Estas dos no se tocaron en esta remediación y **no deberían pasar a producción sin resolverse**:
+Cuando escribí esta auditoría marqué dos ítems como bloqueantes de deploy. Uno se implementó y el
+otro **estaba mal planteado**. Lo corrijo acá en vez de dejar el error en pie.
 
-1. **Cabeceras de seguridad.** Hoy no hay **ninguna** configurada. Faltan como mínimo:
-   `Content-Security-Policy` (el sitio carga imágenes de un CDN externo y no tiene CSP, así que
-   cualquier inyección futura no tiene contención), `Strict-Transport-Security`,
-   `X-Content-Type-Options: nosniff`, `Referrer-Policy` a nivel documento y `Permissions-Policy`.
-   Se configuran en `next.config.ts` con `headers()`.
-2. **Cifrado en reposo de `data/bidoor.db`.** La base contiene el historial completo de pagos, las
-   firmas consumidas y los `ip_hash` de los visitantes (con M-6 abierto, esos hashes son
-   efectivamente IPs). Hoy es un archivo en disco sin cifrar y sin política de backup ni de
-   retención. Definir: dónde vive, quién puede leerlo, cada cuánto se respalda, cómo se restaura y
-   cuánto tiempo se guardan los `ip_hash`.
+### 1. Cabeceras de seguridad — ✅ HECHO
+
+No había ninguna. Ahora `next.config.ts` sirve CSP, HSTS (2 años, subdominios, preload), `nosniff`,
+`X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` y `Cross-Origin-Opener-Policy` en
+toda respuesta, más `no-store` y `noindex` en `/admin` y `/api/*`. Verificado con un browser real:
+la página carga entera y con cero violaciones.
+
+**Deuda anotada, no tapada:** `script-src` sigue permitiendo `'unsafe-inline'` porque Next inyecta
+scripts de bootstrap. Sacarlo necesita nonces por request. Queda abierto.
+
+### 2. Cifrado en reposo — ✅ CERRADO: lo da la plataforma
+
+**Mi ítem original era incorrecto.** Lo planteé como algo que había que implementar. No lo es:
+**Neon cifra todo en reposo con AES-256 en todos los planes**, con claves en AWS KMS / Azure Key
+Vault y rotación, y exige TLS en tránsito. No hay nada que activar.
+
+Lo que sí queda, y es distinto:
+
+- **Claves propias (CMEK/BYOK): Neon no lo ofrece.** Si el modelo de amenaza incluyera a Neon como
+  adversario, no se resuelve con configuración. No es nuestro modelo de amenaza.
+- **Cifrado a nivel columna con `pgcrypto`: evaluado y descartado.** Los candidatos serían
+  `consumed_signatures` e `ip_hash`. Las firmas son públicas en la cadena y los `ip_hash` ya están
+  hasheados; cifrarlos rompería los índices UNIQUE que **son** la seguridad del sistema. El costo
+  supera al beneficio por mucho.
+- **`sslmode=verify-full` en vez de `require`** — hecho. `pg` avisa que hoy los trata igual pero que
+  va a cambiar, y que `require` va a quedar como el más débil.
+- **Backups:** versionados con retención de 30 días en todos los planes.
+
+### 3. M-6, que reemplaza al ítem mal planteado — ✅ HECHO
+
+El problema real de datos no era el cifrado sino la **minimización**:
+
+- `RATE_LIMIT_SALT` **falla cerrado en producción**. Un SHA-256 sin salt de una IPv4 es reversible
+  por fuerza bruta —son cuatro mil millones de preimágenes— así que el default vacío producía IPs de
+  visitantes con un disfraz. Peor que no hashear, porque parecía protección.
+- **Expiración de identificadores**: `purgeExpiredIdentifiers()` corre en el mismo cron que la
+  reconciliación y, pasados 30 días (configurable), pone en NULL el `ip_hash` de `pending_bids`,
+  `admin_login_attempts` y `admin_sessions`, y borra los contadores de `verification_attempts`.
+  **Las filas se conservan** — un registro de pago no se borra — sólo se suelta lo que ata la fila a
+  un visitante.
+- **Validación de entorno al arranque** (`startup-check.ts`): en producción el server no levanta si
+  falta `DATABASE_URL`, `PAYMENT_WALLET`, `RATE_LIMIT_SALT`, `SITE_URL` o el token de admin, y cada
+  uno dice **qué se rompe sin él**. Falla el deploy, no la primera puja de alguien.
+
+### 4. IP allowlist — ⏸ DIFERIDO, decisión tomada
+
+Restringir qué direcciones pueden conectarse a la base sería una mejora real, pero **las "IP Allow
+rules" de Neon son exclusivas del plan Scale**: `$0.222` por CU-hora contra `$0.106` del plan Launch
+—algo más del doble de costo de cómputo— más `$0.35` por GB-mes de storage en ambos. Ninguno tiene
+mínimo mensual.
+
+**No se activa pre-lanzamiento.** El razonamiento: la base ya está detrás de credenciales que no
+están en el repo, con TLS obligatorio en modo `verify-full`, y el allowlist protege sobre todo
+contra una credencial filtrada. A volumen cero, duplicar el costo de cómputo por esa capa no se
+justifica todavía. **Se revisa** cuando haya dinero real en el board o cuando se sume un segundo
+operador con acceso.
 

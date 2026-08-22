@@ -21,8 +21,8 @@ const IP = hashIp("203.0.113.7");
 const OTHER_IP = hashIp("198.51.100.9");
 
 beforeEach(async () => {
-  await truncateAll();
   vi.unstubAllEnvs();
+  await truncateAll();
 });
 
 describe("token identification", () => {

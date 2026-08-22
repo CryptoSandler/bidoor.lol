@@ -8,6 +8,10 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // Fail the deployment rather than somebody's first bid.
+  const { assertConfigured } = await import("./lib/startup-check");
+  assertConfigured();
+
   const { demoSeedEnabled, loadDemoSeed } = await import("./lib/seed");
   if (!demoSeedEnabled()) return;
 

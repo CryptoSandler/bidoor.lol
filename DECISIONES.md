@@ -724,3 +724,26 @@ base remota hacía timeout **todos** los tests. El seed pasó a dos INSERT multi
 una sola sentencia. De timeout total a 16/16 en un archivo. Sigue siendo mucho más lento que local,
 que es esperable y está dicho en el README: local para iterar, Neon para verificar.
 
+---
+
+## 18. Tanda 12 — M-6 y el cierre del ítem de cifrado
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 90 | **`RATE_LIMIT_SALT` falla cerrado en producción** | Un hash sin salt de una IPv4 es reversible por fuerza bruta. El default vacío no era una anonimización a medias: era una IP guardada con un disfraz, que es peor que no hashear porque parece protección. Fuera de producción cae a un valor fijo para no tener que configurar nada localmente. |
+| 91 | **Los identificadores se anulan, las filas se quedan** | Un registro de pago, un intento de login y un deslistado son todos cosas que hay que conservar. Lo que caduca es el `ip_hash`, que existe para contar requests en una ventana de minutos y deja de servir para eso mucho antes de dejar de ser dato personal. |
+| 92 | **La limpieza va en el cron que ya existe** | `/api/reconcile` ya es "tareas que el camino del request no puede hacer". Un segundo scheduler para esto sería una pieza más de infraestructura que mantener. |
+| 93 | **Validación de entorno al arranque, con la consecuencia escrita** | `MISSING_ENV_VAR` a las 3 de la mañana no es un mensaje de error. Cada variable dice qué se rompe sin ella. Y falla el deploy, no la primera puja de un usuario. |
+| 94 | **`pgcrypto` a nivel columna: evaluado y descartado** | Cifrar `consumed_signatures` o `ip_hash` rompería los índices UNIQUE que **son** la seguridad del sistema. Las firmas además son públicas en la cadena. |
+| 95 | **IP allowlist diferido, no descartado** | Es plan Scale ($0.222/CU-hora contra $0.106 de Launch). Protege sobre todo contra credencial filtrada, y a volumen cero duplicar el costo de cómputo por esa capa no se justifica. Se revisa con dinero real en el board o con un segundo operador. |
+
+**Corrección de mi propia auditoría.** Había marcado "cifrado en reposo" como bloqueante de deploy.
+Estaba mal planteado: Neon ya cifra todo con AES-256 en todos los planes. El problema real de datos
+era la **minimización**, no el cifrado, y es lo que resuelve M-6. Lo dejé escrito en el informe en
+vez de corregirlo en silencio.
+
+**Un guard que se probó solo:** el primer test de retención stubbea `NODE_ENV=production`, y el
+`beforeEach` siguiente llamaba a `truncateAll()` antes de deshacer el stub. Falló con
+*"truncateAll must never run in production"* — exactamente lo que tiene que pasar. Se invirtió el
+orden en el test; el guard queda como está.
+

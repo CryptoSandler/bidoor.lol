@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminConfigured, authenticateAdmin, recordAdminAction } from "@/lib/admin";
 import { reconcileSettledPayments } from "@/lib/payments/reconcile";
+import { purgeExpiredIdentifiers } from "@/lib/retention";
 
 /**
  * Called by an external scheduler. Retries payments that settled but whose
@@ -23,6 +24,12 @@ export async function POST(request: Request) {
 
   const outcome = await reconcileSettledPayments();
 
+  // Same schedule, because both are "housekeeping the request path cannot do".
+  // Caller identifiers stop being useful for counting long before they stop
+  // being personal data, so they are dropped on a timer rather than kept for
+  // the life of the row.
+  const retention = await purgeExpiredIdentifiers();
+
   // Only worth a trail when it actually did something; a cron that runs every
   // minute and finds nothing would otherwise bury the log.
   if (outcome.applied.length > 0 || outcome.failed.length > 0) {
@@ -33,5 +40,5 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, ...outcome });
+  return NextResponse.json({ ok: true, ...outcome, retention });
 }

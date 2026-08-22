@@ -82,15 +82,43 @@ export const RATE_LIMITS = {
   livePendingPerAmountPerCaller: 2,
 } as const;
 
+export class RateLimitSaltMissing extends Error {
+  constructor() {
+    super(
+      "RATE_LIMIT_SALT is not set. Without it, the SHA-256 of an IPv4 address is " +
+        "reversible by brute force — the whole space is four billion — so the stored " +
+        "hashes would be visitor IP addresses in all but name.",
+    );
+    this.name = "RateLimitSaltMissing";
+  }
+}
+
 /**
  * Salt for hashing caller IP addresses.
  *
- * Raw IPs are not stored. Without a salt an IPv4 hash is trivially reversible
- * by brute force — the whole space is four billion — so set this in production
- * if the hashes matter to you.
+ * Required in production and it fails closed there: an unsalted hash of an IPv4
+ * address is not an anonymisation, it is an IP address with extra steps, and a
+ * default that silently produces one is worse than no hashing at all because it
+ * looks like protection. Development falls back to a fixed value so the salt
+ * does not have to be configured to run the thing locally.
  */
 export function rateLimitSalt(): string {
-  return process.env.RATE_LIMIT_SALT ?? "";
+  const configured = process.env.RATE_LIMIT_SALT?.trim();
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") throw new RateLimitSaltMissing();
+  return "development-only-salt";
+}
+
+/**
+ * How long a caller identifier is kept before it is dropped.
+ *
+ * The rows stay — a payment record is not something to delete — but the hash
+ * that ties one to a visitor is nulled out. It exists to count requests, and it
+ * stops being useful for that long before it stops being personal data.
+ */
+export function ipHashRetentionDays(): number {
+  const configured = Number(process.env.IP_HASH_RETENTION_DAYS);
+  return Number.isFinite(configured) && configured > 0 ? configured : 30;
 }
 
 /** Confirmations we require before treating a transfer as settled. */

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Wordmark } from "@/components/Wordmark";
 import "./globals.css";
 
@@ -41,6 +42,17 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${dmSans.variable} ${geistMono.variable}`}>
+      <head>
+        {/* Applies the pinned theme before the first paint. Doing this in a
+            component would flash the wrong theme on every load, and the flash
+            is worst in exactly the case somebody chose a theme to avoid. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('bd-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}",
+          }}
+        />
+      </head>
       <body className="min-h-dvh bg-bg text-text">
         <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur-md">
           <div className="shell flex items-center justify-between py-3">
@@ -54,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/rules" className="transition-colors hover:text-text">
                 Rules
               </Link>
+              <ThemeToggle />
               <Link
                 href="/bid"
                 className="rounded-pill bg-accent px-3.5 py-1.5 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90"

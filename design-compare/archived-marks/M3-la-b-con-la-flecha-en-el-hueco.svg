@@ -1,0 +1,9 @@
+<!-- La B literal del wordmark: su contrapunzón de abajo ES la punta de flecha. El chevron vive en el hueco que la letra ya tenía, no la parte. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BIDOOR">
+  <rect width="64" height="64" rx="12" fill="#0F1316"/>
+  <g transform="skewX(-12) translate(6,0)"><g transform="translate(11,7) scale(0.5)">
+        <path d="M0,0 L58,0 L74,16 L74,36 L64,50 L74,64 L74,84 L58,100 L0,100 Z" fill="#C6FF00" fill-rule="evenodd"/>
+        <path d="M26,20 L48,20 L48,40 L26,40 Z" fill="#0F1316"/>
+        <path d="M37,56 L52,84 L22,84 Z" fill="#0F1316"/>
+      </g></g>
+</svg>

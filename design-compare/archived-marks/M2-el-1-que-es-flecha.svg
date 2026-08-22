@@ -1,0 +1,7 @@
+<!-- Un uno cuya bandera es la punta de la flecha. El puesto y el movimiento en un trazo, no dos. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BIDOOR">
+  <rect width="64" height="64" rx="12" fill="#0F1316"/>
+  <g transform="skewX(-12) translate(6,0)"><rect x="26" y="16" width="15" height="36" fill="#C6FF00"/>
+      <path d="M33.5 6 L52 26 L15 26 Z" fill="#C6FF00"/>
+      <rect x="12" y="52" width="43" height="12" fill="#C6FF00"/></g>
+</svg>

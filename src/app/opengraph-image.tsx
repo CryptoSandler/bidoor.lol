@@ -34,33 +34,13 @@ export default function OpengraphImage() {
           fontFamily: "sans-serif",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-          {/* The lockup, exactly as the favicon draws it: the doorway is the
-              podium. Slime here, because the mark is standing on the dark on its
-              own — in the site header it goes neutral instead, since that row
-              already spends its slime on the button. */}
-          <svg width="72" height="72" viewBox="0 0 64 64">
-            <path
-              d="M14 58 L14 26 A18 18 0 0 1 50 26 L50 58"
-              fill="none"
-              stroke={SLIME}
-              strokeWidth="8"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M23 40 L32 30 L41 40"
-              fill="none"
-              stroke={SLIME}
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <rect x="28" y="34" width="8" height="18" rx="2" fill={SLIME} />
-          </svg>
-          <div style={{ display: "flex", fontSize: 44, fontWeight: 700, letterSpacing: -1 }}>
-            BIDOOR
-          </div>
-        </div>
+        {/* The wordmark itself is the mark now. Coordinates are pre-skewed
+            rather than transformed, because the card is rendered by Satori and
+            a transform on a group is not something to bet the brand on. */}
+        <svg width="418" height="100" viewBox="-26 -10 502 120">
+          <path d="M0.00,0 L58.00,0 L70.60,16 L66.35,36 L53.37,50 L60.40,64 L56.15,84 L36.74,100 L-21.26,100 Z M21.75,20 L43.75,20 L39.50,40 L17.50,40 Z M13.25,60 L35.25,60 L31.00,80 L9.00,80 Z M84.00,0 L110.00,0 L88.74,100 L62.74,100 Z" fill={INK} fillRule="evenodd" />
+          <path d="M126.00,0 L184.00,0 L197.75,20 L185.00,80 L162.74,100 L104.74,100 Z M147.32,22 L171.32,22 L159.42,78 L135.42,78 Z M230.00,0 L270.00,0 L283.75,20 L271.00,80 L248.74,100 L208.74,100 L195.00,80 L207.75,20 Z M232.90,24 L256.90,24 L245.85,76 L221.85,76 Z M316.00,0 L356.00,0 L369.75,20 L357.00,80 L334.74,100 L294.74,100 L281.00,80 L293.75,20 Z M318.90,24 L342.90,24 L331.85,76 L307.85,76 Z M384.00,0 L442.00,0 L456.17,18 L451.50,40 L430.10,56 L438.74,100 L410.74,100 L405.67,58 L397.67,58 L388.74,100 L362.74,100 Z M405.75,20 L429.75,20 L425.92,38 L401.92,38 Z" fill={SLIME} fillRule="evenodd" />
+        </svg>
 
         <div
           style={{

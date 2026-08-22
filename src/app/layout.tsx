@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import { BidoorMark } from "@/components/BidoorMark";
+import { Wordmark } from "@/components/Wordmark";
 import "./globals.css";
 
 // Both faces are free: DM Sans and Geist Mono ship from Google Fonts.
@@ -44,9 +44,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh bg-bg text-text">
         <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur-md">
           <div className="shell flex items-center justify-between py-3">
-            <Link href="/" className="flex items-center gap-2">
-              <BidoorMark size="1.375rem" />
-              <span className="text-lg font-bold tracking-tight">BIDOOR</span>
+            <Link href="/" aria-label="BIDOOR — leaderboard" className="flex items-center">
+              <Wordmark height="1.25rem" />
             </Link>
             <nav className="flex items-center gap-4 text-sm text-muted sm:gap-5">
               <Link href="/" className="transition-colors hover:text-text">

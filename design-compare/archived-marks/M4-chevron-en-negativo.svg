@@ -1,0 +1,7 @@
+<!-- Losa slime maciza con la subida recortada. La marca es el hueco, no el trazo. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BIDOOR">
+  <rect width="64" height="64" rx="12" fill="#0F1316"/>
+  <g transform="skewX(-12) translate(6,0)"><rect x="6" y="6" width="52" height="52" rx="10" fill="#C6FF00"/>
+      <path d="M12 44 L32 24 L52 44 L52 54 L32 34 L12 54 Z" fill="#0F1316"/>
+      <rect x="12" y="12" width="40" height="9" fill="#0F1316"/></g>
+</svg>

@@ -68,9 +68,15 @@ npm run build
 npm run lint
 ```
 
+## Deploying
+
+See `DEPLOY.md` for the Vercel checklist: environment variables, what to run before the first
+deploy, and what was audited for serverless.
+
 ## Documents
 
 - `DESIGN.md` — design tokens and layout patterns.
 - `REFERENCIA.md` — analysis of the reference product's mechanics (Spanish).
 - `DECISIONES.md` — design critique, decisions and open questions (Spanish).
 - `AUDITORIA-SEGURIDAD.md` — security audit and remediation status (Spanish).
+- `DEPLOY.md` — Vercel deployment checklist.

@@ -18,7 +18,12 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
     <li
       className={
         isPodium
-          ? "flex items-center gap-3 rounded-card border border-accent-line bg-accent-tint sm:gap-4"
+          ? // The leader is marked by a bar of slime down its edge. It is
+            // decoration, so it never has to be legible as type — which is what
+            // lets it be exactly the same colour in both themes.
+            `flex items-center gap-3 rounded-card border border-line bg-surface shadow-card sm:gap-4 ${
+              isLeader ? "border-l-[5px] border-l-accent-line" : ""
+            }`
           : "flex items-center gap-3 border-b border-line sm:gap-4"
       }
       style={
@@ -29,9 +34,11 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
     >
       <span
         className={
-          isPodium
+          isLeader
             ? "num inline-flex shrink-0 items-center justify-center rounded-pill bg-accent px-2 py-0.5 text-xs font-bold text-accent-ink"
-            : "num w-7 shrink-0 text-center text-sm font-medium text-faint sm:w-8"
+            : isPodium
+              ? "num inline-flex shrink-0 items-center justify-center rounded-pill bg-surface-2 px-2 py-0.5 text-xs font-bold"
+              : "num w-7 shrink-0 text-center text-sm font-medium text-faint sm:w-8"
         }
       >
         {isPodium ? `#${entry.rank}` : entry.rank}
@@ -91,17 +98,19 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         <span
-          // One accent, no second colour for #1: on a magenta-tinted card any
-          // AA-legible gold goes olive and reads as a mistake. The leader is
-          // marked by size instead, which is a stronger signal than hue anyway.
-          className={`money font-bold text-accent ${isLeader ? "text-xl" : isPodium ? "text-lg" : "text-base"}`}
+          // Only the leader's total is filled. Every other amount is ordinary
+          // type carrying weight — slime spent on all fifty rows would stop
+          // being an accent, and on cream it would not be readable at all.
+          className={`money font-bold ${
+            isLeader ? "money-fill text-xl" : isPodium ? "text-lg" : "text-base"
+          }`}
           title={usd(entry.totalUsd)}
         >
           {usdCompact(entry.totalUsd)}
         </span>
         <Link
           href={`/bid?rank=${entry.rank}`}
-          className="money rounded-pill border border-line-strong px-2 py-0.5 text-2xs whitespace-nowrap text-muted transition-colors hover:border-accent hover:text-accent"
+          className="money rounded-pill border border-line-strong px-2 py-0.5 text-2xs whitespace-nowrap text-muted transition-colors hover:border-sky hover:text-sky"
         >
           <span className="hidden sm:inline">Take #{entry.rank} · </span>
           <span aria-hidden className="sm:hidden">↑ </span>

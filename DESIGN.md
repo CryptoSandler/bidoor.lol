@@ -166,3 +166,69 @@ tiene bloques de `prefers-color-scheme` ni de `data-theme`.
    en la página. Ahora el tinte es uniforme (`#001A40`, un paso más profundo que el fondo, así el
    chip se lee hundido) y **la identidad de la chain vive en la tinta**, que va de 5.65 a 11.41.
 
+---
+
+## 10. Base neutra + dos temas (paleta actual)
+
+Reemplaza el duotono. Las dos rondas duotono fracasaron por la misma razón de
+fondo: **cuando el acento carga toda la página, no le queda nada contra qué
+destacarse.** Acá el suelo y la tipografía vuelven a ser neutros y los dos
+acentos se gastan a propósito.
+
+| | Oscuro (default) | Claro |
+|---|---|---|
+| fondo | `#0F1316` pizarra fría | `#FFFDFA` crema |
+| card | `#2C353F` (**1.50** del fondo) | `#E9E3D9` (1.26 + borde + sombra) |
+| lift | `#43505F` (1.51) | `#DBD3C5` |
+| texto | `#F1F5F8` — 17.03 / 11.35 | `#1A1714` — 17.58 / 13.98 |
+| muted | `#C8D1D8` — 12.06 / 8.04 | `#4E4740` — 9.00 / 7.16 |
+| faint | `#AAB6BE` — 9.02 / 6.01 | `#6B6359` — 5.82 / 4.63 |
+| celeste | `#00A8F0` — 6.99 / 4.66 | `#00658F` — 6.35 / 5.05 |
+| slime | `#C6FF00`, relleno, tinta `#141210` a 15.76 | idéntico |
+
+Los ratios son *página / card*. Todo se mide contra las dos: chequear sólo la
+página fue lo que dejó los chips de chain en 1.1:1 en la ronda anterior.
+
+### Cómo se le permite aparecer al slime
+
+El slime da **1.17:1 sobre crema**. Eso no es un contraste para ajustar, es un
+color que no está — bajarlo a AA da `#637F00`, un verde oliva que ya no es
+slime. Así que el slime **nunca es color de letra**: aparece como relleno con
+tinta oscura encima, y sólo en tres lugares.
+
+1. La cifra del título.
+2. La acción primaria (todos los `bg-accent` van con `text-accent-ink`).
+3. La fila del #1 — pill de rank, monto, y una barra de 5px al costado.
+
+Los montos comunes son tipografía neutra con peso. Un acento gastado en las
+cincuenta filas deja de ser un acento, y sobre crema encima sería ilegible.
+
+### El celeste tenía el mismo problema, menos evidente
+
+`#00A8F0` sobre crema da **2.63**. La diferencia con el slime es que **el
+celeste sobrevive a oscurecerse y el slime no**, así que en claro pasa a
+`#00658F` y sigue siendo letra. El valor se ajustó desde el `#007DB3` de la
+exploración: ése estaba medido contra la página y sobre card caía a 3.59.
+
+### Un tema, una declaración
+
+`light-dark()` mantiene los dos valores en la misma línea, así los temas no
+pueden separarse como se separan dos bloques duplicados. `color-scheme` lista
+`dark` primero: sin señal, renderiza oscuro. `data-theme` fuerza cualquiera de
+los dos.
+
+### Profundidad
+
+En oscuro las capas van a **1.50**, la lección de la ronda A: una card es un
+escalón, no un tinte. La crema no puede igualarlo y no debería fingirlo — ya
+está en 0.98 de luminancia, no hay lugar por arriba, y una card 1.45 por debajo
+cae en `#D9D4CA` y lee sucia. En claro la separación es 1.26 más borde y sombra
+proyectada. Es una diferencia deliberada.
+
+### Las dos excepciones siguen
+
+El rojo de error (`#FF8A95` / `#945056`) y los chips de chain. Los chips ahora
+necesitan **dos juegos de tinta**: los brillantes dan 1.26 sobre un chip claro,
+así que la crema tiene el suyo oscurecido. Oscuro pasa 6.74 en el peor caso,
+claro 5.01.
+

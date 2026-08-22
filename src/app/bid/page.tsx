@@ -45,7 +45,7 @@ export default async function BidPage({
         <p className="mt-4 rounded-card border border-line bg-surface px-3.5 py-2.5 text-sm text-muted">
           Aiming at <span className="font-bold text-text">#{target.rank}</span> ({target.name}).
           Taking that spot costs{" "}
-          <span className="money font-bold text-accent">{usd(target.priceToClaim)}</span>.
+          <span className="money font-bold text-text">{usd(target.priceToClaim)}</span>.
         </p>
       )}
 

@@ -41,7 +41,10 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
             {/* Monospace, because this is a value to be copied character for
                 character rather than read. Every digit carries meaning: the
                 fraction is what identifies the payment. */}
-            <span className="num text-xl font-bold text-accent">
+            {/* Filled, not coloured. This is the one figure on the site that
+                being missed costs somebody money, so it has to read the same on
+                cream as it does on slate. */}
+            <span className="num money-fill text-xl font-bold">
               ${formatUsdc(bid.paymentBaseUnits)}
             </span>
             <CopyButton value={formatUsdc(bid.paymentBaseUnits)} label="the payment amount" />
@@ -68,7 +71,7 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
         </Cell>
       </dl>
 
-      <div className="mt-4 rounded-card border border-accent-line bg-accent-tint px-3.5 py-3 text-xs leading-relaxed">
+      <div className="mt-4 rounded-card border border-line border-l-[5px] border-l-accent-line bg-surface px-3.5 py-3 text-xs leading-relaxed">
         <p className="font-bold text-text">Read this before you send anything.</p>
         <p className="mt-1.5 text-muted">
           A transaction can only be checked <span className="font-bold text-text">once</span>. We

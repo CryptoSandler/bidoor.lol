@@ -132,7 +132,7 @@ export function BidForm({
               aria-pressed={chainId === item.id}
               className={`rounded-pill border px-3 py-1 text-xs font-medium transition-colors ${
                 chainId === item.id
-                  ? "border-accent bg-accent-tint text-accent"
+                  ? "border-sky bg-surface-2 text-sky"
                   : "border-line text-muted hover:border-line-strong hover:text-text"
               }`}
             >
@@ -179,7 +179,7 @@ export function BidForm({
         )}
 
         {existing && (
-          <p className="mt-2 rounded-sm border border-accent-line bg-accent-tint px-3 py-2 text-xs text-accent">
+          <p className="mt-2 rounded-sm border border-line border-l-[4px] border-l-sky bg-surface-2 px-3 py-2 text-xs text-sky">
             Already on the board at #{existing.rank} as {existing.name}. Your bid adds to its{" "}
             <span className="money">{usd(existing.totalUsd)}</span> — it will not create a second
             entry, and it will not change what the entry says.

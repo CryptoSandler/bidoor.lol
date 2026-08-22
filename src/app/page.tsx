@@ -37,7 +37,7 @@ export default async function LeaderboardPage({
           which is the only real objection before paying. */}
       <div className="flex justify-center">
         <p className="money inline-flex items-center gap-2 rounded-pill bg-surface-2 px-3.5 py-1.5 text-xs text-muted">
-          <span aria-hidden className="h-1.5 w-1.5 rounded-pill bg-positive" />
+          <span aria-hidden className="h-1.5 w-1.5 rounded-pill bg-sky" />
           {allEntries.length} tokens on the board
           <span aria-hidden>·</span>
           {usdCompact(potUsd)} bid to date
@@ -51,10 +51,10 @@ export default async function LeaderboardPage({
             advance renders "$8,755" as "$8 , 755". Tabular figures still keep
             the number from reflowing as the board updates. */}
         <h1 className="text-[1.75rem] leading-tight font-bold tracking-tight text-balance tabular-nums sm:text-6xl">
-          Claim #1 for <span className="text-accent">{usd(priceForFirst)}</span>
+          Claim #1 for <span className="money-fill">{usd(priceForFirst)}</span>
         </h1>
         <p className="mx-auto mt-2.5 max-w-xl text-xs leading-relaxed text-muted text-balance sm:mt-3 sm:text-sm">
-          <span className="text-accent">New listings start at {usd(BOARD.minBidUsd)}.</span> Paying
+          <span className="font-bold text-text">New listings start at {usd(BOARD.minBidUsd)}.</span> Paying
           less than #1 still puts you on the board, at whatever rank your total buys. Every chain in
           one list, every bidoor in the same queue.
         </p>
@@ -99,7 +99,7 @@ export default async function LeaderboardPage({
           <Link
             href={`/?show=${visible + BOARD.pageSize}`}
             scroll={false}
-            className="inline-block rounded-pill border border-line-strong px-4 py-2 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+            className="inline-block rounded-pill border border-line-strong px-4 py-2 text-sm text-muted transition-colors hover:border-sky hover:text-sky"
           >
             Show more · {remaining} left
           </Link>

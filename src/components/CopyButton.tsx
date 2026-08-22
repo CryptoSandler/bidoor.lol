@@ -34,7 +34,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       type="button"
       onClick={copy}
       aria-label={`Copy ${label}`}
-      className="shrink-0 rounded-pill border border-line-strong px-2.5 py-0.5 text-2xs font-medium text-muted transition-colors hover:border-accent hover:text-accent"
+      className="shrink-0 rounded-pill border border-line-strong px-2.5 py-0.5 text-2xs font-medium text-muted transition-colors hover:border-sky hover:text-sky"
     >
       {copied ? "Copied" : "Copy"}
     </button>

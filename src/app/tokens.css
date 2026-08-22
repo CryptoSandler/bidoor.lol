@@ -6,59 +6,86 @@
    consume these through Tailwind's @theme mapping and must never hardcode a hex
    value or a pixel size. Re-skinning the product is editing this file.
 
-   The palette is a duotone: one blue ramp and one green ramp, and nothing else.
-   There is no black, grey, white or cream anywhere — the "dark" role is played
-   by the deep end of the blue ramp and the "light" role by the pale end of the
-   green ramp, so the two families also carry the parts a neutral would normally
-   do quietly: borders, muted text, card grounds.
+   THE BASE IS NEUTRAL. Two earlier rounds tried to build the page out of the
+   accents themselves and both went flat for the same reason: when the accent
+   carries everything, there is nothing left for it to stand out against. So the
+   ground and the type are neutral, and exactly two accents are spent on purpose:
 
-   The division of labour is strict and worth keeping strict:
-     slime (green) = money and action — amounts, the CTA, rank pills, the leader
-     sky   (blue)  = structure and navigation — links, dots, secondary state
+     slime #C6FF00 = money and action
+     sky           = navigation and info
 
-   They never appear on the same element. Two exceptions are documented at the
-   bottom of this file, both because they carry meaning rather than style.
+   They never appear on the same element.
 
-   There is deliberately no light theme. The palette forbids cream, so there is
-   nothing for one to be made of; a second theme would have to break the rule
-   the palette exists to hold.
+   HOW SLIME IS ALLOWED TO APPEAR. Slime is 1.17:1 on cream. That is not a
+   contrast to be tuned, it is a colour that is not there — so slime is never a
+   text colour. It appears as FILL with dark ink on top, and only in three
+   places: the headline figure, the primary action, and the #1 row. Ordinary
+   amounts are neutral type carrying weight. An accent used everywhere stops
+   being an accent, which is the lesson the duotone rounds paid for twice.
 
-   Every text ratio here is measured against WCAG AA (4.5:1). See DECISIONES.md.
+   Sky needed the same care, less obviously: #00A8F0 is 2.63 on cream, so the
+   light theme darkens it. Unlike slime, the hue survives being darkened, which
+   is why sky can stay type and slime cannot.
+
+   TWO THEMES, ONE DECLARATION EACH. light-dark() keeps both values on the same
+   line, so the two themes cannot drift apart the way two duplicated blocks do.
+   Dark is listed first in `color-scheme` and is what renders with no signal;
+   a visitor whose OS asks for light gets cream. `data-theme` forces either.
+
+   Every ratio below is measured against WCAG AA (4.5:1 text, 3:1 edges) on BOTH
+   the page and the card an element can sit on. Checking only the page is how an
+   earlier round shipped chain chips at 1.1:1. See DECISIONES.md.
    ========================================================================== */
 
 :root {
-  /* --- Surfaces: the deep end of the blue ramp ---------------------------- */
-  --bd-bg: #002b66;
-  --bd-surface: #003d80;
-  --bd-surface-2: #004a99;
+  /* Dark first: what renders when nothing asks for light. */
+  color-scheme: dark light;
 
-  /* --- Ink: the pale end of the green ramp, then blue for the quieter tiers */
-  --bd-text: #e8ffa8; /* 12.55 on bg */
-  --bd-text-muted: #7fdcf7; /* 8.77 on bg */
-  --bd-text-faint: #41c6f0; /* 6.87 on bg */
+  /* --- Surfaces ----------------------------------------------------------
+     Held 1.50 apart in dark, so a card is a step off the page rather than a
+     tint of it. Cream cannot match that and should not fake it: it is already
+     at 0.98 luminance, so there is no headroom above it, and a card 1.45 below
+     lands on #D9D4CA and reads as dirty. Light separation is 1.26 plus a border
+     and a cast shadow — a deliberate difference, not a miss. */
+  --bd-bg: light-dark(#fffdfa, #0f1316);
+  --bd-surface: light-dark(#e9e3d9, #2c353f); /* 1.26 light · 1.50 dark */
+  --bd-surface-2: light-dark(#dbd3c5, #43505f); /* 1.16 light · 1.51 dark */
 
-  /* --- Lines ------------------------------------------------------------- */
-  --bd-border: #0071c5;
-  --bd-border-strong: #00a8f0;
+  /* --- Ink ---------------------------------------------------------------
+     Ratios are page / card. */
+  --bd-text: light-dark(#1a1714, #f1f5f8); /* 17.58/13.98 · 17.03/11.35 */
+  --bd-text-muted: light-dark(#4e4740, #c8d1d8); /* 9.00/7.16 · 12.06/8.04 */
+  --bd-text-faint: light-dark(#6b6359, #aab6be); /* 5.82/4.63 · 9.02/6.01 */
+
+  /* --- Lines -------------------------------------------------------------
+     border is the quiet separator; border-strong bounds interactive pills and
+     clears 3:1 against the card, the harder of its two grounds. */
+  --bd-border: light-dark(#d5ccbc, #3a454f);
+  --bd-border-strong: light-dark(#8b8172, #6a7f97); /* 3.00 on card, both */
 
   /* --- Slime: money and action ------------------------------------------
-     Reserved for amounts, the primary button, rank pills and the leader row.
-     Ink on it is the deep blue, never a light colour: 11.52 against slime,
-     where a pale ink would be around 1.2 and illegible. */
-  --bd-accent: #c6ff00; /* 11.52 on bg, 8.95 on surface */
-  --bd-accent-ink: #002b66;
-  --bd-accent-tint: #003d80; /* leader row ground */
-  --bd-accent-line: #c6ff00; /* leader row border */
+     Identical in both themes because it is only ever a fill. The ink on it is
+     the same near-black in both, at 15.76. */
+  --bd-accent: #c6ff00;
+  --bd-accent-ink: #141210;
+  /* The leader's edge. A 5px bar of slime down the #1 row — decoration, so it
+     never has to be legible as type. */
+  --bd-accent-line: var(--bd-accent);
 
-  /* --- Sky: structure and navigation ------------------------------------
-     Links, the wordmark's "OOR", panel dots, verified marks, secondary state. */
-  --bd-sky: #00a8f0; /* 5.11 on bg */
-  --bd-sky-strong: #41c6f0; /* 6.87 on bg */
-  --bd-sky-tint: #001a40;
+  /* --- Sky: navigation and info -----------------------------------------
+     Safe as type on the page AND on a card in both themes. "Strong" means more
+     contrast, which is lighter in dark and darker in light. */
+  --bd-sky: light-dark(#00658f, #00a8f0); /* 6.35/5.05 · 6.99/4.66 */
+  --bd-sky-strong: light-dark(#004c6b, #41c6f0); /* 9.21/7.33 · 9.39/6.26 */
 
-  /* Positive state is sky rather than a second green: green is spoken for, and
-     an accent that collides with a status colour makes both mean less. */
-  --bd-positive: #41c6f0;
+  /* Positive state is sky, not a second green: green is spoken for, and a
+     status colour that collides with the accent makes both mean less. */
+  --bd-positive: var(--bd-sky-strong);
+
+  /* --- Depth -------------------------------------------------------------
+     The cast is what sells a light card as raised, since cream has no room to
+     lift by value alone. */
+  --bd-shadow-card: light-dark(0 6px 16px #d8d0c2, 0 8px 20px #05080a);
 
   /* --- Type -------------------------------------------------------------- */
   --bd-font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
@@ -96,8 +123,15 @@
   --bd-podium-logo: 3rem;
   --bd-row-pad-y: 0.75rem;
   --bd-row-logo: 2.25rem;
+}
 
-  --bd-shadow-card: none;
+/* An explicit choice wins over the operating system, in both directions. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 /* Small phones get a tighter podium so the top three still clear the fold.
@@ -112,31 +146,31 @@
 }
 
 /* --- Documented exception 1: failure ----------------------------------------
-   Red is in neither family, and it stays. A payment screen where the failure
-   message is the same colour as everything else is a payment screen where
-   people miss the failure. This is semantics, not palette. */
+   Red belongs to neither accent, and it stays. A payment screen where the
+   failure message is the same colour as everything else is a payment screen
+   where people miss the failure. This is semantics, not palette. */
 :root {
-  --bd-danger: #ff8a95; /* 6.06 on bg */
+  --bd-danger: light-dark(#945056, #ff8a95); /* 5.84/4.65 · 8.29/5.52 */
 }
 
 /* --- Documented exception 2: chain chips ------------------------------------
    Each chain keeps its own ink, because the chip encodes which chain a token is
-   on. Flattening them into the duotone would cost a reader information that a
+   on. Flattening them into the neutral base would cost a reader information a
    screenshot cannot recover, which is the whole distribution channel.
 
-   The tint is uniform and comes from the blue ramp — one step deeper than the
-   page, so a chip reads as recessed. The chain identity lives in the ink. The
-   previous per-chain tints were built for a warm brown ground and sat at 1.1:1
-   against this one, which made every chip dissolve into the page. */
+   The tint is one recessed step from the page, so a chip reads as inset, and
+   the chain identity lives in the ink. The ink needs a per-theme set: the
+   bright values sit at 1.26 on a light chip, so cream gets its own darkened
+   set. Dark clears 6.74 at worst, light 5.01. */
 :root {
-  --bd-chain-tint: #001a40;
-  --bd-chain-solana: #5fe9c4;
-  --bd-chain-bnb: #f0b90b;
-  --bd-chain-robinhood: #7be38b;
-  --bd-chain-base: #8aa2ff;
-  --bd-chain-ethereum: #a2a0f0;
-  --bd-chain-ton: #54b8e8;
-  --bd-chain-tron: #ff8a95;
-  --bd-chain-hyperliquid: #63e0ce;
-  --bd-chain-unknown: #7fdcf7;
+  --bd-chain-tint: light-dark(#f0eadf, #1a2126);
+  --bd-chain-solana: light-dark(#2d6e5d, #5fe9c4);
+  --bd-chain-bnb: light-dark(#7c5f06, #f0b90b);
+  --bd-chain-robinhood: light-dark(#3c6e43, #7be38b);
+  --bd-chain-base: light-dark(#526097, #8aa2ff);
+  --bd-chain-ethereum: light-dark(#5f5e8d, #a2a0f0);
+  --bd-chain-ton: light-dark(#306985, #54b8e8);
+  --bd-chain-tron: light-dark(#934f56, #ff8a95);
+  --bd-chain-hyperliquid: light-dark(#306d65, #63e0ce);
+  --bd-chain-unknown: light-dark(#3c6976, #7fdcf7);
 }

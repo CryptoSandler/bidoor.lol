@@ -16,11 +16,9 @@
   --color-line-strong: var(--bd-border-strong);
   --color-accent: var(--bd-accent);
   --color-accent-ink: var(--bd-accent-ink);
-  --color-accent-tint: var(--bd-accent-tint);
   --color-accent-line: var(--bd-accent-line);
   --color-sky: var(--bd-sky);
   --color-sky-strong: var(--bd-sky-strong);
-  --color-sky-tint: var(--bd-sky-tint);
   --color-positive: var(--bd-positive);
   --color-danger: var(--bd-danger);
 
@@ -36,6 +34,8 @@
   --text-2xl: var(--bd-text-2xl);
   --text-4xl: var(--bd-text-4xl);
   --text-6xl: var(--bd-text-6xl);
+
+  --shadow-card: var(--bd-shadow-card);
 
   --radius-card: var(--bd-radius);
   --radius-sm: var(--bd-radius-sm);
@@ -102,3 +102,18 @@ body {
     color: inherit;
   }
 }
+
+/* Money that has to survive both themes. Slime is 1.17:1 on cream, so the three
+   figures that must not be missed — the headline, the amount owed, the #1 —
+   are dark ink on a slime block rather than slime type. Everywhere else an
+   amount is ordinary type carrying weight, because an accent spent on every
+   number is not an accent any more. */
+.money-fill {
+  background: var(--bd-accent);
+  color: var(--bd-accent-ink);
+  border-radius: var(--bd-radius-sm);
+  padding-inline: 0.35em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+

@@ -15,7 +15,9 @@ export function ChainBadge({ chainId, className = "" }: { chainId: string; class
     <span
       className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-2xs font-medium tracking-wide uppercase ${className}`}
       style={{
-        // One recessed tint from the blue ramp; the chain's identity is the ink.
+        // One recessed tint, one step off the page so the chip reads as inset;
+        // the chain's identity is the ink. Both are per-theme: the bright inks
+        // sit at 1.26 on a light chip, so cream carries its own darker set.
         background: "var(--bd-chain-tint)",
         color: `var(--bd-chain-${token})`,
       }}

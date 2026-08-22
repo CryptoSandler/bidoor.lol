@@ -37,7 +37,7 @@ export function ActivityPanels({ entries, now }: { entries: RankedEntry[]; now: 
           <Line key={bid.id}>
             <TokenMark name={entry.name} logoUrl={entry.logoUrl} size="1.25rem" />
             <span className="truncate font-medium">{entry.name}</span>
-            <span className="money shrink-0 text-2xs font-medium text-accent">{usd(bid.amountUsd)}</span>
+            <span className="money shrink-0 text-2xs font-bold">{usd(bid.amountUsd)}</span>
             <span className="num ml-auto shrink-0 text-2xs text-faint">
               {timeAgo(bid.createdAt, now)}
             </span>

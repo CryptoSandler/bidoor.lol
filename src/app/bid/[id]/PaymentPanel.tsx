@@ -78,7 +78,7 @@ export function PaymentPanel({
         <p className="text-2xs font-bold tracking-widest text-positive uppercase">
           Payment confirmed
         </p>
-        <p className="money mt-2 text-4xl font-bold text-accent">#{settled.rank}</p>
+        <p className="mt-2"><span className="money money-fill text-4xl font-bold">#{settled.rank}</span></p>
         <p className="mt-1.5 text-sm text-muted">
           <span className="font-bold text-text">{settled.name}</span> is at #{settled.rank} with{" "}
           <span className="money">{usd(settled.totalUsd)}</span> total.

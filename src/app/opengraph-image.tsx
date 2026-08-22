@@ -9,13 +9,15 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const alt = "BIDOOR — pay-to-rank token leaderboard";
 
-// Same duotone as the board: deep blue ground, pale green ink, slime for the
-// line that carries the product, sky for the wordmark's second half.
-const GROUND = "#002b66";
+// The board's own values: neutral slate ground and neutral type, with the two
+// accents spent exactly where the site spends them. Slime is a fill with dark
+// ink on it — never letters — so the card obeys the same rule as the page.
+const GROUND = "#0f1316";
 const SLIME = "#c6ff00";
+const SLIME_INK = "#141210";
 const SKY = "#00a8f0";
-const INK = "#e8ffa8";
-const MUTED = "#7fdcf7";
+const INK = "#f1f5f8";
+const MUTED = "#c8d1d8";
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -50,12 +52,12 @@ export default function OpengraphImage() {
               <path
                 d="M14 34 L32 16 L50 34"
                 fill="none"
-                stroke={GROUND}
+                stroke={SLIME_INK}
                 strokeWidth="9"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <rect x="18" y="43" width="28" height="7" rx="3.5" fill={GROUND} opacity="0.75" />
+              <rect x="18" y="43" width="28" height="7" rx="3.5" fill={SLIME_INK} opacity="0.75" />
             </svg>
           </div>
           <div style={{ display: "flex", fontSize: 44, fontWeight: 700, letterSpacing: -1 }}>
@@ -75,17 +77,24 @@ export default function OpengraphImage() {
         >
           Rank is the bid.
         </div>
-        <div
-          style={{
-            display: "flex",
-            fontSize: 84,
-            fontWeight: 700,
-            letterSpacing: -3,
-            color: SLIME,
-            lineHeight: 1.02,
-          }}
-        >
-          Nothing else.
+        {/* The payoff line is a slime slab, matching the headline figure on the
+            board. Filled rather than coloured, like every other use of slime. */}
+        <div style={{ display: "flex", marginTop: 6 }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 84,
+              fontWeight: 700,
+              letterSpacing: -3,
+              lineHeight: 1.02,
+              background: SLIME,
+              color: SLIME_INK,
+              padding: "2px 18px",
+              borderRadius: 12,
+            }}
+          >
+            Nothing else.
+          </div>
         </div>
 
         <div style={{ display: "flex", marginTop: 34, fontSize: 29, color: MUTED }}>

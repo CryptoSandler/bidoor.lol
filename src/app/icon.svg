@@ -8,7 +8,7 @@
     participant, not a monarch. Two shapes only, so it still reads at 16px.
   -->
   <rect width="64" height="64" rx="14" fill="#c6ff00"/>
-  <path d="M14 34 L32 16 L50 34" fill="none" stroke="#002b66" stroke-width="9"
+  <path d="M14 34 L32 16 L50 34" fill="none" stroke="#141210" stroke-width="9"
         stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="18" y="43" width="28" height="7" rx="3.5" fill="#002b66" opacity="0.75"/>
+  <rect x="18" y="43" width="28" height="7" rx="3.5" fill="#141210" opacity="0.75"/>
 </svg>

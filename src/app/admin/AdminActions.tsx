@@ -86,7 +86,7 @@ export function AdminActions({ queue, entries }: { queue: QueueItem[]; entries: 
           <ul className="mt-3 space-y-4">
             {queue.map((item) => (
               <li key={item.payment.id} className="rounded-card border border-line bg-surface p-3.5">
-                <p className="money text-lg font-bold text-accent">
+                <p className="money text-lg font-bold text-text">
                   ${item.payment.received} <span className="text-xs font-normal text-muted">received</span>
                 </p>
                 <p className="mt-1 text-xs text-muted">
@@ -267,7 +267,7 @@ function SenderPanel({ sender }: { sender: Sender }) {
   }
 
   return (
-    <div className="mt-3 rounded-sm border border-accent-line bg-accent-tint px-2.5 py-2">
+    <div className="mt-3 rounded-sm border border-line border-l-[4px] border-l-sky bg-surface-2 px-2.5 py-2">
       <p className="text-2xs font-bold tracking-widest text-faint uppercase">Paid by</p>
       {sender.debited.length > 0 ? (
         <ul className="mt-1 space-y-0.5">

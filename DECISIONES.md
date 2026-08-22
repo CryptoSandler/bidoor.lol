@@ -794,3 +794,31 @@ tokens: los títulos de sección de Rules, el nombre de acción en el log de aud
 los paneles y el hover del nombre de token pasaron de acento a celeste. Los montos, el CTA, los
 pills de rank y el hover del botón "Take #N" siguen en slime.
 
+---
+
+## 21. Tanda 15 — base neutra y dos temas
+
+Elegido: oscuro B (pizarra fría) como default, más el claro crema. Los colores
+están en `DESIGN.md` §10; acá van las decisiones.
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 104 | **La base vuelve a ser neutra** | Dos rondas duotono fallaron por lo mismo: un acento que carga la página entera no tiene contra qué destacarse. |
+| 105 | **El slime es relleno, nunca letra — en los dos temas** | Sobre crema da 1.17. Podría haber sido letra sólo en oscuro, pero una regla que cambia según el tema se rompe sola en el primer componente nuevo. Una sola regla, los dos temas. |
+| 106 | **Relleno slime sólo en título, CTA y fila del #1** | Los montos comunes van con peso. Es la corrección pedida sobre el preview: cincuenta chips de resaltador leen como documento subrayado, no como board. |
+| 107 | **El celeste del claro se ajustó a `#00658F`, no `#007DB3`** | El `#007DB3` de la exploración estaba medido contra la página; sobre card cae a 3.59 y falla. El valor nuevo aguanta las dos. |
+| 108 | **Un solo `light-dark()` por token en vez de dos bloques** | Dos bloques duplicados se separan con el tiempo. Esto hace imposible tocar un tema y olvidar el otro. |
+| 109 | **La crema no cumple el 1.45 de separación de capas, a propósito** | No hay lugar por arriba de 0.98 de luminancia, y una card 1.45 por debajo lee sucia. En claro la profundidad la cargan el borde y la sombra. |
+| 110 | **`positive` pasa a ser el celeste fuerte** | El verde es plata. Un color de estado que colisiona con el acento hace que los dos signifiquen menos. |
+| 111 | **Los chips de chain llevan dos juegos de tinta** | Los brillantes dan 1.26 sobre un chip claro. La identidad de chain es la excepción semántica que sobrevive a cada rediseño, pero tiene que sobrevivir *legible*. |
+
+**Reasignaciones a celeste** para que la regla se sostenga en los componentes:
+hover de "Take #N" y "Show more", hover de Copy, chain seleccionada en el
+formulario, el aviso de "ya está en el board", el bloque de "Paid by" del admin
+y el punto del hero.
+
+**Un desvío del pedido, explícito.** El pedido decía "acentos idénticos en los
+dos temas". El slime lo cumple: mismo hex, mismo rol de relleno. El celeste no
+puede — `#00A8F0` sobre crema es 2.63 — así que cambia de valor pero no de rol.
+La alternativa era dejarlo fallando AA, y ésa no es una opción disponible.
+

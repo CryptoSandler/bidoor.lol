@@ -35,7 +35,7 @@ export default async function LeaderboardPage({
   const rest = entries.slice(3);
 
   return (
-    <div className="shell pt-4 pb-2 sm:pt-8">
+    <div className="shell pt-4 pb-2 sm:pt-10 lg:pt-14">
       {/* Social proof first: it answers "does anyone actually look at this?",
           which is the only real objection before paying. */}
       <div className="flex justify-center">
@@ -49,12 +49,12 @@ export default async function LeaderboardPage({
 
       {/* The hero is a price tag, not a slogan: the biggest thing on the page is
           what #1 costs right now. */}
-      <section className="mt-4 text-center sm:mt-7">
+      <section className="section-gap text-center">
         {/* Deliberately NOT the mono face: at this size Geist Mono's wide comma
             advance renders "$8,755" as "$8 , 755". Tabular figures still keep
             the number from reflowing as the board updates. */}
         <h1 className="text-[1.75rem] leading-tight font-bold tracking-tight text-balance tabular-nums sm:text-6xl">
-          Claim #1 for <span className="money-fill">{usd(priceForFirst)}</span>
+          Claim <span className="money-fill">#1</span> for{" "}<span className="headline-amount">{usd(priceForFirst)}</span>
         </h1>
         <p className="mx-auto mt-2.5 max-w-xl text-xs leading-relaxed text-muted text-balance sm:mt-3 sm:text-sm">
           <span className="money-fill font-bold">New listings start at {usd(BOARD.minBidUsd)}.</span> Paying
@@ -76,17 +76,17 @@ export default async function LeaderboardPage({
 
       {/* Desktop keeps the reference's order: modules, then board. On phones they
           move below the board so the top three clear the fold. */}
-      <div className="mt-7 hidden sm:block">
+      <div className="section-gap hidden sm:block">
         <ActivityPanels entries={allEntries} now={now} />
       </div>
 
-      <ol className="mt-5 flex flex-col sm:mt-6" style={{ gap: "var(--bd-podium-gap)" }}>
+      <ol className="section-gap flex flex-col" style={{ gap: "var(--bd-podium-gap)" }}>
         {podium.map((entry) => (
           <BoardRow key={entry.id} entry={entry} now={now} />
         ))}
       </ol>
 
-      <div className="my-5 flex items-center gap-3" aria-hidden>
+      <div className="section-gap mb-5 flex items-center gap-3" aria-hidden>
         <span className="h-px flex-1 bg-line" />
         <span className="rounded-pill border border-line px-2.5 py-0.5 text-2xs font-medium tracking-wide text-faint uppercase">
           Top 3
@@ -112,7 +112,7 @@ export default async function LeaderboardPage({
         </div>
       )}
 
-      <div className="mt-7 sm:hidden">
+      <div className="section-gap sm:hidden">
         <ActivityPanels entries={allEntries} now={now} />
       </div>
     </div>

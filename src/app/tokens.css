@@ -1,5 +1,5 @@
 /* =============================================================================
-   DESIGN TOKENS — the single source of truth for how BIDOOR looks.
+   DESIGN TOKENS — the single source of truth for how bidoor.lol looks.
    =============================================================================
 
    Every colour, type size, space, radius and row height lives here. Components
@@ -80,6 +80,10 @@
      one colour that is supposed to mean "pay", and the product only ever needs
      one thing to shout. */
 
+  /* The headline figure: slime type on slate, ink plus a slime rule on cream. */
+  --bd-headline-amount: light-dark(var(--bd-text), var(--bd-accent));
+  --bd-headline-rule: light-dark(var(--bd-accent), transparent);
+
   /* The wordmark's dot is the only accent in the lockup. It needs a ring on
      cream, where slime is 1.17 against the page, and none on slate, where it is
      already 15.74. */
@@ -114,9 +118,14 @@
   --bd-radius-pill: 999px;
 
   /* Wide enough that the content fills its column instead of floating in a
-     narrow strip with dead space either side. */
-  --bd-container: 56rem;
+     narrow strip with dead space either side. Header, board and footer all read
+     from this one value, so the wordmark and the rows up on the same edge. */
+  --bd-container: 71rem;
   --bd-gutter: 1rem;
+
+  /* The rhythm between big blocks. One place decides how much air the page has;
+     phones keep the tighter set so the top three still clear the fold. */
+  --bd-section-gap: 1.25rem;
 
   /* --- Row density -------------------------------------------------------
      The podium is cards; everything below is flat rows. That contrast is what
@@ -135,6 +144,23 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
+}
+
+/* From tablet up the page gets room to breathe: the gaps between big blocks
+   roughly double, and the gutter grows so the content is not pinned to the
+   glass. Nothing here changes below 40rem. */
+@media (min-width: 40rem) {
+  :root {
+    --bd-section-gap: 2.25rem;
+    --bd-gutter: 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --bd-section-gap: 2.75rem;
+    --bd-gutter: 2rem;
+  }
 }
 
 /* Small phones get a tighter podium so the top three still clear the fold.

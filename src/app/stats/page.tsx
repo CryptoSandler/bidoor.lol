@@ -7,7 +7,7 @@ import { usd } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Stats — BIDOOR.LOL",
+  title: "Stats — bidoor.lol",
   description: "What the board has taken and how many people are looking at it.",
 };
 

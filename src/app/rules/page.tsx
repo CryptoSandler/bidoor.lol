@@ -4,7 +4,7 @@ import { BOARD } from "@/lib/config";
 import { PAYMENT_WINDOW_MINUTES } from "@/lib/payments/config";
 import { usd } from "@/lib/format";
 
-export const metadata = { title: "Rules — BIDOOR.LOL" };
+export const metadata = { title: "Rules — bidoor.lol" };
 
 export default function RulesPage() {
   return (

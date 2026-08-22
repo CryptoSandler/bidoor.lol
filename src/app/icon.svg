@@ -1,12 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BIDOOR">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="bidoor.lol">
   <!--
-    The mark is the wordmark's own B and nothing else — no arrow, no chevron,
-    no door. It leans the same 12 degrees as the wordmark, so the favicon and
-    the lockup are visibly the same drawing rather than two ideas that happen
-    to share a palette. Two colours, flat, no gradient.
+    The mark is the wordmark's own lowercase b and nothing else. It leans the
+    same 12 degrees, so the favicon and the lockup are visibly the same drawing
+    rather than two ideas sharing a palette. Two colours, flat, no gradient.
   -->
   <rect width="64" height="64" rx="14" fill="#0F1316"/>
-  <g transform="translate(20,9) skewX(-12) scale(0.46)" fill="#C6FF00" fill-rule="evenodd">
-    <path d="M0,0 L58,0 L74,16 L74,36 L64,50 L74,64 L74,84 L58,100 L0,100 Z M26,20 L48,20 L48,40 L26,40 Z M26,60 L48,60 L48,80 L26,80 Z"/>
+  <g transform="translate(19,9) skewX(-12) scale(0.46)" fill="#C6FF00" fill-rule="evenodd">
+    <path d="M0,0 L26,0 L26,32 L58,32 L74,46 L74,86 L58,100 L0,100 Z M26,52 L50,52 L50,80 L26,80 Z"/>
   </g>
 </svg>

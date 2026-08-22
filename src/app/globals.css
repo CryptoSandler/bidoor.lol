@@ -75,6 +75,24 @@ body {
   padding-inline: var(--bd-gutter);
 }
 
+/* The gap between two big blocks. Sections use this instead of hand-picked
+   margins so the page's rhythm is one decision rather than a dozen. */
+/* The headline figure. On slate it is slime type at 15.74; on cream slime type
+   is 1.17 and simply is not there, so it becomes ink with a slime rule under
+   it. The technique changes, the meaning does not — and it stays type either
+   way rather than becoming a second slab beside the "#1". */
+.headline-amount {
+  color: var(--bd-headline-amount);
+  text-decoration: underline;
+  text-decoration-color: var(--bd-headline-rule);
+  text-decoration-thickness: 0.09em;
+  text-underline-offset: 0.1em;
+}
+
+.section-gap {
+  margin-top: var(--bd-section-gap);
+}
+
 ::selection {
   background: var(--bd-accent);
   color: var(--bd-accent-ink);

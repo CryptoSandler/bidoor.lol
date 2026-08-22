@@ -20,6 +20,10 @@ export default defineConfig({
     env: {
       PAYMENT_WALLET: "8vQ2mQ6xkYPfJ7BFhCGDVzWJ1uYTLDXQoK4Vn5wCq3Rt",
       ALLOW_UNTRUSTED_CLIENT_IP: "true",
+      // TEST_DATABASE_URL is a throwaway by contract — the suite truncates it —
+      // and it may well be remote, so the locality guard is overridden here and
+      // only here.
+      LOAD_DEMO_SEED: "force",
     },
   },
 });

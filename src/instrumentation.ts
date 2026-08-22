@@ -12,8 +12,14 @@ export async function register() {
   const { assertConfigured } = await import("./lib/startup-check");
   assertConfigured();
 
-  const { demoSeedEnabled, loadDemoSeed } = await import("./lib/seed");
-  if (!demoSeedEnabled()) return;
+  const { demoSeedEnabled, demoSeedSkipReason, loadDemoSeed } = await import("./lib/seed");
+  if (!demoSeedEnabled()) {
+    const reason = demoSeedSkipReason();
+    if (reason && process.env.NODE_ENV !== "production") {
+      console.log(`[bidoor] demo fixture not loaded: ${reason}`);
+    }
+    return;
+  }
 
   try {
     const outcome = await loadDemoSeed();

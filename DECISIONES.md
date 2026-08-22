@@ -747,3 +747,30 @@ vez de corregirlo en silencio.
 *"truncateAll must never run in production"* — exactamente lo que tiene que pasar. Se invirtió el
 orden en el test; el guard queda como está.
 
+---
+
+## 19. Tanda 13 — el fixture llegó a producción
+
+**Fue un error mío, no un fallo del producto**, y vale escribirlo con precisión porque el arreglo
+que salió es mejor que el guard original.
+
+Probando el workflow de reconcile levanté `next dev` **sin `DATABASE_URL` inline**. Next tomó
+entonces el de `.env.local`, que desde la migración a Neon apunta a **producción**. Y `next dev`
+fuerza `NODE_ENV=development`, así que `demoSeedEnabled()` devolvió `true` y `instrumentation.ts`
+sembró las 16 filas del fixture en la base de producción, a las ~16:03 UTC del 2026-08-22. Los
+timestamps del seed lo confirman: son todos `now - offset` contra ese momento.
+
+**El guard estaba mal planteado, no mal implementado.** Miraba `NODE_ENV`, que describe el
+*proceso*. Lo que importa es la *base*. Un proceso de desarrollo apuntado a la base de producción
+pasaba limpio por los dos checks que había.
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 96 | **Tercer guard: la base tiene que ser local** | `targetsLocalDatabase()` mira el host de `DATABASE_URL`. Es el único de los tres que describe lo que realmente está en riesgo. |
+| 97 | **`LOAD_DEMO_SEED=force` como única salida** | La suite de tests corre contra una base remota descartable por contrato, y es el único caso legítimo. Se setea en `vitest.config.mts` y en ningún otro lado. |
+| 98 | **El script de limpieza sólo puede borrar filas impagas** | `purge-demo-entries.mts` es dry-run por defecto y su query excluye toda entrada con un pago o un `accepted_bid` detrás. Una fila que alguien pagó es intocable desde ahí, pase lo que pase. No toca el esquema. |
+
+**Un test se rompió y señalaba algo real:** un caso hacía `delete process.env.LOAD_DEMO_SEED` en su
+`finally` en vez de restaurar el valor previo, y con el guard nuevo eso dejaba al test siguiente sin
+poder sembrar. Pasó a `vi.stubEnv` + `vi.unstubAllEnvs`, que restaura en vez de borrar.
+

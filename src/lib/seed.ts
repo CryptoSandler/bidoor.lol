@@ -5,16 +5,55 @@ import { launchpadVerifiedFor } from "./store";
 import { contractKeyFor } from "./validation";
 
 /**
+ * Is the configured database on this machine?
+ *
+ * The NODE_ENV guard alone was not enough, and this was found the hard way: a
+ * `next dev` server started without an inline DATABASE_URL picks up the one in
+ * .env.local, and `next dev` sets NODE_ENV=development — so a development
+ * runtime pointed at the production database walked straight past the check and
+ * seeded sixteen demo rows into it.
+ *
+ * NODE_ENV describes the process. What actually matters is the database.
+ */
+function targetsLocalDatabase(): boolean {
+  try {
+    const host = new URL(process.env.DATABASE_URL ?? "").hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "db";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Demo fixture for development and tests.
  *
  * Never loaded in production: the production board starts empty and fills only
- * with real, paid bids. Guarded twice — an explicit flag, and a refusal to run
- * under NODE_ENV=production at all — because a demo row on a board that claims
- * to show what people paid is a lie about money.
+ * with real, paid bids. A demo row on a board that claims to show what people
+ * paid is a lie about money, so this is guarded three ways — the process is not
+ * production, the flag is not off, and the database is on this machine.
+ *
+ * `LOAD_DEMO_SEED=force` overrides the locality check, for the one legitimate
+ * case: a remote throwaway database used by the test suite or CI.
  */
 export function demoSeedEnabled(): boolean {
   if (process.env.NODE_ENV === "production") return false;
-  return process.env.LOAD_DEMO_SEED !== "false";
+  if (process.env.LOAD_DEMO_SEED === "false") return false;
+  if (process.env.LOAD_DEMO_SEED === "force") return true;
+  return targetsLocalDatabase();
+}
+
+/** Why the seed did not load, so the message is worth reading. */
+export function demoSeedSkipReason(): string | null {
+  if (process.env.NODE_ENV === "production") return "NODE_ENV is production";
+  if (process.env.LOAD_DEMO_SEED === "false") return "LOAD_DEMO_SEED=false";
+  if (process.env.LOAD_DEMO_SEED === "force") return null;
+  if (!targetsLocalDatabase()) {
+    return (
+      "DATABASE_URL does not point at a local database — refusing to seed a remote one. " +
+      "Set LOAD_DEMO_SEED=force if it really is a throwaway."
+    );
+  }
+  return null;
 }
 
 export type SeedOutcome = { loaded: boolean; entries: number; reason?: string };

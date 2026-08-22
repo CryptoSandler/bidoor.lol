@@ -79,7 +79,18 @@ missing value fails the deployment rather than somebody's first bid.
    `003_unmatched_sender`. Re-running is a no-op.
 
 2. **Expect an empty board.** Production starts with no entries and fills only with real, paid
-   bids. The demo fixture is development-only and double-guarded.
+   bids.
+
+   The demo fixture is guarded three ways: `NODE_ENV` is not production, `LOAD_DEMO_SEED` is not
+   off, **and the database is on this machine**. The third check exists because the first two were
+   not enough — a `next dev` started without an inline `DATABASE_URL` picks up the one in
+   `.env.local`, and `next dev` sets `NODE_ENV=development`, so a development process pointed at
+   the production database seeded sixteen fixture rows into it. `NODE_ENV` describes the process;
+   what matters is the database.
+
+   If fixture rows ever end up on a board, `npm run db:purge-unpaid` lists them and
+   `-- --confirm` removes them. It can only ever delete an entry with no payment behind it, so a
+   paid row is untouchable regardless. The schema is not modified.
 
 3. **The reconcile cron is a GitHub Actions workflow**, `.github/workflows/reconcile.yml`, hourly.
    It lives there rather than in Vercel Cron because the endpoint is authenticated with a header

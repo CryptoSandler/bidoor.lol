@@ -1,7 +1,7 @@
 import { Pool } from "pg";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { closePool, query } from "../../db";
-import { demoSeedEnabled, loadDemoSeed, truncateAll } from "../../seed";
+import { demoSeedEnabled, demoSeedSkipReason, loadDemoSeed, truncateAll } from "../../seed";
 import { listRanked, placeBid } from "../../store";
 import type { NormalizedBid } from "../../validation";
 import { claimSignature, createPendingBid, recordPayment, signatureWasConsumed } from "../pending";
@@ -202,12 +202,39 @@ describe("the demo seed never loads in production", () => {
   });
 
   it("refuses when the flag is switched off", async () => {
-    process.env.LOAD_DEMO_SEED = "false";
+    // vi.stubEnv restores the previous value rather than deleting the variable.
+    // Deleting it here removed the suite's own LOAD_DEMO_SEED=force and left the
+    // next test unable to seed.
+    vi.stubEnv("LOAD_DEMO_SEED", "false");
     try {
       expect((await loadDemoSeed()).loaded).toBe(false);
       expect(await listRanked()).toHaveLength(0);
     } finally {
-      delete process.env.LOAD_DEMO_SEED;
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("refuses to seed a database that is not on this machine", async () => {
+    // The hole that put the fixture into production: a dev process pointed at a
+    // remote database. NODE_ENV describes the process; the database is what
+    // matters.
+    vi.stubEnv("LOAD_DEMO_SEED", "");
+    vi.stubEnv("DATABASE_URL", "postgres://u:p@ep-something.neon.tech/neondb");
+    try {
+      expect(demoSeedEnabled()).toBe(false);
+      expect(demoSeedSkipReason()).toMatch(/not point at a local database/i);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("allows a remote database only when forced", async () => {
+    vi.stubEnv("DATABASE_URL", "postgres://u:p@ep-something.neon.tech/neondb");
+    vi.stubEnv("LOAD_DEMO_SEED", "force");
+    try {
+      expect(demoSeedEnabled()).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
     }
   });
 

@@ -81,14 +81,23 @@ missing value fails the deployment rather than somebody's first bid.
 2. **Expect an empty board.** Production starts with no entries and fills only with real, paid
    bids. The demo fixture is development-only and double-guarded.
 
-3. **Point a cron at `/api/reconcile`.** Vercel Cron, hourly is plenty:
-   ```json
-   { "crons": [{ "path": "/api/reconcile", "schedule": "0 * * * *" }] }
-   ```
-   It needs the admin token in an `x-admin-token` header, which Vercel Cron cannot send — so
-   either call it from an external scheduler that can, or accept that reconciliation and identifier
-   expiry are manual. **This is unresolved and worth deciding before launch**, because reconcile is
-   what repairs a payment that settled while DexScreener was down.
+3. **The reconcile cron is a GitHub Actions workflow**, `.github/workflows/reconcile.yml`, hourly.
+   It lives there rather than in Vercel Cron because the endpoint is authenticated with a header
+   and Vercel Cron cannot send one.
+
+   - **Secret:** `RECONCILE_TOKEN` — Settings → Secrets and variables → Actions → New repository
+     secret. The value is the same string as `ADMIN_TOKEN` in the Vercel environment (or one of the
+     secrets from `ADMIN_TOKENS`, the part after the `label:`).
+   - **Optional variable:** `RECONCILE_URL` — same screen, Variables tab. Defaults to
+     `https://bidoor.lol/api/reconcile`; set it to point at another deployment without editing the
+     workflow.
+   - Non-2xx fails the run, with 401 and 503 given their own message so the cause is obvious. A run
+     that succeeds but leaves payments unresolvable is a **warning**, not a failure — the next run
+     retries them.
+   - `workflow_dispatch` is enabled, so it can be run by hand from the Actions tab.
+
+   If the token and the deployment ever drift apart, this fails hourly and visibly, which is the
+   point.
 
 4. **HSTS `preload` is set.** The header is safe on its own, but do not submit the domain to the
    preload list until you are certain the apex and every subdomain will be HTTPS forever — that
@@ -156,4 +165,30 @@ Checked by grepping the whole of `src/`.
   (`$0.222`/CU-hour against Launch's `$0.106`). See `AUDITORIA-SEGURIDAD.md`.
 - **No accounts**, so no "my bids" and no way to settle a dispute over who controls a row. An
   explicit decision, recorded in `DECISIONES.md` §13.
-- **The reconcile cron is not wired up** (§3.3).
+- **`bidoor.lol` does not currently resolve to Vercel** — see §7.
+
+---
+
+## 7. Blocker at the time of writing: the domain is still parked
+
+`bidoor.lol` does not point at Vercel. Checked 2026-08-22:
+
+```
+NS      bidoor.lol       dns1.registrar-servers.com  (Namecheap)
+A       bidoor.lol       192.64.119.129              (Namecheap parking)
+CNAME   www.bidoor.lol   parkingpage.namecheap.com
+```
+
+`https://bidoor.lol/` times out on port 443. Until this is changed, the reconcile workflow will
+fail every hour with "Could not reach …", which is correct behaviour but noisy.
+
+Vercel wants one of:
+
+```
+A      @     76.76.21.21
+CNAME  www   cname.vercel-dns.com
+```
+
+Take the exact records from **Vercel → Project → Settings → Domains**, and set them at Namecheap
+under **Domain List → Manage → Advanced DNS**, replacing the parking records. Until DNS propagates,
+either disable the workflow or point `RECONCILE_URL` at the `*.vercel.app` deployment URL.

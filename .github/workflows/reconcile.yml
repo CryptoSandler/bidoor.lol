@@ -1,0 +1,98 @@
+name: Reconcile payments
+
+# Repairs payments that settled but never reached the board — the case where
+# DexScreener was unreachable at the moment a payment was verified — and expires
+# caller identifiers past their retention window.
+#
+# This lives here rather than in Vercel Cron for one reason: the endpoint is
+# authenticated with a header, and Vercel Cron cannot send one.
+
+on:
+  schedule:
+    # Hourly. GitHub's scheduler is best-effort and can run late under load, so
+    # treat this as "roughly hourly". Nothing here is time-critical: the work is
+    # derived from state, so a late run does the same thing a punctual one would.
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+# A run that is still going when the next hour comes round should finish, not be
+# raced. The endpoint is idempotent, but two concurrent runs would just do the
+# same queries twice.
+concurrency:
+  group: reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Call the reconcile endpoint
+        env:
+          # Repository secret. Must equal ADMIN_TOKEN in the Vercel environment
+          # (or one of the secrets in ADMIN_TOKENS).
+          RECONCILE_TOKEN: ${{ secrets.RECONCILE_TOKEN }}
+          # Repository variable, so the target can be changed without editing
+          # this file. Falls back to the production domain.
+          RECONCILE_URL: ${{ vars.RECONCILE_URL || 'https://bidoor.lol/api/reconcile' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${RECONCILE_TOKEN}" ]; then
+            echo "::error::RECONCILE_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          echo "POST ${RECONCILE_URL}"
+
+          # Body and status are captured separately so a failure can show what
+          # the server actually said instead of just a number.
+          status=$(curl --silent --show-error \
+                        --request POST \
+                        --header "x-admin-token: ${RECONCILE_TOKEN}" \
+                        --header "content-type: application/json" \
+                        --max-time 120 \
+                        --retry 2 --retry-connrefused --retry-delay 5 \
+                        --output response.json \
+                        --write-out '%{http_code}' \
+                        "${RECONCILE_URL}") || {
+            echo "::error::Could not reach ${RECONCILE_URL} at all — check DNS and that the deployment is live."
+            exit 1
+          }
+
+          echo "HTTP ${status}"
+          echo "--- response ---"
+          cat response.json || true
+          echo
+
+          # Anything outside 2xx is a failure, loudly. A 401 means the secret and
+          # the deployment's admin token have drifted apart; a 503 means the
+          # deployment is missing configuration.
+          case "${status}" in
+            2*) ;;
+            401) echo "::error::${status} — the token was rejected. RECONCILE_TOKEN and the deployment's ADMIN_TOKEN do not match."; exit 1 ;;
+            503) echo "::error::${status} — the deployment says admin access is not configured (ADMIN_TOKEN unset)."; exit 1 ;;
+            *)   echo "::error::${status} from ${RECONCILE_URL}"; exit 1 ;;
+          esac
+
+          # Surface what it did. Payments that could not be applied are a warning
+          # rather than a failure: the run worked, the token is still unresolvable,
+          # and the next run will try again.
+          applied=$(jq -r '.applied | length // 0' response.json)
+          failed=$(jq -r '.failed  | length // 0' response.json)
+          purged=$(jq -r '[.retention.pendingBids, .retention.loginAttempts, .retention.sessions] | add // 0' response.json)
+
+          {
+            echo "### Reconcile"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Payments applied | ${applied} |"
+            echo "| Still unresolvable | ${failed} |"
+            echo "| Identifiers expired | ${purged} |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [ "${failed}" != "0" ]; then
+            echo "::warning::${failed} settled payment(s) still could not be applied. They stay queued for the next run."
+          fi

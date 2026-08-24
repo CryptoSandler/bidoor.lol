@@ -54,13 +54,20 @@ export function Heartbeat({ initialVisitors }: { initialVisitors: number }) {
   const shown = Math.max(1, online ?? 1);
 
   return (
-    <p className="money mt-3 text-center text-2xs text-faint sm:text-xs">
-      <span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 rounded-pill bg-accent align-middle" />
+    <p className="money inline-flex items-center gap-2 rounded-pill bg-surface-2 px-3.5 py-1.5 text-xs text-muted">
+      {/* The one live thing on the page, so the dot is slime: it is a status
+          indicator, not decoration, and it is the only accent in this pill. */}
+      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-pill bg-accent" />
       <span className="font-bold text-text">{compactCount(shown)} online</span>
-      <span aria-hidden> · </span>
-      {initialVisitors.toLocaleString("en-US")} visitors since launch
-      <span aria-hidden> · </span>
-      <a href="/stats" className="underline hover:text-text">
+      <span aria-hidden>·</span>
+      <span className="whitespace-nowrap">
+        {initialVisitors.toLocaleString("en-US")} visitor{initialVisitors === 1 ? "" : "s"} since
+        launch
+      </span>
+      {/* First thing to go when three figures will not fit a 375px screen: it
+          is a link to a page, not a number. */}
+      <span aria-hidden className="hidden sm:inline">·</span>
+      <a href="/stats" className="hidden underline hover:text-text sm:inline">
         see stats
       </a>
     </p>

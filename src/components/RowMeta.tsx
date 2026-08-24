@@ -14,14 +14,21 @@ import type { RankedEntry } from "@/lib/types";
  * nobody can see is a link nobody clicks.
  */
 
-const ICON = "h-3 w-3 shrink-0";
+// One step up from the 12px they were at: at that size the candle and the
+// globe were the same grey smudge.
+const ICON = "h-4 w-4 shrink-0";
 
 function DexScreenerIcon() {
   // A candle: two wicks and a body.
   return (
     <svg viewBox="0 0 16 16" className={ICON} aria-hidden focusable="false">
-      <path d="M7 1h2v3H7zM7 12h2v3H7z" fill="currentColor" />
-      <rect x="5" y="4" width="6" height="8" rx="1" fill="currentColor" />
+      <path
+        d="M8 1.2v2.4M8 12.4v2.4"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <rect x="4.6" y="3.6" width="6.8" height="8.8" rx="1.4" fill="currentColor" />
     </svg>
   );
 }
@@ -79,7 +86,7 @@ function IconLink({ href, label, children }: { href: string; label: string; chil
       rel="noopener noreferrer nofollow"
       title={label}
       aria-label={label}
-      className="inline-flex h-4 w-4 items-center justify-center rounded-pill text-faint transition-colors hover:text-text"
+      className="-my-2 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-pill text-muted transition-colors hover:text-text"
     >
       {children}
     </a>
@@ -110,7 +117,7 @@ function CopyAddress({ value, name }: { value: string; name: string }) {
       }}
       title={copied ? "Copied" : `Copy the ${name} contract address`}
       aria-label={copied ? "Copied" : `Copy the ${name} contract address`}
-      className="inline-flex h-4 w-4 items-center justify-center rounded-pill text-faint transition-colors hover:text-text"
+      className="-my-2 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-pill text-muted transition-colors hover:text-text"
     >
       {copied ? (
         <svg viewBox="0 0 16 16" className={ICON} aria-hidden focusable="false">
@@ -153,7 +160,7 @@ export function RowMeta({ entry }: { entry: RankedEntry }) {
 
       {/* The socials are the first thing to go when the row runs out of width:
           the address and the chart are what a bidder is checking. */}
-      <span className="hidden items-center gap-0.5 sm:inline-flex">
+      <span className="hidden items-center sm:inline-flex">
         {entry.links.website && (
           <IconLink href={entry.links.website} label={`${entry.name} website`}>
             <GlobeIcon />

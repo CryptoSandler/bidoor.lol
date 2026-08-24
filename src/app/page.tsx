@@ -80,24 +80,21 @@ export default async function LeaderboardPage({
         </div>
       </section>
 
-      {/* Desktop keeps the reference's order: modules, then board. On phones they
-          move below the board so the top three clear the fold. */}
-      <div className="section-gap hidden sm:block">
-        <ActivityPanels entries={allEntries} now={now} />
-      </div>
-
+      {/* The podium comes straight after the hero on every screen now. It is the
+          thing the page is selling, and it used to open below a pair of modules
+          on desktop and below the whole board on phones. */}
       <ol className="section-gap flex flex-col" style={{ gap: "var(--bd-podium-gap)" }}>
         {podium.map((entry) => (
           <BoardRow key={entry.id} entry={entry} now={now} />
         ))}
       </ol>
 
-      <div className="section-gap mb-5 flex items-center gap-3" aria-hidden>
-        <span className="h-px flex-1 bg-line" />
-        <span className="rounded-pill border border-line px-2.5 py-0.5 text-2xs font-medium tracking-wide text-faint uppercase">
-          Top 3
-        </span>
-        <span className="h-px flex-1 bg-line" />
+      {/* One instance, between the podium and the rest, in the same place on
+          every screen: it was two copies with opposite visibility before. It
+          also does the job the "Top 3" rule used to do — the podium ends where
+          the modules begin — so that divider is gone rather than restated. */}
+      <div className="section-gap mb-5">
+        <ActivityPanels entries={allEntries} now={now} />
       </div>
 
       <ol>
@@ -118,9 +115,6 @@ export default async function LeaderboardPage({
         </div>
       )}
 
-      <div className="section-gap sm:hidden">
-        <ActivityPanels entries={allEntries} now={now} />
-      </div>
     </div>
   );
 }

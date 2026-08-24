@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { BuiltByBadge } from "@/components/BuiltByBadge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Wordmark } from "@/components/Wordmark";
 import "./globals.css";
@@ -24,10 +25,10 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   // Needed for the opengraph image to resolve to an absolute URL.
   metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
-  title: "bidoor.lol — pay-to-rank token leaderboard",
+  title: "bidoor.lol · pay-to-rank token leaderboard",
   description: DESCRIPTION,
   openGraph: {
-    title: "bidoor.lol — pay-to-rank token leaderboard",
+    title: "bidoor.lol · pay-to-rank token leaderboard",
     description: DESCRIPTION,
     type: "website",
   },
@@ -56,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh bg-bg text-text">
         <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur-md">
           <div className="shell flex items-center justify-between py-3">
-            <Link href="/" aria-label="bidoor.lol — leaderboard" className="flex items-center">
+            <Link href="/" aria-label="bidoor.lol leaderboard" className="flex items-center">
               <Wordmark height="1.25rem" />
             </Link>
             <nav className="flex items-center gap-4 text-sm text-muted sm:gap-5">
@@ -82,7 +83,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <main>{children}</main>
 
-        <footer className="mt-10 border-t border-line py-6">
+        {/* Extra room at the foot: the attribution pill floats over this corner
+            and must not sit on top of the last line of text. */}
+        <footer className="mt-10 border-t border-line pt-6 pb-20 sm:pb-16">
           <div className="shell text-xs leading-relaxed text-faint">
             <p className="max-w-xl">
               bidoor.lol ranks tokens by how much has been paid for the spot. Nothing on this board is
@@ -95,20 +98,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Link>
               <span aria-hidden>·</span>
               <span>Bids are paid in USDC on Solana and are final and non-refundable.</span>
-              <span aria-hidden>·</span>
-              {/* Neutral like every other link down here: attribution is not an
-                  action, so it does not get the accent. */}
-              <a
-                href="https://x.com/CryptoSandlerr"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-muted hover:underline"
-              >
-                Built by @CryptoSandlerr
-              </a>
             </p>
           </div>
         </footer>
+
+        {/* Outside the footer on purpose: it floats over every page, so it
+            cannot be a child of something that scrolls away. */}
+        <BuiltByBadge />
       </body>
     </html>
   );

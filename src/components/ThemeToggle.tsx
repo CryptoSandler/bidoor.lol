@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
  * Two states, not three, because data-theme already carries the meaning: with
@@ -14,18 +14,32 @@ import { useEffect, useState } from "react";
  */
 export const THEME_KEY = "bd-theme";
 
+/** Fired on our own toggle: the document is the store, and it has no event. */
+const THEME_EVENT = "bd-theme-change";
+
 function effectiveTheme(): "light" | "dark" {
   const pinned = document.documentElement.dataset.theme;
   if (pinned === "light" || pinned === "dark") return pinned;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export function ThemeToggle() {
-  // Rendered empty until mounted: the server cannot know which icon is right,
-  // and guessing produces a hydration mismatch on every load.
-  const [theme, setTheme] = useState<"light" | "dark" | null>(null);
+function subscribe(onChange: () => void): () => void {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener("change", onChange);
+  window.addEventListener(THEME_EVENT, onChange);
+  return () => {
+    media.removeEventListener("change", onChange);
+    window.removeEventListener(THEME_EVENT, onChange);
+  };
+}
 
-  useEffect(() => setTheme(effectiveTheme()), []);
+export function ThemeToggle() {
+  // The theme lives on the document, not in React, so it is read as the
+  // external store it is. The server snapshot is null, which renders the empty
+  // slot below: the server cannot know which icon is right, and guessing
+  // produces a hydration mismatch on every load. React swaps in the real value
+  // after hydration without a setState in an effect.
+  const theme = useSyncExternalStore(subscribe, effectiveTheme, () => null);
 
   function toggle() {
     const next = effectiveTheme() === "dark" ? "light" : "dark";
@@ -36,7 +50,7 @@ export function ThemeToggle() {
       // Private mode and blocked storage are fine: the theme still switches for
       // this page, it just will not be remembered.
     }
-    setTheme(next);
+    window.dispatchEvent(new Event(THEME_EVENT));
   }
 
   return (

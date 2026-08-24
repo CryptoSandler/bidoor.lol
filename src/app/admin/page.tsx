@@ -6,7 +6,7 @@ import { formatUsdc } from "@/lib/payments/solana";
 import { listDelistings, listRanked } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Admin — bidoor.lol", robots: { index: false, follow: false } };
+export const metadata = { title: "Admin · bidoor.lol", robots: { index: false, follow: false } };
 
 export default async function AdminPage({
   searchParams,
@@ -169,7 +169,7 @@ export default async function AdminPage({
       <p className="mt-9 border-t border-line pt-4 text-xs leading-relaxed text-faint">
         Board total across {entries.length} entries:{" "}
         <span className="money">{usd(entries.reduce((sum, e) => sum + e.totalUsd, 0))}</span>.
-        Delisting never deletes anything — the payment record and the delisting both stay.
+        Delisting never deletes anything. The payment record and the delisting both stay.
       </p>
     </Shell>
   );

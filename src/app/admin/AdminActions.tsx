@@ -102,7 +102,7 @@ export function AdminActions({ queue, entries }: { queue: QueueItem[]; entries: 
                 </p>
                 <p className="text-2xs text-faint">
                   Ranked by amount only. The bid this was filed against was chosen by whoever
-                  submitted the signature, not by us — check the sender above before applying.
+                  submitted the signature, not by us. Check the sender above before applying.
                 </p>
                 <ul className="mt-1.5 space-y-1.5">
                   {item.candidates.map((candidate) => (
@@ -153,7 +153,7 @@ export function AdminActions({ queue, entries }: { queue: QueueItem[]; entries: 
         </h2>
         <p className="mt-1.5 text-xs leading-snug text-faint">
           Delisting removes an entry from the board and does not refund anything. The record is kept,
-          and a relisting starts from zero — the old total does not come back.
+          and a relisting starts from zero. The old total does not come back.
         </p>
         <ul className="mt-2.5 space-y-1.5">
           {entries.map((entry) => (
@@ -260,7 +260,7 @@ function SenderPanel({ sender }: { sender: Sender }) {
   if (!sender || (!sender.feePayer && sender.debited.length === 0)) {
     return (
       <p className="mt-3 rounded-sm border border-line bg-bg px-2.5 py-2 text-2xs text-danger">
-        Sender unknown — this payment was recorded before senders were captured. Verify it on a
+        Sender unknown: this payment was recorded before senders were captured. Verify it on a
         block explorer before applying it to anything.
       </p>
     );

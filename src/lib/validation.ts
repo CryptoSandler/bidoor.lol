@@ -107,7 +107,7 @@ export function validateBid(input: BidInput, existing: ExistingEntry): Validatio
     errors.amountUsd = "Bids are whole dollars.";
   } else if (amountUsd < minimum) {
     errors.amountUsd = existing
-      ? `This token is already listed — top-ups start at $${minimum}.`
+      ? `This token is already listed. Top-ups start at $${minimum}.`
       : `New listings start at $${minimum}.`;
   } else if (amountUsd > BOARD.maxBidUsd) {
     errors.amountUsd = `The most you can send in one go is $${BOARD.maxBidUsd.toLocaleString("en-US")}.`;

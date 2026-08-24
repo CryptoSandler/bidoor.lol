@@ -28,7 +28,7 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
       <h1 className="mt-3 text-2xl font-bold tracking-tight">Pay for your bid</h1>
       <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
         Send exactly this amount in USDC on Solana, then paste the transaction signature below. Your
-        rank appears once the transfer is confirmed on-chain — not before.
+        rank appears once the transfer is confirmed on-chain, not before.
       </p>
 
       <dl className="mt-5 grid gap-px overflow-hidden rounded-card border border-line bg-line">
@@ -54,9 +54,8 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
             <span className="font-bold text-text">
               Send this exact amount. Do not round it.
             </span>{" "}
-            All six decimals matter. The extra cents are your payment ID — since there are no
-            accounts and no wallet connections, that unique fraction is how we match your on-chain
-            transfer to this bid. Rounding to {usd(bid.amountUsd)}, or to any other figure, will not
+            All six decimals matter. The extra cents are your payment ID. With no accounts and no wallet
+            connections, that unique fraction is how we match your on-chain transfer to this bid. Rounding to {usd(bid.amountUsd)}, or to any other figure, will not
             match. Your rank counts the {usd(bid.amountUsd)} you chose.
           </span>
         </Cell>
@@ -76,8 +75,8 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
         <p className="font-bold text-text">Read this before you send anything.</p>
         <p className="mt-1.5 text-muted">
           A transaction can only be checked <span className="font-bold text-text">once</span>. We
-          record every signature the moment we look at it, whether or not it matched — that is what
-          stops somebody else claiming your payment. So if you send the wrong amount, you cannot fix
+          record every signature the moment we look at it, whether or not it matched. That is what stops
+          somebody else claiming your payment. So if you send the wrong amount, you cannot fix
           it by pasting the same transaction again.
         </p>
         <p className="mt-1.5 text-muted">

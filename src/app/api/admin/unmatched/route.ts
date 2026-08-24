@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       ok: true,
       status: "applied",
       pendingReconcile: true,
-      message: "Payment claimed. The token could not be resolved yet — reconcile will finish it.",
+      message: "Payment claimed. The token could not be resolved yet; reconcile will finish it.",
     });
   }
 

@@ -179,7 +179,7 @@ export async function fetchTokenMetadata(
       result = {
         ok: false,
         kind: "not_found",
-        message: `Token not found on any DEX for ${chain.name}. Check the address and the chain — a token has to be trading somewhere before it can be listed.`,
+        message: `Token not found on any DEX for ${chain.name}. Check the address and the chain. A token has to be trading somewhere before it can be listed.`,
       };
     } else {
       const name = pair.baseToken?.name?.trim();
@@ -214,7 +214,7 @@ export async function fetchTokenMetadata(
       ok: false,
       kind: "unavailable",
       message:
-        "Could not reach DexScreener to verify this token. Nothing was charged — try again in a moment.",
+        "Could not reach DexScreener to verify this token. Nothing was charged. Try again in a moment.",
     };
   }
 

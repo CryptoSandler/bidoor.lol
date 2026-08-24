@@ -63,7 +63,7 @@ export function normalizeLink(input: string, kind: LinkKind): LinkCheck {
     return {
       ok: false,
       reason:
-        "Link shorteners and link-in-bio pages are not accepted — they can be repointed after review. Paste the destination itself.",
+        "Link shorteners and link-in-bio pages are not accepted. They can be repointed after review, so paste the destination itself.",
     };
   }
 

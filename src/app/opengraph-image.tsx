@@ -7,7 +7,7 @@ import { ImageResponse } from "next/og";
  */
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "bidoor.lol — pay-to-rank token leaderboard";
+export const alt = "bidoor.lol · pay-to-rank token leaderboard";
 
 // The board's own values: neutral slate ground, neutral type, and one accent.
 // Slime is a fill with dark ink on it — never letters — so the card obeys the

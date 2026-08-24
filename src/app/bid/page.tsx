@@ -37,8 +37,8 @@ export default async function BidPage({
       <h1 className="mt-3 text-2xl font-bold tracking-tight">Put a token on the board</h1>
       <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
         Any token tradeable on DexScreener can be listed. All you need is the contract address and
-        its chain — the name, ticker, logo and socials are read from DexScreener, so no bidoor can
-        buy their way into editing what an entry says.
+        its chain. The name, ticker, logo and socials are read from DexScreener, so no bidoor can buy
+        their way into editing what an entry says.
       </p>
 
       {target && (
@@ -50,7 +50,7 @@ export default async function BidPage({
               token, not by paying towards somebody else's. */}
           You take that spot by putting{" "}
           <span className="money font-bold text-text">{usd(target.priceToClaim)}</span> behind{" "}
-          <span className="font-bold text-text">your own token</span> — not by bidding on{" "}
+          <span className="font-bold text-text">your own token</span>, not by bidding on{" "}
           {target.name}. Paste your contract below. If it is already on the board, this adds to its
           total instead of creating a second row.
         </p>

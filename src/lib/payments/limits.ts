@@ -232,7 +232,7 @@ export async function checkVerificationLimits(
         ok: false,
         reason: "too_fast",
         retryAfterSeconds: wait,
-        message: `Slow down — wait ${wait} second${wait === 1 ? "" : "s"} before checking again.`,
+        message: `Slow down. Wait ${wait} second${wait === 1 ? "" : "s"} before checking again.`,
       };
     }
   }

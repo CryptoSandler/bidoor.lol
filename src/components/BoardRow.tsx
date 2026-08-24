@@ -76,7 +76,7 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
           {entry.launchpadVerified && (
             <span
               className="shrink-0 text-2xs leading-none font-bold text-muted"
-              title={`Verified launchpad — launched on ${entry.launchpadHost}`}
+              title={`Verified launchpad: launched on ${entry.launchpadHost}`}
               aria-label={`Verified launchpad: ${entry.launchpadHost}`}
             >
               ✓
@@ -123,7 +123,7 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
             device; on a phone there is no hover, so it simply stays. */}
         <Link
           href={`/bid?rank=${entry.rank}`}
-          title={`Claim #${entry.rank} for ${usd(entry.priceToClaim)} — you bid on your own token`}
+          title={`Claim #${entry.rank} for ${usd(entry.priceToClaim)}. You bid on your own token`}
           className={`money hidden whitespace-nowrap sm:group-hover:inline-flex ${
             isLeader ? "sm:text-xl" : isPodium ? "sm:text-lg" : "sm:text-base"
           } items-center rounded-sm bg-accent px-1.5 font-bold text-accent-ink`}

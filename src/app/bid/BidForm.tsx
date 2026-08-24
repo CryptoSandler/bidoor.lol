@@ -181,8 +181,8 @@ export function BidForm({
         {existing && (
           <p className="mt-2 rounded-sm border border-line border-l-[4px] border-l-line-strong bg-surface-2 px-3 py-2 text-xs text-text">
             Already on the board at #{existing.rank} as {existing.name}. Your bid adds to its{" "}
-            <span className="money">{usd(existing.totalUsd)}</span> — it will not create a second
-            entry, and it will not change what the entry says.
+            <span className="money">{usd(existing.totalUsd)}</span>. It will not create a second entry,
+            and it will not change what the entry says.
           </p>
         )}
       </Field>
@@ -192,7 +192,7 @@ export function BidForm({
         hint={
           existing
             ? "This entry's launch link was frozen by its first bid and will not be changed."
-            : `Optional. Any https link. Known launchpads get a verified badge — on ${chain.name} we recognise ${chain.launchpads.join(", ")}.`
+            : `Optional. Any https link. Known launchpads get a verified badge. On ${chain.name} we recognise ${chain.launchpads.join(", ")}.`
         }
         error={errors.launchpadUrl}
       >
@@ -243,7 +243,7 @@ export function BidForm({
         disabled={submitting}
         className="w-full rounded-pill bg-accent py-3 text-sm font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        {submitting ? "Starting…" : existing ? "Top up this token — continue to payment" : "Continue to payment"}
+        {submitting ? "Starting…" : existing ? "Top up this token and continue to payment" : "Continue to payment"}
       </button>
     </form>
   );

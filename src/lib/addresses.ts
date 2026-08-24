@@ -60,7 +60,7 @@ function checkSolana(raw: string): AddressCheck {
     return {
       ok: false,
       reason:
-        "A Solana mint is base58 — no 0, O, I or l, and no 0x prefix.",
+        "A Solana mint is base58: no 0, O, I or l, and no 0x prefix.",
     };
   }
   const decoded = base58Decode(raw);
@@ -117,7 +117,7 @@ function checkTon(raw: string): AddressCheck {
   if (crc16(payload) !== checksum) {
     return {
       ok: false,
-      reason: "That TON address fails its checksum — check for a typo.",
+      reason: "That TON address fails its checksum. Check for a typo.",
     };
   }
 

@@ -132,3 +132,23 @@ body {
   -webkit-box-decoration-break: clone;
 }
 
+/*
+ * The theme crossfade. Only the duration is set here — the fade itself is what
+ * a view transition does by default, and the first paint never runs one because
+ * nothing calls startViewTransition on load.
+ *
+ * The whole page is one image during the fade, so this must not run for readers
+ * who asked for less motion; the toggle checks that too, and the media query
+ * here covers a transition started any other way.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 250ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}

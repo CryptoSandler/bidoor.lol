@@ -183,23 +183,51 @@
 }
 
 /* --- Documented exception 2: chain chips ------------------------------------
-   Each chain keeps its own ink, because the chip encodes which chain a token is
-   on. Flattening them into the neutral base would cost a reader information a
-   screenshot cannot recover, which is the whole distribution channel.
+   Each chain wears its own brand colour, because the chip encodes which chain a
+   token is on. Flattening them into the neutral base would cost a reader
+   information a screenshot cannot recover, which is the whole distribution
+   channel. This is the one place a colour means something rather than
+   decorating something, and it is why it does not compete with slime: slime is
+   money and action, these are identity, and they never appear as a fill with
+   our type on top.
 
-   The tint is one recessed step from the page, so a chip reads as inset, and
-   the chain identity lives in the ink. The ink needs a per-theme set: the
-   bright values sit at 1.26 on a light chip, so cream gets its own darkened
-   set. Dark clears 6.74 at worst, light 5.01. */
+   Two tokens per chain. The BRAND value is the chain's own colour and is the
+   same in both themes; the chip's background is that brand at
+   --bd-chain-tint-alpha over whatever card it lands on, mixed at paint time so
+   it composites correctly on the page, on a card and on a panel alike.
+
+   The INK is that brand walked toward black on cream, or toward white on slate,
+   by the smallest step that clears 4.5:1 against the worst surface it can sit
+   on — which is always --bd-surface-2, the activity panels. Measured, not
+   picked: an earlier round shipped these chips at 1.1:1 by checking the page
+   only. The ink is rounded to a hex triple BEFORE it is measured, because
+   rounding afterwards is what quietly turned two of these into 4.49. Worst
+   case now is 4.55 in both themes, and the test in
+   src/lib/__tests__/chain-chips.test.ts recomputes every pair from this file
+   so the numbers cannot drift back into being a comment nobody checked. */
 :root {
-  --bd-chain-tint: light-dark(#f0eadf, #1a2126);
-  --bd-chain-solana: light-dark(#2d6e5d, #5fe9c4);
-  --bd-chain-bnb: light-dark(#7c5f06, #f0b90b);
-  --bd-chain-robinhood: light-dark(#3c6e43, #7be38b);
-  --bd-chain-base: light-dark(#526097, #8aa2ff);
-  --bd-chain-ethereum: light-dark(#5f5e8d, #a2a0f0);
-  --bd-chain-ton: light-dark(#306985, #54b8e8);
-  --bd-chain-tron: light-dark(#934f56, #ff8a95);
-  --bd-chain-hyperliquid: light-dark(#306d65, #63e0ce);
-  --bd-chain-unknown: light-dark(#3c6976, #7fdcf7);
+  --bd-chain-tint-alpha: 18%;
+
+  --bd-chain-brand-solana: #14f195;
+  --bd-chain-brand-bnb: #f0b90b;
+  --bd-chain-brand-base: #0052ff;
+  --bd-chain-brand-ethereum: #627eea;
+  --bd-chain-brand-ton: #0098ea;
+  --bd-chain-brand-tron: #ff060a;
+  --bd-chain-brand-hyperliquid: #97fce4;
+  /* Robinhood's current mark is #ccff00, one hair off our slime. Their
+     long-standing green is used instead so a chain can never be mistaken for
+     the money accent. */
+  --bd-chain-brand-robinhood: #00c805;
+  --bd-chain-brand-unknown: #8899a6;
+
+  --bd-chain-solana: light-dark(#08653f, #85f8c8); /* 4.62 light · 4.55 dark */
+  --bd-chain-bnb: light-dark(#6e5505, #f8dc85); /* 4.56 light · 4.56 dark */
+  --bd-chain-base: light-dark(#003dbd, #a8c4ff); /* 4.58 light · 4.60 dark */
+  --bd-chain-ethereum: light-dark(#3c4d8f, #c3cef7); /* 4.57 light · 4.56 dark */
+  --bd-chain-ton: light-dark(#005583, #a1d9f7); /* 4.60 light · 4.60 dark */
+  --bd-chain-tron: light-dark(#990406, #ffa8a9); /* 4.55 light · 4.64 dark */
+  --bd-chain-hyperliquid: light-dark(#3b6259, #a8fce8); /* 4.74 light · 4.55 dark */
+  --bd-chain-robinhood: light-dark(#006202, #99e99b); /* 4.58 light · 4.58 dark */
+  --bd-chain-unknown: light-dark(#4b545b, #cfd6db); /* 4.65 light · 4.58 dark */
 }

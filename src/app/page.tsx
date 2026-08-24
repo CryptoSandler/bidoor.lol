@@ -77,15 +77,12 @@ export default async function LeaderboardPage({
 
   return (
     <div className="shell pt-4 pb-2 sm:pt-10 lg:pt-14">
-      {/* Social proof first: it answers "does anyone actually look at this?",
-          which is the only real objection before paying. */}
+      {/* Social proof first, and the live number is the strongest thing we
+          have: it answers "does anyone actually look at this?", which is the
+          only real objection before paying. The board's own totals are true but
+          static, so they trade places and take the quieter line below. */}
       <div className="flex justify-center">
-        <p className="money inline-flex items-center gap-2 rounded-pill bg-surface-2 px-3.5 py-1.5 text-xs text-muted">
-          <span aria-hidden className="h-1.5 w-1.5 rounded-pill bg-muted" />
-          {allEntries.length} tokens on the board
-          <span aria-hidden>·</span>
-          {usdCompact(potUsd)} bid to date
-        </p>
+        <Heartbeat initialVisitors={visitors} />
       </div>
 
       {/* The hero is a price tag, not a slogan: the biggest thing on the page is
@@ -105,9 +102,11 @@ export default async function LeaderboardPage({
 
         <div className="mx-auto max-w-xl">
           <HeroSearch />
-          {/* Presence and the running visitor count. Always on: whoever is
-              reading this is themselves the first person online. */}
-          <Heartbeat initialVisitors={visitors} />
+          <p className="money mt-3 text-center text-2xs text-faint sm:text-xs">
+            {allEntries.length} tokens on the board
+            <span aria-hidden> · </span>
+            {usdCompact(potUsd)} bid to date
+          </p>
           {/* Dropped on phones. The presence banner now renders from one person
               online, and those 29px came out of the 20px of slack the top-three
               requirement had left: something above the board had to go, and this

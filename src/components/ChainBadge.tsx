@@ -15,10 +15,15 @@ export function ChainBadge({ chainId, className = "" }: { chainId: string; class
     <span
       className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-2xs font-medium tracking-wide uppercase ${className}`}
       style={{
-        // One recessed tint, one step off the page so the chip reads as inset;
-        // the chain's identity is the ink. Both are per-theme: the bright inks
-        // sit at 1.26 on a light chip, so cream carries its own darker set.
-        background: "var(--bd-chain-tint)",
+        // The chain's own colour, twice over: a wash of the brand behind, the
+        // readable form of it in front. The wash is mixed against whatever the
+        // chip is sitting on rather than baked, so it composites the same on the
+        // page, on a podium card and inside a panel.
+        //
+        // The ink is per-theme and derived, not picked: the bright brand values
+        // are unreadable on cream, so each one is walked toward black or white
+        // until it clears 4.5:1 on the worst surface. See tokens.css.
+        background: `color-mix(in srgb, var(--bd-chain-brand-${token}) var(--bd-chain-tint-alpha), transparent)`,
         color: `var(--bd-chain-${token})`,
       }}
       title={chain?.name ?? chainId}

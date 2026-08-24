@@ -1,10 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { query } from "../db";
 import { truncateAll } from "../seed";
 import {
   MAX_VISITORS_PER_CALLER,
   ONLINE_WINDOW_SECONDS,
-  minOnlineToShow,
   onlineNow,
   presenceAllowed,
   recordPresence,
@@ -166,25 +165,5 @@ describe("the hourly roll-up", () => {
     const outcome = await rollUpStats(now);
     expect(outcome.presenceSwept).toBe(1);
     expect(await onlineNow(now)).toBe(1);
-  });
-});
-
-describe("the banner threshold", () => {
-  it("defaults to ten", () => {
-    vi.stubEnv("STATS_MIN_ONLINE", "");
-    expect(minOnlineToShow()).toBe(10);
-    vi.unstubAllEnvs();
-  });
-
-  it("takes the configured value", () => {
-    vi.stubEnv("STATS_MIN_ONLINE", "3");
-    expect(minOnlineToShow()).toBe(3);
-    vi.unstubAllEnvs();
-  });
-
-  it("ignores nonsense rather than hiding the banner forever", () => {
-    vi.stubEnv("STATS_MIN_ONLINE", "not-a-number");
-    expect(minOnlineToShow()).toBe(10);
-    vi.unstubAllEnvs();
   });
 });

@@ -19,7 +19,7 @@ function newVisitorId(): string {
 const VISITOR = typeof window === "undefined" ? "" : newVisitorId();
 const PING_MS = 60_000;
 
-export function Heartbeat({ minOnline, initialVisitors }: { minOnline: number; initialVisitors: number }) {
+export function Heartbeat({ initialVisitors }: { initialVisitors: number }) {
   const [online, setOnline] = useState<number | null>(null);
 
   useEffect(() => {
@@ -46,15 +46,17 @@ export function Heartbeat({ minOnline, initialVisitors }: { minOnline: number; i
     };
   }, []);
 
-  // Below the threshold the banner does not exist. A brand-new board announcing
-  // "2 online" argues against itself, so it says nothing until it has something
-  // to say.
-  if (online === null || online < minOnline) return null;
+  // The banner is unconditional. It used to hide itself below a threshold, on
+  // the theory that "2 online" argued against the board; in practice it meant a
+  // launching board looked dead to everyone who visited it. One is the honest
+  // floor — the person reading this is online — and it holds before the first
+  // ping answers, which is also what keeps the server and client renders equal.
+  const shown = Math.max(1, online ?? 1);
 
   return (
     <p className="money mt-3 text-center text-2xs text-faint sm:text-xs">
       <span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 rounded-pill bg-accent align-middle" />
-      <span className="font-bold text-text">{compactCount(online)} online</span>
+      <span className="font-bold text-text">{compactCount(shown)} online</span>
       <span aria-hidden> · </span>
       {initialVisitors.toLocaleString("en-US")} visitors since launch
       <span aria-hidden> · </span>

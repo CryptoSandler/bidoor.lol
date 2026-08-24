@@ -108,15 +108,3 @@ export async function presenceAllowed(visitor: string, ipHash: string, now = Dat
   if (Number(row?.mine ?? 0) > 0) return true;
   return Number(row?.n ?? 0) < MAX_VISITORS_PER_CALLER;
 }
-
-/** The threshold below which the hero banner stays hidden. */
-export function minOnlineToShow(): number {
-  // A blank value counts as unset, not as zero. An env var that exists but is
-  // empty is an ordinary way to configure a deploy, and reading it as 0 would
-  // silently show the banner always — the one outcome the threshold exists to
-  // prevent.
-  const raw = (process.env.STATS_MIN_ONLINE ?? "").trim();
-  if (raw === "") return 10;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 10;
-}

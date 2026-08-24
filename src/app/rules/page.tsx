@@ -4,7 +4,7 @@ import { BOARD } from "@/lib/config";
 import { PAYMENT_WINDOW_MINUTES } from "@/lib/payments/config";
 import { usd } from "@/lib/format";
 
-export const metadata = { title: "Rules — bidoor.lol" };
+export const metadata = { title: "Rules · bidoor.lol" };
 
 export default function RulesPage() {
   return (
@@ -17,7 +17,7 @@ export default function RulesPage() {
       <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
         Short version: rank is the total paid on a contract address, and the contract address is the
         only thing you control. Everything below exists so that stays true. No edge, no allowlist,
-        no cope — just the number.
+        no cope. Just the number.
       </p>
 
       <Section title="Ranking">
@@ -35,8 +35,7 @@ export default function RulesPage() {
           a spot you paid for never shuffles on its own.
         </Rule>
         <Rule>
-          Taking #1 costs at least {usd(BOARD.topSpotGapUsd)} more than the current leader&apos;s
-          total. Every other rank is taken by {usd(BOARD.step)} more than the token holding it.
+          Any rank is taken by {usd(BOARD.step)} more than the token holding it. That includes #1.
         </Rule>
       </Section>
 
@@ -72,7 +71,7 @@ export default function RulesPage() {
         </Rule>
         <Rule>
           <span className="font-bold text-text">Send exactly that amount.</span> The fraction is how
-          we tell your payment apart from everyone else&apos;s — a transfer arriving at our wallet
+          we tell your payment apart from everyone else&apos;s. A transfer arriving at our wallet
           carries no other clue about whose bid it is for. Send more or less and it will not match.
         </Rule>
         <Rule>
@@ -85,7 +84,7 @@ export default function RulesPage() {
           matches your bid exactly.
         </Rule>
         <Rule>
-          If the amount does not match, the payment is recorded against your bid and is not lost —
+          If the amount does not match, the payment is recorded against your bid and is not lost,
           but it does not land on the board on its own, and the transaction is now spent. Getting it
           applied means writing to us and waiting for a person to do it. Send the exact amount and
           you never meet any of this.
@@ -95,13 +94,13 @@ export default function RulesPage() {
             A transaction can only be presented once, matched or not.
           </span>{" "}
           We record every signature the moment we check it. That is what stops anyone else claiming
-          a payment you made — and it also means a transaction that did not match cannot be
-          submitted again, by you or by them.
+          a payment you made. It also means a transaction that did not match cannot be submitted
+          again, by you or by them.
         </Rule>
         <Rule>
           Nothing reaches the board until that check passes. If it fails, the reason is shown, and
-          while the window is still open you can pay again and paste the new transaction — a
-          different one. If the window closes, the bid expires and you start again at whatever the
+          while the window is still open you can pay again and paste the new transaction. It has to be
+          a different one. If the window closes, the bid expires and you start again at whatever the
           price is then.
         </Rule>
         <Rule>
@@ -114,7 +113,7 @@ export default function RulesPage() {
         <Rule>
           Send only USDC on Solana, from a wallet you control. A different token, a different chain,
           or an amount below the bid will not be credited and cannot be recovered. We only ever
-          receive — we will never ask you for a key, a seed phrase or a signature request.
+          receive. We will never ask you for a key, a seed phrase or a signature request.
         </Rule>
       </Section>
 
@@ -122,7 +121,7 @@ export default function RulesPage() {
         <Rule>
           Name, ticker, logo and social links are read from DexScreener by contract address. You do
           not type them, and they are refreshed from the same source every time the entry is topped
-          up — so a rebrand follows the token automatically.
+          up, so a rebrand follows the token automatically.
         </Rule>
         <Rule>
           This means paying into an entry buys you rank and nothing else. No bidoor can top up
@@ -151,7 +150,7 @@ export default function RulesPage() {
         </Rule>
         <Rule>
           Address formats that encode the same account more than one way are collapsed into one
-          entry — EVM casing, and TON&apos;s bounceable and non-bounceable forms.
+          entry: EVM casing, and TON&apos;s bounceable and non-bounceable forms.
         </Rule>
       </Section>
 
@@ -164,8 +163,8 @@ export default function RulesPage() {
         <Rule>
           <span className="font-bold text-text">Known launchpads get a verified badge.</span> If the
           link points at a launchpad we recognise for that chain, the row shows a{" "}
-          <span className="font-bold text-text">✓</span>. That is all the badge means — it is not
-          a review of the token, and its absence is not a warning.
+          <span className="font-bold text-text">✓</span>. That is all the badge means. It is not a
+          review of the token, and its absence is not a warning.
         </Rule>
         <Rule>
           Query parameters are stripped from every link. Referral, affiliate and tracking tags do not
@@ -193,7 +192,7 @@ export default function RulesPage() {
           ))}
         </div>
         <p className="mt-3 text-xs leading-snug text-faint">
-          This list is not a gate. Launching somewhere else does not stop you listing — your row just
+          This list is not a gate. Launching somewhere else does not stop you listing; your row just
           shows without the ✓. Tell us about a launchpad that belongs here and we will add it.
         </p>
       </Section>
@@ -207,7 +206,7 @@ export default function RulesPage() {
           cancelled order.
         </Rule>
         <Rule>
-          A delisting frees the rank. The record of it is kept — nothing is deleted — but the total
+          A delisting frees the rank. The record of it is kept and nothing is deleted, but the total
           stops counting, so relisting that token means paying again from zero.
         </Rule>
         <Rule>

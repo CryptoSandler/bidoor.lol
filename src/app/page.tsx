@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { ActivityPanels } from "@/components/ActivityPanels";
 import { BoardRow } from "@/components/BoardRow";
-import { minOnlineToShow, visitorsSinceLaunch } from "@/lib/stats";
+import { visitorsSinceLaunch } from "@/lib/stats";
 import { Heartbeat } from "@/components/Heartbeat";
 import { HeroSearch } from "@/components/HeroSearch";
 import { BOARD } from "@/lib/config";
+import { priceToClaimRank } from "@/lib/ranking";
 import { usd, usdCompact } from "@/lib/format";
 import { getBoard } from "@/lib/store";
 
@@ -28,9 +29,9 @@ export default async function LeaderboardPage({
   const entries = allEntries.slice(0, visible);
   const remaining = allEntries.length - entries.length;
   const leader = allEntries[0];
-  const priceForFirst = leader ? leader.totalUsd + BOARD.topSpotGapUsd : BOARD.minBidUsd;
+  const priceForFirst = leader ? priceToClaimRank(leader.totalUsd) : BOARD.minBidUsd;
 
-  const [visitors, minOnline] = [await visitorsSinceLaunch(), minOnlineToShow()];
+  const visitors = await visitorsSinceLaunch();
   const podium = entries.slice(0, 3);
   const rest = entries.slice(3);
 
@@ -64,11 +65,11 @@ export default async function LeaderboardPage({
 
         <div className="mx-auto max-w-xl">
           <HeroSearch />
-          {/* Presence and the running visitor count. Renders nothing at all
-              until the room is busy enough for the number to help. */}
-          <Heartbeat minOnline={minOnline} initialVisitors={visitors} />
+          {/* Presence and the running visitor count. Always on: whoever is
+              reading this is themselves the first person online. */}
+          <Heartbeat initialVisitors={visitors} />
           <p className="mt-2 text-2xs text-faint sm:text-xs">
-            Already on the board? Bidding on the same contract adds to its total — it never creates
+            Already on the board? Bidding on the same contract adds to its total. It never creates
             a second row.
           </p>
         </div>

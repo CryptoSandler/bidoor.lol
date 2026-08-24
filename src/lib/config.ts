@@ -6,12 +6,6 @@ export const BOARD = {
   maxBidUsd: 999_999,
   /** Smallest top-up on an entry that is already listed. */
   minTopUpUsd: 1,
-  /**
-   * Extra margin required to take #1, on top of simply matching it. Without
-   * this the top spot flips on a $1 increment all day and the most valuable
-   * position on the board becomes the cheapest to contest.
-   */
-  topSpotGapUsd: 5,
   /** Bids are whole dollars — no cents anywhere in the UI or the maths. */
   step: 1,
   /** Entries rendered before the board asks you to load more. */

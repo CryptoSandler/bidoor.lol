@@ -77,9 +77,9 @@ describe("ranking", () => {
     expect(ranks).toEqual(ranks.map((_, index) => index + 1));
   });
 
-  it("prices #1 above the leader's total, and lower ranks a dollar above theirs", async () => {
+  it("prices every rank a dollar above the token holding it, #1 included", async () => {
     const [first, second] = await listRanked();
-    expect(first.priceToClaim).toBe(first.totalUsd + 5);
+    expect(first.priceToClaim).toBe(first.totalUsd + 1);
     expect(second.priceToClaim).toBe(second.totalUsd + 1);
   });
 });

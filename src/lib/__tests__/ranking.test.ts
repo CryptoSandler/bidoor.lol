@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { DECAY, rankEntries, scoreEntry, totalUsd } from "../ranking";
+import { DECAY, priceToClaimRank, rankEntries, scoreEntry, totalUsd } from "../ranking";
 import type { Entry } from "../types";
+import { BOARD } from "../config";
 
 const NOW = Date.parse("2026-01-30T00:00:00.000Z");
 const DAY = 86_400_000;
@@ -68,5 +69,28 @@ describe("ties", () => {
     const early = entry("early", [[500, 10]]);
     const late = entry("late", [[500, 2]]);
     expect(rankEntries([late, early], NOW, null)[0].id).toBe("early");
+  });
+});
+
+describe("the price to claim a rank", () => {
+  it("is a dollar above the occupant's total for #1, same as any other rank", () => {
+    // #1 carried a $5 surcharge to stop the top spot flipping. Flipping is the
+    // product, so the surcharge went; this pins that it stays gone.
+    expect(priceToClaimRank(1)).toBe(2);
+    expect(priceToClaimRank(500)).toBe(501);
+  });
+
+  it("never prices a rank below the board minimum", () => {
+    expect(priceToClaimRank(0)).toBe(BOARD.minBidUsd);
+  });
+
+  it("prices #1 exactly like the rank below it", () => {
+    const [first, second] = rankEntries(
+      [entry("leader", [[100, 5]]), entry("second", [[40, 5]])],
+      NOW,
+      null,
+    );
+    expect(first.priceToClaim).toBe(first.totalUsd + 1);
+    expect(second.priceToClaim).toBe(second.totalUsd + 1);
   });
 });

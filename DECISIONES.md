@@ -17,7 +17,7 @@ discutirlas una por una.
 | 1 | **Nombre de producto: BIDOOR** | Pediste identidad propia. "Tape" es jerga de trading para el feed de precios, y el producto es literalmente un ticker de plata. No arrastra la marca de ellos. | `src/app/layout.tsx` |
 | 2 | **Botón de puja por fila, con el precio impreso** | Lo mejor del diseño original (ver REFERENCIA §3). Convierte "¿cuánto pago?" en "¿pago esto?". Es lo que le da valor comercial a la cola larga de la lista. | `src/components/BoardRow.tsx` |
 | 3 | **El hero es el precio del #1, no un slogan** | El sitio tiene que leerse como un mercado en 2 segundos, sobre todo en screenshot. | `src/app/page.tsx` |
-| 4 | **Tomar el #1 cuesta +$5; cualquier otro puesto +$1** | Sin margen extra, la posición más valiosa del board es la más barata de disputar y el #1 rota todo el día por un dólar. | `src/lib/config.ts` |
+| 4 | ~~**Tomar el #1 cuesta +$5; cualquier otro puesto +$1**~~ **(revertida — ver §24)** | Sin margen extra, la posición más valiosa del board es la más barata de disputar y el #1 rota todo el día por un dólar. | `src/lib/config.ts` |
 | 5 | **Empate resuelto por antigüedad** | Sin esto el orden entre iguales es arbitrario y un puesto que alguien pagó se movería solo. | `src/lib/ranking.ts` |
 | 6 | **El top-up refresca la metadata** (nombre, ticker, links) | Un proyecto que rebrandea o que cargó un link roto no debería tener que crear una segunda entrada — que además la regla de dedupe le prohíbe. | `src/lib/store.ts` |
 | 7 | **La clave de dedupe es `chain:address`, no `address`** | La misma address existe en varias EVM y son tokens distintos. Sin el scope, un token de Base y uno de BNB colisionarían. | `src/lib/validation.ts` |
@@ -855,3 +855,17 @@ completar. Elegir el logo en su lugar habría significado rehacer cuatro artefac
 si acertaba mal, así que se preguntó antes de tocar nada y se avanzó con el
 resto recién con la respuesta.
 
+---
+
+## 24. Tanda 18 — se revierte el recargo del #1
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 122 | **`topSpotGapUsd` se elimina: el #1 se toma por total + $1, igual que cualquier otro rank** | Revierte a propósito la decisión §1 #4. Aquella leía el flip barato del #1 como el problema; es el producto. Cada cambio de mano arriba es drama público, y el recargo de $5 estaba comprando silencio. |
+| 123 | **El recargo se veía peor justo donde más importa** | Con el líder en $1 el hero pedía $6 — un salto de 6× en el lanzamiento. Sobre un líder de $100 el mismo recargo es +5%. El precio ahora es el mismo múltiplo en todos los tamaños. |
+| 124 | **`priceToClaimRank` pierde el parámetro `rank`** | Ya no cambia nada. Dejarlo habría sido una firma que insinúa una regla que no existe. |
+
+Lo que se acepta con esto: el #1 rota por un dólar. Es la consecuencia buscada, no un
+efecto lateral — si más adelante molesta, lo que vuelve no es el recargo plano sino un
+gap porcentual con piso de $1, que conserva la propiedad anti-flip sin el peaje de
+lanzamiento.

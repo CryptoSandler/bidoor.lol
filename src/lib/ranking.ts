@@ -70,14 +70,20 @@ export function rankEntries(
     rank: index + 1,
     score,
     totalUsd: total,
-    priceToClaim: priceToClaimRank(total, index + 1),
+    priceToClaim: priceToClaimRank(total),
   }));
 }
 
-/** What a newcomer pays to land on a given position. */
-export function priceToClaimRank(occupantTotal: number, rank: number): number {
-  const gap = rank === 1 ? BOARD.topSpotGapUsd : BOARD.step;
-  return Math.max(BOARD.minBidUsd, occupantTotal + gap);
+/**
+ * What a newcomer pays to land on a given position: one dollar more than the
+ * token holding it, #1 included.
+ *
+ * #1 used to carry a $5 gap to stop the top spot flipping all day. That is
+ * exactly what it stopped, and the flipping is the product — every change of
+ * hands at the top is public drama, and the surcharge was buying silence.
+ */
+export function priceToClaimRank(occupantTotal: number): number {
+  return Math.max(BOARD.minBidUsd, occupantTotal + BOARD.step);
 }
 
 /**

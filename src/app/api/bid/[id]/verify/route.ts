@@ -12,6 +12,7 @@ import {
   recordUnmatchedPayment,
   recordVerificationAttempt,
 } from "@/lib/payments/pending";
+import { SIGNATURE_INPUT_HELP, parseSignatureInput } from "@/lib/payments/signature-input";
 import { verifyPayment } from "@/lib/payments/solana";
 import { placeBid } from "@/lib/store";
 import type { NormalizedBid } from "@/lib/validation";
@@ -44,11 +45,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   const ipHash = hashIp(identity.ip);
 
-  let signature = "";
+  let pasted = "";
   try {
-    signature = String(((await request.json()) as { signature?: string }).signature ?? "").trim();
+    pasted = String(((await request.json()) as { signature?: string }).signature ?? "");
   } catch {
     return NextResponse.json({ ok: false, message: "Malformed request." }, { status: 400 });
+  }
+
+  // An explorer link is unwrapped to the signature it points at, so pasting what
+  // the explorer's copy button gives you works. Anything that is neither form is
+  // refused here rather than downstream: it costs no RPC call, spends none of
+  // the bid's verification attempts, and leaves the bid untouched — a typo is
+  // not a failed payment.
+  const signature = parseSignatureInput(pasted);
+  if (!signature) {
+    return NextResponse.json(
+      { ok: false, message: SIGNATURE_INPUT_HELP, reason: "invalid_signature" },
+      { status: 400 },
+    );
   }
 
   const bid = await getPendingBid(id);
@@ -60,7 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (bid.status === "expired") {
     return NextResponse.json(
-      { ok: false, message: "This bid expired. Start a new one — prices move.", status: "expired" },
+      { ok: false, message: "This bid expired. Start a new one. Prices move.", status: "expired" },
       { status: 410 },
     );
   }
@@ -164,7 +178,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       {
         ok: false,
         message:
-          "Your payment was confirmed, but the token could not be resolved just now. Reload this page in a moment — the payment is recorded and will not be lost.",
+          "Your payment was confirmed, but the token could not be resolved just now. Reload this page in a moment. The payment is recorded and will not be lost.",
       },
       { status: 503 },
     );

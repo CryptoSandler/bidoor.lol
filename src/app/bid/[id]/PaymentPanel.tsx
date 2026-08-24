@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usd } from "@/lib/format";
 import type { PendingStatus } from "@/lib/payments/pending";
+import { SIGNATURE_INPUT_HELP, parseSignatureInput } from "@/lib/payments/signature-input";
 
 type Settled = {
   rank: number;
@@ -50,12 +51,21 @@ export function PaymentPanel({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+
+    // The same parse the API runs, so a Solscan link is answered here instead of
+    // costing a round-trip, and what we send is always the bare signature.
+    const parsed = parseSignatureInput(signature);
+    if (!parsed) {
+      setError(SIGNATURE_INPUT_HELP);
+      return;
+    }
+
     setChecking(true);
     try {
       const response = await fetch(`/api/bid/${id}/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signature }),
+        body: JSON.stringify({ signature: parsed }),
       });
       const data = await response.json();
       if (data.ok) {
@@ -66,7 +76,7 @@ export function PaymentPanel({
         if (data.status === "expired") router.refresh();
       }
     } catch {
-      setError("Could not reach the server. Your payment is unaffected — try again.");
+      setError("Could not reach the server. Your payment is unaffected. Try again.");
     } finally {
       setChecking(false);
     }
@@ -124,7 +134,7 @@ export function PaymentPanel({
       <input
         value={signature}
         onChange={(event) => setSignature(event.target.value)}
-        placeholder="Paste the Solana transaction signature"
+        placeholder="Paste the signature, or the Solscan link"
         spellCheck={false}
         autoCapitalize="off"
         autoCorrect="off"
@@ -147,7 +157,7 @@ export function PaymentPanel({
           ? "Bid expired"
           : checking
             ? "Checking the chain…"
-            : `I sent $${paymentAmount} — verify it`}
+            : `I sent $${paymentAmount}. Verify it`}
       </button>
 
       {expired && (

@@ -1,4 +1,4 @@
-import { base58Decode } from "../base58";
+import { isSignatureShaped } from "./signature-input";
 import {
   BLOCKTIME_SKEW_SECONDS,
   RPC_BACKOFF_MAX_MS,
@@ -89,12 +89,6 @@ export type SolanaTransaction = {
 
 /** Injected so tests can drive the verifier with fixture transactions. */
 export type TransactionFetcher = (signature: string) => Promise<SolanaTransaction>;
-
-/** A Solana signature is 64 bytes of base58 — usually 87 or 88 characters. */
-export function isSignatureShaped(signature: string): boolean {
-  const decoded = base58Decode(signature.trim());
-  return decoded !== null && decoded.length === 64;
-}
 
 function sumFor(balances: TokenBalance[] | undefined, wallet: string, mint: string): bigint {
   let total = 0n;
@@ -233,7 +227,7 @@ export async function verifyPayment(params: {
       ok: false,
       reason: "outside_bid_window",
       message:
-        "That transaction was not made during this bid. Pay for a bid after starting it — a transfer from before the bid existed cannot be used to claim it.",
+        "That transaction was not made during this bid. Pay for a bid after starting it. A transfer from before the bid existed cannot be used to claim it.",
     };
   }
 
@@ -255,7 +249,7 @@ export async function verifyPayment(params: {
           ok: false,
           reason: "wrong_token",
           message:
-            "That transaction moved a different token. Bids are paid in USDC on Solana — check you sent the real USDC mint.",
+            "That transaction moved a different token. Bids are paid in USDC on Solana. Check you sent the real USDC mint.",
         }
       : {
           ok: false,
@@ -275,7 +269,7 @@ export async function verifyPayment(params: {
       reason: short ? "insufficient_amount" : "overpaid",
       message:
         `That transaction sent exactly ${formatUsdc(received)} USDC, but this bid must be paid with ` +
-        `exactly ${formatUsdc(required)} — the amount is how we match a payment to a bid. ` +
+        `exactly ${formatUsdc(required)}. The amount is how we match a payment to a bid. ` +
         `Your ${formatUsdc(received)} is recorded against this bid and is not lost, but this ` +
         `transaction is now spent and cannot be submitted again.`,
       receivedBaseUnits: received,

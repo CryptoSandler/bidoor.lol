@@ -31,3 +31,15 @@ export function timeAgo(iso: string, now: number = Date.now()): string {
   if (days < 30) return `${days}d ago`;
   return `${Math.floor(days / 30)}mo ago`;
 }
+
+/**
+ * `9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump` -> `9cRC…pump`.
+ *
+ * Enough at each end to recognise an address you already know, which is all a
+ * shortened one can honestly do. Anything that has to be checked character by
+ * character gets copied instead.
+ */
+export function truncateAddress(address: string, lead = 4, tail = 4): string {
+  if (address.length <= lead + tail + 1) return address;
+  return `${address.slice(0, lead)}\u2026${address.slice(-tail)}`;
+}

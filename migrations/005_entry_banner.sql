@@ -1,0 +1,11 @@
+-- The banner image DexScreener carries for a token (info.header), stored
+-- alongside the rest of the identity it owns.
+--
+-- Nullable with no default and no backfill in the migration itself: most tokens
+-- have no banner at all, and the ones that do only learn about it the next time
+-- their metadata is read. An entry with a NULL here is the ordinary case, not a
+-- broken one, and the card renders without the image.
+--
+-- Only the URL is stored, never the bytes. It points at cdn.dexscreener.com,
+-- which is already the one image host the CSP allows besides ourselves.
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS banner_url TEXT;

@@ -250,3 +250,57 @@ describe("metadata ownership", () => {
     expect(outcome.entry.launchpadUrl).toBe("https://pump.fun/coin/first-bid");
   });
 });
+
+describe("the banner", () => {
+  beforeEach(reset);
+
+  const BANNER = "https://cdn.dexscreener.com/cms/images/banner?width=1500&height=500";
+
+  it("is stored with the entry when the token has one", async () => {
+    const contract = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
+    const bid = validateBid(
+      {
+        chainId: "solana",
+        contract,
+        launchpadUrl: "https://pump.fun/coin/x",
+        amountUsd: 40,
+      },
+      { contractKey: `solana:${contract}`, totalUsd: 0 },
+    );
+    expect(bid.ok).toBe(true);
+    if (!bid.ok) return;
+
+    await placeBid(bid.value, meta({ bannerUrl: BANNER }));
+    const listed = (await listRanked()).find((e) => e.contract === bid.value.contract);
+    expect(listed?.bannerUrl).toBe(BANNER);
+  });
+
+  it("is refreshed on a top-up, like the rest of the identity", async () => {
+    const board = await listRanked();
+    const existing = board[0];
+
+    const bid = validateBid(
+      {
+        chainId: existing.chainId,
+        contract: existing.contract,
+        launchpadUrl: existing.launchpadUrl ?? undefined,
+        amountUsd: 5,
+      },
+      { contractKey: existing.contractKey, totalUsd: existing.totalUsd },
+    );
+    expect(bid.ok).toBe(true);
+    if (!bid.ok) return;
+
+    await placeBid(bid.value, meta({ name: existing.name, bannerUrl: BANNER }));
+    const after = (await listRanked()).find((e) => e.id === existing.id);
+    expect(after?.bannerUrl).toBe(BANNER);
+  });
+
+  it("is undefined, never a blank string, for a token without one", async () => {
+    // The card renders on truthiness, so an empty string here would be a hole
+    // in the layout rather than the clean fallback.
+    for (const entry of await listRanked()) {
+      expect(entry.bannerUrl === undefined || entry.bannerUrl.length > 0).toBe(true);
+    }
+  });
+});

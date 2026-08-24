@@ -34,6 +34,50 @@ beforeEach(async () => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+describe("the banner", () => {
+  it("comes from info.header when the token has one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      serve([
+        pair({
+          info: {
+            imageUrl: "https://cdn.dexscreener.com/cms/images/abc?width=800",
+            header: "https://cdn.dexscreener.com/cms/images/et-RLU3d?width=1500&height=500",
+          },
+        }),
+      ]),
+    );
+    const result = await fetchTokenMetadata(SOLANA, MINT);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.metadata.bannerUrl).toBe(
+      "https://cdn.dexscreener.com/cms/images/et-RLU3d?width=1500&height=500",
+    );
+  });
+
+  it("is simply absent when the token has none", async () => {
+    vi.stubGlobal("fetch", serve([pair()]));
+    const result = await fetchTokenMetadata(SOLANA, MINT);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.metadata.bannerUrl).toBeUndefined();
+  });
+
+  it("is dropped when it is not hosted by DexScreener", async () => {
+    // Same rule the logo goes through: an image we serve to every visitor from
+    // a host a third party controls is a tracking beacon on our audience, and
+    // the CSP would refuse to load it anyway.
+    vi.stubGlobal(
+      "fetch",
+      serve([pair({ info: { header: "https://evil.example.com/banner.png" } })]),
+    );
+    const result = await fetchTokenMetadata(SOLANA, MINT);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.metadata.bannerUrl).toBeUndefined();
+  });
+});
+
 describe("resolving a token", () => {
   it("reads name, ticker and logo from the matching pair", async () => {
     vi.stubGlobal("fetch", serve([pair()]));

@@ -34,6 +34,12 @@ export type Entry = {
   name: string;
   ticker: string;
   logoUrl?: string;
+  /**
+   * DexScreener's banner for the token. Optional in the honest sense: most
+   * tokens have none, and the expanded card is designed to look finished
+   * without it rather than to show a gap where it would go.
+   */
+  bannerUrl?: string;
   links: EntryLinks;
   /** When the metadata above was last read from DexScreener. */
   metadataFetchedAt: string;

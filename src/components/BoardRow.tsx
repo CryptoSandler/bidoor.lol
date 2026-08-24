@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ChainBadge } from "./ChainBadge";
+import { RowBanner } from "./RowBanner";
+import { RowMeta } from "./RowMeta";
 import { TokenMark } from "./TokenMark";
 import { compactCount, timeAgo, usd, usdCompact } from "@/lib/format";
 import type { RankedEntry } from "@/lib/types";
@@ -9,6 +11,11 @@ import type { RankedEntry } from "@/lib/types";
  * design: the top three are tinted cards, everything below is a flat separated
  * row. That is what makes the podium read as a podium in a screenshot without
  * medals or confetti.
+ *
+ * Everything a bidder checks is on the row itself — address, chart, socials —
+ * because a board of fifty rows can afford the pixels and a disclosure control
+ * would cost a click on every one of them. It is all persisted data, so none of
+ * it costs a request.
  */
 export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
   const isPodium = entry.rank <= 3;
@@ -23,10 +30,10 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
             // cream the slime edge is 1.08 against the card, so it is carried by
             // hue rather than by luminance, and the podium is already a shadowed
             // card against flat rows before any colour is involved.
-            `group flex items-center gap-3 rounded-card border border-accent-line bg-surface shadow-card sm:gap-4 ${
+            `group flex items-center gap-3 overflow-hidden rounded-card border border-accent-line bg-surface shadow-card sm:gap-4 ${
               isLeader ? "border-l-[5px]" : ""
             }`
-          : "group flex items-center gap-3 border-b border-line sm:gap-4"
+          : "group flex items-center gap-3 overflow-hidden border-b border-line sm:gap-4"
       }
       style={
         isPodium
@@ -86,25 +93,33 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
 
         {/* The chain badge lives on the meta line, not beside the name: on a
             narrow phone the badges were stealing the width and truncating
-            names down to a single letter. */}
+            names down to a single letter. The address and the links join it
+            here rather than adding a third line, so the row keeps its height. */}
         <div className="num mt-1 flex items-center gap-1.5 text-2xs text-faint">
           <ChainBadge chainId={entry.chainId} />
-          {/* On the narrowest phones the click count earns the space over the
-              timestamp: it is the number a bidder is buying. */}
+          {/* On a phone this line is down to the chain, the address and the
+              chart: the timestamp and the click count both give up their space
+              to the address, which is the thing somebody is here to copy. */}
           <span className="hidden truncate sm:inline">{timeAgo(entry.lastBidAt, now)}</span>
           <span aria-hidden className="hidden sm:inline">·</span>
-          <span className="truncate font-medium text-muted">
+          <span className="hidden truncate font-medium text-muted sm:inline">
             {compactCount(entry.clicks)} clicks
           </span>
+          <span aria-hidden className="hidden sm:inline">·</span>
+          <RowMeta entry={entry} />
         </div>
       </div>
+
+      {/* The middle of the row is dead space on a wide screen. The banner fills
+          exactly that, and only that. */}
+      {entry.bannerUrl && <RowBanner src={entry.bannerUrl} isPodium={isPodium} />}
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         <span
           // The podium's three totals are filled; everything below stays
           // ordinary type carrying weight. Filled rather than coloured even
-          // here, because slime type on cream is 1.17 and would not be readable
-          // — the ink is what carries the contrast, at 15.76.
+          // here, because slime type on cream is 1.17 and would not be readable:
+          // the ink is what carries the contrast, at 15.76.
           //
           // On a pointer device it steps aside on hover so the claim price can
           // take its place. The row swaps one number for another rather than
@@ -118,7 +133,7 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
           {usdCompact(entry.totalUsd)}
         </span>
 
-        {/* What it costs to take this spot — the occupant's total plus the
+        {/* What it costs to take this spot: the occupant's total plus the
             increment, never the total itself. Hidden until hover on a pointer
             device; on a phone there is no hover, so it simply stays. */}
         <Link

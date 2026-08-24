@@ -15,6 +15,8 @@ export type TokenMetadata = {
   name: string;
   ticker: string;
   logoUrl?: string;
+  /** DexScreener's banner, when the token has one. Most do not. */
+  bannerUrl?: string;
   links: EntryLinks;
   /** DexScreener's own page for the pair we read, kept for attribution. */
   sourceUrl?: string;
@@ -32,6 +34,8 @@ type DexPair = {
   liquidity?: { usd?: number };
   info?: {
     imageUrl?: string;
+    /** DexScreener's banner for the token, 1500x500 on its own CDN. */
+    header?: string;
     websites?: { label?: string; url?: string }[];
     socials?: { type?: string; url?: string }[];
   };
@@ -84,7 +88,7 @@ function pickPair(pairs: DexPair[], chain: Chain, address: string): DexPair | nu
   })[0];
 }
 
-function safeLogo(imageUrl?: string): string | undefined {
+function safeImage(imageUrl?: string): string | undefined {
   if (!imageUrl) return undefined;
   let url: URL;
   try {
@@ -198,7 +202,8 @@ export async function fetchTokenMetadata(
           metadata: {
             name,
             ticker: ticker.toUpperCase(),
-            logoUrl: safeLogo(pair.info?.imageUrl),
+            logoUrl: safeImage(pair.info?.imageUrl),
+            bannerUrl: safeImage(pair.info?.header),
             links: extractLinks(pair),
             sourceUrl: pair.url,
             fetchedAt: new Date().toISOString(),

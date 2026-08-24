@@ -68,7 +68,12 @@ export default async function LeaderboardPage({
           {/* Presence and the running visitor count. Always on: whoever is
               reading this is themselves the first person online. */}
           <Heartbeat initialVisitors={visitors} />
-          <p className="mt-2 text-2xs text-faint sm:text-xs">
+          {/* Dropped on phones. The presence banner now renders from one person
+              online, and those 29px came out of the 20px of slack the top-three
+              requirement had left: something above the board had to go, and this
+              line is the only one restated elsewhere — the bid form says it when
+              you paste an address already listed, and Rules states it outright. */}
+          <p className="mt-2 hidden text-2xs text-faint sm:block sm:text-xs">
             Already on the board? Bidding on the same contract adds to its total. It never creates
             a second row.
           </p>

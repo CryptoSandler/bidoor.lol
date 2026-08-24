@@ -25,6 +25,7 @@ type EntryRow = {
   name: string;
   ticker: string;
   logo_url: string | null;
+  banner_url: string | null;
   links: EntryLinks;
   metadata_fetched_at: Date;
   launchpad_url: string | null;
@@ -39,7 +40,7 @@ type EntryRow = {
 type BidRow = { id: string; entry_id: string; amount_usd: number; created_at: Date };
 
 const ENTRY_COLUMNS = `
-  id, chain_id, contract, contract_key, name, ticker, logo_url, links,
+  id, chain_id, contract, contract_key, name, ticker, logo_url, banner_url, links,
   metadata_fetched_at, launchpad_url, launchpad_host, launchpad_verified,
   click_url, clicks, created_at, last_bid_at
 `;
@@ -53,6 +54,7 @@ function toEntry(row: EntryRow, bids: BidEvent[]): Entry {
     name: row.name,
     ticker: row.ticker,
     logoUrl: row.logo_url ?? undefined,
+    bannerUrl: row.banner_url ?? undefined,
     links: row.links ?? {},
     metadataFetchedAt: row.metadata_fetched_at.toISOString(),
     launchpadUrl: row.launchpad_url,
@@ -211,10 +213,10 @@ async function createEntry(
 
   await client.query(
     `INSERT INTO entries
-       (id, chain_id, contract, contract_key, name, ticker, logo_url, links,
-        metadata_fetched_at, launchpad_url, launchpad_host, launchpad_verified,
-        click_url, clicks, created_at, last_bid_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,0,$14,$14)`,
+       (id, chain_id, contract, contract_key, name, ticker, logo_url, banner_url,
+        links, metadata_fetched_at, launchpad_url, launchpad_host,
+        launchpad_verified, click_url, clicks, created_at, last_bid_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,$15,$15)`,
     [
       id,
       bid.chainId,
@@ -223,6 +225,7 @@ async function createEntry(
       metadata.name,
       metadata.ticker,
       metadata.logoUrl ?? null,
+      metadata.bannerUrl ?? null,
       JSON.stringify(metadata.links),
       new Date(metadata.fetchedAt),
       bid.launchpadUrl,
@@ -257,14 +260,15 @@ async function topUp(
   // the token's deployer can repoint where the row sends clicks.
   await client.query(
     `UPDATE entries
-        SET name = $2, ticker = $3, logo_url = $4, links = $5,
-            metadata_fetched_at = $6, last_bid_at = $7
+        SET name = $2, ticker = $3, logo_url = $4, banner_url = $5, links = $6,
+            metadata_fetched_at = $7, last_bid_at = $8
       WHERE id = $1`,
     [
       entryId,
       metadata.name,
       metadata.ticker,
       metadata.logoUrl ?? null,
+      metadata.bannerUrl ?? null,
       JSON.stringify(metadata.links),
       new Date(metadata.fetchedAt),
       now,

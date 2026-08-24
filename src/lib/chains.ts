@@ -172,3 +172,16 @@ export function isKnownLaunchpad(chain: Chain, host: string): boolean {
     (allowed) => host === allowed || host.endsWith(`.${allowed}`),
   );
 }
+
+/**
+ * DexScreener's page for a token, built from the chain and the address.
+ *
+ * Constructed rather than stored, so every row has this link even when the
+ * token carries no metadata at all: DexScreener resolves a token address to its
+ * pairs itself, and a token that could be listed here was found there already.
+ */
+export function dexscreenerTokenUrl(chainId: string, contract: string): string | null {
+  const chain = getChain(chainId);
+  if (!chain) return null;
+  return `https://dexscreener.com/${chain.dexscreenerId}/${encodeURIComponent(contract)}`;
+}

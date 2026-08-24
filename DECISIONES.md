@@ -869,3 +869,25 @@ Lo que se acepta con esto: el #1 rota por un dólar. Es la consecuencia buscada,
 efecto lateral — si más adelante molesta, lo que vuelve no es el recargo plano sino un
 gap porcentual con piso de $1, que conserva la propiedad anti-flip sin el peaje de
 lanzamiento.
+
+---
+
+## 25. Tanda 19 — la ficha del token vive en la fila
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 125 | **Nada de expandir/colapsar: dirección, chart y sociales están siempre a la vista** | Un control de apertura cuesta un click en cada una de las 50 filas para mostrar datos que ya están cargados. Un link que nadie ve es un link que nadie clickea. |
+| 126 | **El banner ocupa el hueco muerto del medio, entre el bloque de nombre y el monto** | Es el único espacio de la fila que no era de nadie. Nunca queda texto nuestro encima de la imagen. |
+| 127 | **Enmascarado a transparente en los dos bordes laterales** | Cada banner trae los colores que quiere y no los controlamos. El fade los disuelve contra la card en vez de estrellarlos contra el nombre de un lado y el total del otro. |
+| 128 | **El monto queda siempre sobre el fondo de la card, nunca sobre la imagen** | Resuelve el contraste eliminando el problema en vez de tapándolo con un overlay: medido en las cuatro combinaciones, el borde derecho del banner nunca llega al monto. |
+| 129 | **El banner se hotlinkea a `cdn.dexscreener.com`, no se proxea** | La CSP ya permite ese host para los logos. Proxearlo sería servir la imagen de cada token desde nosotros sin ganar nada: mismo host, misma política. |
+| 130 | **En móvil no hay banner, y la línea secundaria pierde fecha y clicks** | Abajo de `sm` el hueco del medio no existe. Queda chain + dirección copiable + DexScreener, que es el mínimo que se pidió; los clicks son la baja, y es una pérdida real. |
+| 131 | **El link a DexScreener se construye con chain + address, no se guarda** | Así toda fila lo tiene, incluso un token sin nada cargado. Un token que se pudo listar acá ya existía allá. |
+| 132 | **`banner_url` es columna nueva, nullable, sin backfill en la migración** | La mayoría de los tokens no tienen banner. Un NULL es el caso normal, no uno roto. El backfill es un script aparte porque tiene que salir a la red. |
+| 133 | **El backfill sólo escribe `banner_url`** | Nombre, ticker, logo y links se refrescan en el top-up y en ningún otro lado. Un script que los reescribiera sería un segundo camino invisible para cambiar lo que dice una entrada. |
+| 134 | **La ficha no hace un solo fetch** | Todo sale de lo que ya está persistido en la entrada desde que se pagó la puja. |
+
+La fila no crece de alto en desktop: medido con y sin lo que agrega esta tanda, 79px
+en los dos casos. Verificado con The Black Bull en prod (banner + X + Telegram, sin
+website) y con SHIBA INU en la rama de test (sin links ni banner: queda la dirección,
+el botón de copiar y DexScreener, sin huecos).

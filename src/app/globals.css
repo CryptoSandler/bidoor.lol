@@ -152,3 +152,21 @@ body {
     animation: none;
   }
 }
+
+/*
+ * A row arrived at from a shared link. The ring says "this is the one you were
+ * sent to" and then gets out of the way: it is an arrival cue, not a state, and
+ * a board that stays marked up reads as broken.
+ */
+.bd-shared {
+  animation: bd-shared-fade 4s ease-out forwards;
+}
+
+@keyframes bd-shared-fade {
+  0%, 55% { border-color: var(--color-accent); }
+  100% { border-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-shared { animation: none; }
+}

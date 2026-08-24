@@ -891,3 +891,44 @@ La fila no crece de alto en desktop: medido con y sin lo que agrega esta tanda, 
 en los dos casos. Verificado con The Black Bull en prod (banner + X + Telegram, sin
 website) y con SHIBA INU en la rama de test (sin links ni banner: queda la dirección,
 el botón de copiar y DexScreener, sin huecos).
+
+---
+
+## 26. Tanda 20 — compartir por fila
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 135 | **El share es por fila, no por sitio** | Lo que a alguien le importa es su token y su puesto. Un botón de "compartir bidoor.lol" lo comparte el dueño del sitio; uno por fila lo comparte la comunidad del token. |
+| 136 | **El precio de reclamo va en el texto del tweet** | El tweet es una invitación a que te pasen. Esa es la parte que lo hace circular. |
+| 137 | **`text` y `url` van como parámetros separados en el intent** | X cuenta y acorta la URL por su cuenta. Metida adentro del texto la contaría dos veces. |
+| 138 | **La URL compartida es el board, no una página nueva** | `/?t=<id>#row-<id>`: misma home, con la fila nombrada y anclada. La preview por token sale de `generateMetadata` leyendo el search param, así que no hizo falta inventar una ruta de producto. |
+| 139 | **La imagen sí es una ruta propia, `/og/[id]`** | Una imagen no es una página. Vive fuera de `/api` a propósito: ahí las cabeceras fuerzan `no-store`, y una OG card conviene que se cachee. |
+| 140 | **El rank se lee en el request, nunca se hornea** | Una card que sigue diciendo #1 después de que a la fila la pasaron es una mentira con nuestro nombre. Cache corto, número el que diga el board cuando el scraper pregunta. |
+| 141 | **Sin logo, sin fila o con id desconocido: cae en la card general** | Verificado: el token sin logo devuelve exactamente los mismos bytes que la card genérica. Una card que dice algo cierto del producto es mejor que una a medias del token. |
+| 142 | **La fila compartida se resalta al llegar y el resaltado se apaga solo** | Es una señal de llegada, no un estado. Un board que queda marcado se lee como roto. |
+| 143 | **Si la fila compartida cae más allá de la primera página, la página se estira hasta incluirla** | Sin eso el ancla apunta a la nada y el tweet manda a un board donde no se ve el token del que hablaba. |
+
+`scroll-mt-20` en todas las filas: el header es sticky y el ancla, sin eso, deja la
+fila justo abajo del header. Verificado llegando desde el link que produce el propio
+botón, en la fila 1 y en la 7.
+
+---
+
+## 27. Tanda 21 — chips de chain con color de marca, y el swap del hero
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 144 | **Cada chain usa su color de marca: fondo con la marca al 18%, tinta con la marca legible** | Es la forma en que los agregadores lo hacen y es la que se lee de un vistazo. La excepción semántica ya estaba documentada; esto la hace útil en vez de tímida. |
+| 145 | **El tinte se mezcla con `color-mix` contra lo que haya atrás, no se hornea** | La misma chip cae sobre la página, sobre una card del podio y adentro de un panel. Un valor fijo estaría mal en dos de los tres. |
+| 146 | **La tinta se deriva, no se elige: se camina la marca hacia negro (claro) o blanco (oscuro) hasta cruzar 4.5:1 contra la peor superficie** | La peor siempre es `--bd-surface-2`, los paneles. Una tanda anterior mandó estas chips a 1.1:1 justamente por medir sólo contra la página. |
+| 147 | **Se redondea a hex ANTES de medir** | Redondear después bajó dos chips a 4.49. El paso de más existe por eso. |
+| 148 | **Robinhood usa su verde histórico `#00c805`, no su `#ccff00` actual** | Su marca nueva está a un pelo del slime. Una chain que se lee como el acento de dinero rompe la única regla de color que el proyecto sostiene. |
+| 149 | **El test recomputa los pares desde `tokens.css`** | Los ratios estaban escritos en un comentario y nadie los volvía a chequear. Ahora un cambio de token que rompa AA rompe la suite. |
+| 150 | **El pill de arriba pasa a ser la prueba social; los totales del board bajan a la línea suelta** | Lo que contesta "¿esto lo mira alguien?" es el número vivo. Los totales son ciertos pero estáticos. |
+| 151 | **El punto de "online" es slime; el resto del pill es tinta normal** | Es un indicador de estado en vivo, que es exactamente lo que el acento significa. Es el único acento del pill. |
+| 152 | **"see stats" se cae en móvil** | Tres cifras no entran en 375px. Es un link a una página, no un número: es lo que sobra. |
+
+Medido en pantalla, no en la cabeza: se muestrean los píxeles pintados de cada chip
+y se recalcula el ratio contra su propio tinte. Peor caso 5.55 en claro y 7.11 en
+oscuro. El pill nuevo entra sin desbordar ni envolver en 375, 390 y 412, y
+`check:layout` sigue pasando en los tres con 32px de sobra.

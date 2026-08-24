@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ActivityPanels } from "@/components/ActivityPanels";
 import { BoardRow } from "@/components/BoardRow";
@@ -7,25 +8,64 @@ import { HeroSearch } from "@/components/HeroSearch";
 import { BOARD } from "@/lib/config";
 import { priceToClaimRank } from "@/lib/ranking";
 import { usd, usdCompact } from "@/lib/format";
-import { getBoard } from "@/lib/store";
+import { SHARE_PARAM } from "@/lib/share";
+import { getBoard, listRanked } from "@/lib/store";
 
 // Mock data mutates in memory, so never cache this route.
 export const dynamic = "force-dynamic";
 
+/**
+ * A link that names a row previews as that row.
+ *
+ * This is why the share button can point at the board instead of a page of its
+ * own: the URL is still bidoor.lol, and the card in the tweet is the sharer's
+ * own rank. An unknown or delisted id falls through to the site-wide card
+ * rather than erroring — a bad link should still preview as the product.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}): Promise<Metadata> {
+  const raw = (await searchParams)[SHARE_PARAM];
+  const id = Array.isArray(raw) ? raw[0] : raw;
+  if (!id) return {};
+
+  const entry = (await listRanked()).find((candidate) => candidate.id === id);
+  if (!entry) return {};
+
+  const title = `${entry.name} is #${entry.rank} on bidoor.lol`;
+  const description = `${entry.ticker} has ${usd(entry.totalUsd)} paid on it. Taking #${entry.rank} costs ${usd(entry.priceToClaim)}.`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, images: [`/og/${entry.id}`] },
+    twitter: { card: "summary_large_image", title, description, images: [`/og/${entry.id}`] },
+  };
+}
+
 export default async function LeaderboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ show?: string }>;
+  searchParams: Promise<{ show?: string; [key: string]: string | string[] | undefined }>;
 }) {
-  const { show } = await searchParams;
+  const { show, [SHARE_PARAM]: sharedParam } = await searchParams;
+  const shared = Array.isArray(sharedParam) ? sharedParam[0] : sharedParam;
   const { entries: allEntries, now, potUsd } = await getBoard();
 
   // Top 50, then more on request. Server-rendered, so the board still works
   // without JavaScript and a shared link to "?show=100" shows what it says.
   const requested = Number(show);
-  const visible = Number.isFinite(requested)
+  const asked = Number.isFinite(requested)
     ? Math.min(Math.max(requested, BOARD.pageSize), allEntries.length)
     : BOARD.pageSize;
+
+  // A shared link has to land on its row even when that row is past the first
+  // page. Without this the anchor points at nothing and the tweet sends people
+  // to a board that does not visibly contain the token it was about.
+  const sharedIndex = shared ? allEntries.findIndex((entry) => entry.id === shared) : -1;
+  const visible = sharedIndex >= 0 ? Math.max(asked, sharedIndex + 1) : asked;
   const entries = allEntries.slice(0, visible);
   const remaining = allEntries.length - entries.length;
   const leader = allEntries[0];
@@ -85,7 +125,7 @@ export default async function LeaderboardPage({
           on desktop and below the whole board on phones. */}
       <ol className="section-gap flex flex-col" style={{ gap: "var(--bd-podium-gap)" }}>
         {podium.map((entry) => (
-          <BoardRow key={entry.id} entry={entry} now={now} />
+          <BoardRow key={entry.id} entry={entry} now={now} highlighted={entry.id === shared} />
         ))}
       </ol>
 
@@ -99,7 +139,7 @@ export default async function LeaderboardPage({
 
       <ol>
         {rest.map((entry) => (
-          <BoardRow key={entry.id} entry={entry} now={now} />
+          <BoardRow key={entry.id} entry={entry} now={now} highlighted={entry.id === shared} />
         ))}
       </ol>
 

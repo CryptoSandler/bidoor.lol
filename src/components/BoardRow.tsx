@@ -4,6 +4,7 @@ import { RowBanner } from "./RowBanner";
 import { RowMeta } from "./RowMeta";
 import { TokenMark } from "./TokenMark";
 import { compactCount, timeAgo, usd, usdCompact } from "@/lib/format";
+import { rowAnchor, tweetIntent } from "@/lib/share";
 import type { RankedEntry } from "@/lib/types";
 
 /**
@@ -17,23 +18,48 @@ import type { RankedEntry } from "@/lib/types";
  * would cost a click on every one of them. It is all persisted data, so none of
  * it costs a request.
  */
-export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
+export function BoardRow({
+  entry,
+  now,
+  highlighted = false,
+}: {
+  entry: RankedEntry;
+  now: number;
+  /** True when a shared link named this row, so it can be found on arrival. */
+  highlighted?: boolean;
+}) {
   const isPodium = entry.rank <= 3;
   const isLeader = entry.rank === 1;
 
+  // Built here rather than in the client component below: the origin comes from
+  // the environment, and it has no business in the browser bundle.
+  const shareHref = tweetIntent({
+    ticker: entry.ticker,
+    rank: entry.rank,
+    priceToClaim: usd(entry.priceToClaim),
+    id: entry.id,
+    origin: process.env.SITE_URL ?? "",
+  });
+
   return (
     <li
+      id={rowAnchor(entry.id)}
+      // Scrolled to by the anchor on a shared link; the ring is what says "this
+      // one" once you are there. It fades on its own so the board does not stay
+      // marked up for the rest of the session.
       className={
-        isPodium
+        highlighted
+          ? `${isPodium ? "rounded-card" : ""} bd-shared group flex scroll-mt-20 items-center gap-3 overflow-hidden border-2 border-accent bg-surface sm:gap-4`
+          : isPodium
           ? // The whole podium is edged in slime, and the leader's left edge is
             // thicker still. This is decoration and never the only signal: on
             // cream the slime edge is 1.08 against the card, so it is carried by
             // hue rather than by luminance, and the podium is already a shadowed
             // card against flat rows before any colour is involved.
-            `group flex items-center gap-3 overflow-hidden rounded-card border border-accent-line bg-surface shadow-card sm:gap-4 ${
+            `group flex scroll-mt-20 items-center gap-3 overflow-hidden rounded-card border border-accent-line bg-surface shadow-card sm:gap-4 ${
               isLeader ? "border-l-[5px]" : ""
             }`
-          : "group flex items-center gap-3 overflow-hidden border-b border-line sm:gap-4"
+          : "group flex scroll-mt-20 items-center gap-3 overflow-hidden border-b border-line sm:gap-4"
       }
       style={
         isPodium
@@ -106,7 +132,7 @@ export function BoardRow({ entry, now }: { entry: RankedEntry; now: number }) {
             {compactCount(entry.clicks)} clicks
           </span>
           <span aria-hidden className="hidden sm:inline">·</span>
-          <RowMeta entry={entry} />
+          <RowMeta entry={entry} shareHref={shareHref} />
         </div>
       </div>
 

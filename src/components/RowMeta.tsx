@@ -142,7 +142,20 @@ function CopyAddress({ value, name }: { value: string; name: string }) {
   );
 }
 
-export function RowMeta({ entry }: { entry: RankedEntry }) {
+function ShareIcon() {
+  // An arrow leaving a box: the same idea as every share glyph, drawn to sit
+  // with the others rather than borrowed from a platform.
+  return (
+    <svg viewBox="0 0 16 16" className={ICON} aria-hidden focusable="false">
+      <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 1.8v8.4M5 4.8 8 1.8l3 3" />
+        <path d="M3.2 9.2v3.4a1.6 1.6 0 0 0 1.6 1.6h6.4a1.6 1.6 0 0 0 1.6-1.6V9.2" />
+      </g>
+    </svg>
+  );
+}
+
+export function RowMeta({ entry, shareHref }: { entry: RankedEntry; shareHref: string }) {
   const dexscreener = dexscreenerTokenUrl(entry.chainId, entry.contract);
 
   return (
@@ -157,6 +170,12 @@ export function RowMeta({ entry }: { entry: RankedEntry }) {
           <DexScreenerIcon />
         </IconLink>
       )}
+
+      {/* Kept out of the group that hides on phones: sharing a rank from the
+          phone you are already holding is the whole point. */}
+      <IconLink href={shareHref} label={`Share ${entry.name} at #${entry.rank}`}>
+        <ShareIcon />
+      </IconLink>
 
       {/* The socials are the first thing to go when the row runs out of width:
           the address and the chart are what a bidder is checking. */}

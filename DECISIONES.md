@@ -932,3 +932,20 @@ Medido en pantalla, no en la cabeza: se muestrean los píxeles pintados de cada 
 y se recalcula el ratio contra su propio tinte. Peor caso 5.55 en claro y 7.11 en
 oscuro. El pill nuevo entra sin desbordar ni envolver en 375, 390 y 412, y
 `check:layout` sigue pasando en los tres con 32px de sobra.
+
+---
+
+## 28. Tanda 22 — la zona entre el podio y el resto
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 153 | **"Latest activity" pasa de panel vertical a riel horizontal de chips** | El módulo era algo que había que scrollear para pasar. Acostado ocupa una franja y deja el board arriba. |
+| 154 | **"Trending right now" se elimina de la home** | Contaba una historia que el board ya cuenta dos veces: el podio es lo que dice la plata y cada fila lleva sus propios clicks. Menos módulos, más board. |
+| 155 | **Cada chip dice "at #N", no sólo el monto** | "$20 en Aura Farm Battles" es un número sin apuesta. El puesto es lo que se está disputando. |
+| 156 | **El tiempo va en largo ("4 minutes ago"), no en la forma corta de las filas** | En una fila el tiempo compite con la chain, los clicks y la dirección. El chip tiene una línea sola y se lee como una frase. |
+| 157 | **Scroll horizontal sin flechas, con la barra oculta** | En teléfono es el gesto esperado. En desktop el riel llega al borde, que es su propia invitación. La barra sería lo más ancho de una franja de 44px. |
+| 158 | **Los chips son links a la fila** | Ya existe el ancla de la tanda de compartir. Un chip que no lleva a ningún lado es una etiqueta, no un módulo. |
+
+Orden final de la home: hero → buscador → línea de tokens/total → top 3 → riel →
+filas 4 en adelante → footer. Verificado idéntico en 375, 390, 412 y 1280, sin
+scroll lateral de página, y `check:layout` sigue pasando con 32px de sobra.

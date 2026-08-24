@@ -33,6 +33,34 @@ export function timeAgo(iso: string, now: number = Date.now()): string {
 }
 
 /**
+ * The same age, spelled out: "4 minutes ago" rather than "4m ago".
+ *
+ * The compact form is right in a row, where it sits beside a chain badge and a
+ * click count and every character is competing. The activity rail has one line
+ * per chip and reads as a sentence, so it gets the long form.
+ */
+export function timeAgoLong(iso: string, now: number = Date.now()): string {
+  const seconds = Math.max(0, Math.floor((now - Date.parse(iso)) / 1000));
+  if (seconds < 60) return "just now";
+
+  const units: [number, string][] = [
+    [60, "minute"],
+    [60, "hour"],
+    [24, "day"],
+    [30, "month"],
+  ];
+
+  let value = seconds;
+  let name = "second";
+  for (const [size, label] of units) {
+    if (value < size) break;
+    value = Math.floor(value / size);
+    name = label;
+  }
+  return `${value} ${name}${value === 1 ? "" : "s"} ago`;
+}
+
+/**
  * `9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump` -> `9cRC…pump`.
  *
  * Enough at each end to recognise an address you already know, which is all a

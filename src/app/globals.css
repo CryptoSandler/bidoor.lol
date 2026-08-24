@@ -170,3 +170,21 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .bd-shared { animation: none; }
 }
+
+/*
+ * The activity rail. The scrollbar is hidden because it would be the widest
+ * thing in a 44px strip; the chips are links, so keyboard users still reach
+ * every one of them by tabbing, and the row scrolls with them.
+ */
+.bd-rail {
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.bd-rail::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-rail { scroll-behavior: auto; }
+}

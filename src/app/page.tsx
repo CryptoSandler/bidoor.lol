@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ActivityPanels } from "@/components/ActivityPanels";
+import { ActivityRail } from "@/components/ActivityRail";
 import { BoardRow } from "@/components/BoardRow";
 import { visitorsSinceLaunch } from "@/lib/stats";
 import { Heartbeat } from "@/components/Heartbeat";
@@ -128,12 +128,11 @@ export default async function LeaderboardPage({
         ))}
       </ol>
 
-      {/* One instance, between the podium and the rest, in the same place on
-          every screen: it was two copies with opposite visibility before. It
-          also does the job the "Top 3" rule used to do — the podium ends where
-          the modules begin — so that divider is gone rather than restated. */}
+      {/* Between the podium and the rest, and the only module left on the page.
+          It also does the job the "Top 3" rule used to do: the podium ends where
+          the rail begins. */}
       <div className="section-gap mb-5">
-        <ActivityPanels entries={allEntries} now={now} />
+        <ActivityRail entries={allEntries} now={now} />
       </div>
 
       <ol>

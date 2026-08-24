@@ -3,6 +3,16 @@ import Image from "next/image";
 /**
  * Floating attribution pill, bottom left.
  *
+ * The left is not a preference, it is where the pill fits. Row totals are
+ * right-aligned at the board's edge, and the right gutter is narrower than this
+ * pill on every screen below about 1650px: measured at 1280 it covers a price
+ * outright while scrolling, and at 375 it covers one too. On a board that sells
+ * positions, hiding a price is the one thing a decoration must not do. On the
+ * left it passes over the rank pill, which the row states again anyway.
+ *
+ * Moving it right needs the pill to shrink to the avatar alone — that clears
+ * the price column from 1280 up, though not at 1024 or on a phone.
+ *
  * The avatar is served from our own /public rather than hotlinked from
  * pbs.twimg.com: the CSP allows images from ourselves and DexScreener's CDN and
  * nothing else, and an X avatar URL rotates whenever the profile picture

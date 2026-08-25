@@ -3,7 +3,7 @@ import { checkAddress } from "../addresses";
 import { CHAINS, getChain, isKnownLaunchpad } from "../chains";
 import type { TokenMetadata } from "../dexscreener";
 import { loadDemoSeed, truncateAll } from "../seed";
-import { listRanked, placeBid } from "../store";
+import { findBySlug, listRanked, placeBid } from "../store";
 import { validateBid } from "../validation";
 
 async function reset() {
@@ -302,5 +302,50 @@ describe("the banner", () => {
     for (const entry of await listRanked()) {
       expect(entry.bannerUrl === undefined || entry.bannerUrl.length > 0).toBe(true);
     }
+  });
+});
+
+describe("the short handle a shared link uses", () => {
+  beforeEach(reset);
+
+  it("gives every seeded entry a slug", async () => {
+    for (const entry of await listRanked()) {
+      expect(entry.slug, entry.name).toBeTruthy();
+    }
+  });
+
+  it("issues no two entries the same slug", async () => {
+    const slugs = (await listRanked()).map((entry) => entry.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  it("finds an entry by its slug", async () => {
+    const [first] = await listRanked();
+    const found = await findBySlug(first.slug!);
+    expect(found?.id).toBe(first.id);
+  });
+
+  it("gives the ticker to the first token that claims it, and suffixes the next", async () => {
+    // Two different contracts, same ticker: anyone can deploy a second $BONK.
+    const board = await listRanked();
+    const taken = board.find((entry) => entry.slug === "bonk");
+    expect(taken, "the fixture should already hold /t/bonk").toBeTruthy();
+
+    const contract = "So11111111111111111111111111111111111111112";
+    const bid = validateBid(
+      { chainId: "solana", contract, launchpadUrl: "https://pump.fun/coin/x", amountUsd: 40 },
+      { contractKey: `solana:${contract}`, totalUsd: 0 },
+    );
+    expect(bid.ok).toBe(true);
+    if (!bid.ok) return;
+
+    await placeBid(bid.value, meta({ name: "Bonk Two", ticker: "BONK" }));
+    const listed = (await listRanked()).find((entry) => entry.contract === contract);
+    expect(listed?.slug).not.toBe("bonk");
+    expect(listed?.slug).toMatch(/^bonk-[0-9a-f]{6}$/);
+  });
+
+  it("returns nothing for a slug no entry holds", async () => {
+    expect(await findBySlug("nothing-here")).toBeUndefined();
   });
 });

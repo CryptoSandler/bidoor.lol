@@ -7,8 +7,16 @@
  * invitation to be outbid, which is the part that makes it circulate.
  */
 
-/** Where a shared row points: the board, with that row named and anchored. */
-export const SHARE_PARAM = "t";
+/**
+ * Where a shared row points once the short link has bounced.
+ *
+ * Named `token`, not `t`: `t` and `s` are X's own tracking parameters, and a
+ * URL carrying one is liable to be normalised away — which is the best
+ * explanation we have for a shared row unfurling as the generic card. `t` is
+ * still read on the way in so links posted before this keep working.
+ */
+export const SHARE_PARAM = "token";
+export const LEGACY_SHARE_PARAM = "t";
 
 /** The row's anchor on the board, so a shared link lands on it. */
 export function rowAnchor(id: string): string {
@@ -16,20 +24,27 @@ export function rowAnchor(id: string): string {
 }
 
 /**
- * The board URL for one row. Relative when we have no site URL configured,
- * which is what local development is; the tweet intent needs an absolute one,
- * so callers pass the origin in.
+ * The URL a share posts: short, and a path rather than a query.
+ *
+ * It was /?t=<uuid>#row-<uuid>, about a hundred characters with the same UUID
+ * in it twice, which is what the composer showed before the sharer had typed a
+ * word. /t/<slug> is the canonical address of a token here.
+ *
+ * Relative when no site URL is configured, which is local development; the
+ * intent needs an absolute one, so callers pass the origin in.
  */
-export function shareUrl(id: string, origin: string): string {
-  const path = `/?${SHARE_PARAM}=${encodeURIComponent(id)}#${rowAnchor(id)}`;
+export function shareUrl(slug: string, origin: string): string {
+  const path = `/t/${encodeURIComponent(slug)}`;
   if (!origin) return path;
   return `${origin.replace(/\/+$/, "")}${path}`;
 }
 
 export function shareText(ticker: string, rank: number, priceToClaim: string): string {
-  // The ticker carries the $ that trading posts use; the rest is plain.
+  // The ticker carries the $ that trading posts use; the rest is plain. Two
+  // sentences rather than one joined by a dash: the same rule the rest of the
+  // copy follows, and this template had been missed by that sweep.
   const tag = ticker.startsWith("$") ? ticker : `$${ticker}`;
-  return `${tag} is #${rank} on bidoor.lol — take the spot for ${priceToClaim}`;
+  return `${tag} is #${rank} on bidoor.lol. Take the spot for ${priceToClaim}.`;
 }
 
 /**
@@ -41,11 +56,11 @@ export function tweetIntent(params: {
   ticker: string;
   rank: number;
   priceToClaim: string;
-  id: string;
+  slug: string;
   origin: string;
 }): string {
   const intent = new URL("https://x.com/intent/post");
   intent.searchParams.set("text", shareText(params.ticker, params.rank, params.priceToClaim));
-  intent.searchParams.set("url", shareUrl(params.id, params.origin));
+  intent.searchParams.set("url", shareUrl(params.slug, params.origin));
   return intent.toString();
 }

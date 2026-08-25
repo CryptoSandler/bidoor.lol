@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { query, transaction } from "./db";
 import { SEED } from "./seed-data";
+import { slugCandidates } from "./slug";
 import { launchpadVerifiedFor } from "./store";
 import { contractKeyFor } from "./validation";
 
@@ -81,18 +82,26 @@ export async function loadDemoSeed(): Promise<SeedOutcome> {
   const bidRows: unknown[] = [];
   const bidPlaceholders: string[] = [];
 
+  // The fixture picks its own slugs the same way a real settlement does: first
+  // token to claim a ticker keeps it, and the seed is ordered, so this is
+  // deterministic rather than dependent on insert timing.
+  const claimed = new Set<string>();
+
   SEED.forEach((spec, index) => {
     const entryId = `entry_${randomUUID()}`;
+    const slug = slugCandidates(spec.ticker, entryId).find((candidate) => !claimed.has(candidate))!;
+    claimed.add(slug);
     const events = spec.bids
       .map(([amountUsd, ago]) => ({ amountUsd, at: new Date(now - ago) }))
       .sort((a, b) => a.at.getTime() - b.at.getTime());
 
-    const base = index * 16;
+    const base = index * 17;
     entryPlaceholders.push(
-      `(${Array.from({ length: 16 }, (_, i) => `$${base + i + 1}`).join(",")})`,
+      `(${Array.from({ length: 17 }, (_, i) => `$${base + i + 1}`).join(",")})`,
     );
     entryRows.push(
       entryId,
+      slug,
       spec.chainId,
       spec.contract,
       // The same canonical key the validator produces. Lowercasing blindly
@@ -124,7 +133,7 @@ export async function loadDemoSeed(): Promise<SeedOutcome> {
   await transaction(async (client) => {
     await client.query(
       `INSERT INTO entries
-         (id, chain_id, contract, contract_key, name, ticker, logo_url, links,
+         (id, slug, chain_id, contract, contract_key, name, ticker, logo_url, links,
           metadata_fetched_at, launchpad_url, launchpad_host, launchpad_verified,
           click_url, clicks, created_at, last_bid_at)
        VALUES ${entryPlaceholders.join(",")}`,

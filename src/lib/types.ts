@@ -21,6 +21,12 @@ export type EntryLinks = {
 
 export type Entry = {
   id: string;
+  /**
+   * The short handle a shared link uses: bidoor.lol/t/ansem. Assigned when the
+   * entry is created and never reissued, because a link that has been posted
+   * has to keep working. Optional only for entries created before it existed.
+   */
+  slug?: string;
   chainId: ChainId;
   /** The address exactly as submitted — what we show. */
   contract: string;

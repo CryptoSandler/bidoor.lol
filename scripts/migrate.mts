@@ -4,9 +4,9 @@
  *   npm run db:migrate          # against DATABASE_URL
  *   npm run db:migrate -- --test  # against TEST_DATABASE_URL
  *
- * Each file is idempotent on its own (IF NOT EXISTS everywhere) and records
- * itself in schema_migrations, so running this against a database that is
- * already up to date does nothing.
+ * Each file is idempotent on its own (IF NOT EXISTS everywhere) and is recorded
+ * in schema_migrations as it is applied, so running this against a database
+ * that is already up to date does nothing.
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -58,7 +58,25 @@ for (const file of files) {
     continue;
   }
   process.stdout.write(`  apply ${version} … `);
-  await pool.query(readFileSync(join("migrations", file), "utf8"));
+
+  // Applied and recorded in one transaction. Recording was missing entirely,
+  // so every migration re-ran on every deploy — invisible only because each
+  // one is written IF NOT EXISTS. The first migration that is not idempotent
+  // would have run twice against production.
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(readFileSync(join("migrations", file), "utf8"));
+    await client.query("INSERT INTO schema_migrations (version) VALUES ($1)", [version]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.log("failed");
+    throw error;
+  } finally {
+    client.release();
+  }
+
   console.log("ok");
   ran++;
 }

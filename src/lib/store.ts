@@ -5,6 +5,7 @@ import { isUniqueViolation, query, transaction } from "./db";
 import type { TokenMetadata } from "./dexscreener";
 import { rankEntries } from "./ranking";
 import type { BidEvent, Entry, EntryLinks, RankedEntry } from "./types";
+import { slugCandidates } from "./slug";
 import type { NormalizedBid } from "./validation";
 
 /**
@@ -19,6 +20,7 @@ import type { NormalizedBid } from "./validation";
 
 type EntryRow = {
   id: string;
+  slug: string | null;
   chain_id: string;
   contract: string;
   contract_key: string;
@@ -40,7 +42,7 @@ type EntryRow = {
 type BidRow = { id: string; entry_id: string; amount_usd: number; created_at: Date };
 
 const ENTRY_COLUMNS = `
-  id, chain_id, contract, contract_key, name, ticker, logo_url, banner_url, links,
+  id, slug, chain_id, contract, contract_key, name, ticker, logo_url, banner_url, links,
   metadata_fetched_at, launchpad_url, launchpad_host, launchpad_verified,
   click_url, clicks, created_at, last_bid_at
 `;
@@ -48,6 +50,7 @@ const ENTRY_COLUMNS = `
 function toEntry(row: EntryRow, bids: BidEvent[]): Entry {
   return {
     id: row.id,
+    slug: row.slug ?? undefined,
     chainId: row.chain_id as Entry["chainId"],
     contract: row.contract,
     contractKey: row.contract_key,
@@ -120,6 +123,33 @@ export async function getBoard(): Promise<Board> {
     now,
     potUsd: entries.reduce((sum, entry) => sum + entry.totalUsd, 0),
   };
+}
+
+/**
+ * The first slug candidate no live entry holds.
+ *
+ * The unique index is the real arbiter — two settlements can pick the same one
+ * in the same instant — but checking first means the common case does not have
+ * to fail an insert to find out.
+ */
+async function freeSlug(client: PoolClient, ticker: string, id: string): Promise<string> {
+  const candidates = slugCandidates(ticker, id);
+  for (const candidate of candidates) {
+    const taken = await client.query(`SELECT 1 FROM entries WHERE slug = $1`, [candidate]);
+    if (taken.rowCount === 0) return candidate;
+  }
+  // The last candidate is derived from the entry id, so this is unreachable
+  // unless the same id is inserted twice, which the primary key already stops.
+  return candidates[candidates.length - 1];
+}
+
+export async function findBySlug(slug: string): Promise<Entry | undefined> {
+  const rows = await query<EntryRow>(
+    `SELECT ${ENTRY_COLUMNS} FROM entries WHERE slug = $1 AND delisted_at IS NULL`,
+    [slug],
+  );
+  if (rows.length === 0) return undefined;
+  return (await withBids(rows))[0];
 }
 
 export async function findByContractKey(contractKey: string): Promise<Entry | undefined> {
@@ -211,14 +241,17 @@ async function createEntry(
   const id = `entry_${randomUUID()}`;
   const now = new Date();
 
+  const slug = await freeSlug(client, metadata.ticker, id);
+
   await client.query(
     `INSERT INTO entries
-       (id, chain_id, contract, contract_key, name, ticker, logo_url, banner_url,
+       (id, slug, chain_id, contract, contract_key, name, ticker, logo_url, banner_url,
         links, metadata_fetched_at, launchpad_url, launchpad_host,
         launchpad_verified, click_url, clicks, created_at, last_bid_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,$15,$15)`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,0,$16,$16)`,
     [
       id,
+      slug,
       bid.chainId,
       bid.contract,
       bid.contractKey,

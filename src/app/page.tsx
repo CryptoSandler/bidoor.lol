@@ -8,7 +8,7 @@ import { HeroSearch } from "@/components/HeroSearch";
 import { BOARD } from "@/lib/config";
 import { priceToClaimRank } from "@/lib/ranking";
 import { usd, usdCompact } from "@/lib/format";
-import { SHARE_PARAM } from "@/lib/share";
+import { LEGACY_SHARE_PARAM, SHARE_PARAM } from "@/lib/share";
 import { getBoard, listRanked } from "@/lib/store";
 
 // Mock data mutates in memory, so never cache this route.
@@ -27,7 +27,8 @@ export async function generateMetadata({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }): Promise<Metadata> {
-  const raw = (await searchParams)[SHARE_PARAM];
+  const params = await searchParams;
+  const raw = params[SHARE_PARAM] ?? params[LEGACY_SHARE_PARAM];
   const id = Array.isArray(raw) ? raw[0] : raw;
   if (!id) return {};
 
@@ -40,6 +41,10 @@ export async function generateMetadata({
   return {
     title,
     description,
+    // The token's address here is its short link, not the board carrying a
+    // parameter. Every share points at /t/<slug>, so that is what a crawler
+    // should collapse the two onto.
+    alternates: entry.slug ? { canonical: `/t/${entry.slug}` } : undefined,
     openGraph: { title, description, images: [`/og/${entry.id}`] },
     twitter: { card: "summary_large_image", title, description, images: [`/og/${entry.id}`] },
   };
@@ -50,7 +55,9 @@ export default async function LeaderboardPage({
 }: {
   searchParams: Promise<{ show?: string; [key: string]: string | string[] | undefined }>;
 }) {
-  const { show, [SHARE_PARAM]: sharedParam } = await searchParams;
+  const resolved = await searchParams;
+  const show = typeof resolved.show === "string" ? resolved.show : undefined;
+  const sharedParam = resolved[SHARE_PARAM] ?? resolved[LEGACY_SHARE_PARAM];
   const shared = Array.isArray(sharedParam) ? sharedParam[0] : sharedParam;
   const { entries: allEntries, now, potUsd } = await getBoard();
 

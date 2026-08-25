@@ -965,3 +965,30 @@ contra la página 14.63 y 12.25 — que es el punto, tiene que despegarse. La
 transición de tema se muestreó cada ~50ms durante el crossfade: el rango de
 luminancia dentro del badge se mantiene en 0.98 de punta a punta, así que la
 tinta nunca se cruza con el fondo a mitad de camino. Sin flash.
+
+---
+
+## 30. Tanda 24 — el link corto, el cursor y el banner centrado
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 162 | **La URL compartida es `/t/<slug>`, no `/?t=<uuid>#row-<uuid>`** | Cien caracteres con el mismo UUID dos veces, que es lo que veía el que iba a postear antes de escribir una palabra. Ahora son ~32. |
+| 163 | **El slug es el ticker, y el primero que llega se lo queda** | Es como se llama la comunidad a sí misma. Los tickers no son únicos, así que el segundo `$PEPE` lleva sufijo. Primero que llega es la misma regla del board. |
+| 164 | **`t` como parámetro pasa a llamarse `token`** | `t` y `s` son los parámetros de tracking de X. Es la mejor explicación que tenemos para que un link compartido se desplegara con la card genérica: la metadata del board estaba bien y le sirve la card del token a Twitterbot cuando el parámetro sobrevive. Un path no se puede stripear. `t` se sigue leyendo para no romper lo ya posteado. |
+| 165 | **302, no el 307 de Next** | Un link de share es temporal por naturaleza y no hay nada ahí que convenga que cachee un intermediario. |
+| 166 | **Un slug desconocido va al board, no a un 404** | Un link que ya está posteado tiene que caer siempre en el producto. Un token deslistado es exactamente el caso donde la fila no está pero el tweet sí. |
+| 167 | **`/t/<slug>` es la URL canónica del token** | Todo share apunta ahí, así que es lo que un crawler tiene que colapsar. |
+| 168 | **Cursor pointer para todo lo clickeable, en la base** | El reset de Tailwind sigue la spec y deja `<button>` con la flecha. En una fila donde conviven botones y links, la mitad señalando y la mitad no se lee como que la mitad está rota. Los deshabilitados quedan con flecha, que es lo honesto. |
+| 169 | **El banner se centra en el hueco, con aire simétrico** | Estaba pegado al monto. Ahora el wrapper toma lo que sobra entre el bloque de nombre y la columna de precio, y la franja va en el medio: 327px de aire a cada lado en reposo, 271px con el pill de claim visible. El wrapper es el que la limita, así que no puede tocar el monto por ancha que sea la fila. |
+
+**El bug del runner de migraciones.** Aplicaba cada migración y no la registraba
+nunca: `schema_migrations` sólo tenía 001-003 y todo lo demás corría de nuevo en
+cada deploy. Quedó invisible porque cada archivo está escrito `IF NOT EXISTS`. La
+primera migración no idempotente habría corrido dos veces contra producción. Ahora
+aplica y registra en la misma transacción.
+
+**Sobre la OG genérica del draft.** No era un bug nuestro: producción ya servía la
+card del token para `/?t=<id>`, incluso con el user agent de Twitterbot, y
+`/og/<id>` devolvía el PNG de 111KB. Queda como caché de X sobre una URL que ya
+había visto, o como el stripping del parámetro `t`. La URL corta invalida las dos
+cosas de paso.

@@ -14,6 +14,10 @@
   --color-faint: var(--bd-text-faint);
   --color-line: var(--bd-border);
   --color-line-strong: var(--bd-border-strong);
+  --color-inverse-surface: var(--bd-inverse-surface);
+  --color-inverse-text: var(--bd-inverse-text);
+  --color-inverse-muted: var(--bd-inverse-muted);
+  --color-inverse-line: var(--bd-inverse-border);
   --color-accent: var(--bd-accent);
   --color-accent-ink: var(--bd-accent-ink);
   --color-accent-line: var(--bd-accent-line);
@@ -33,6 +37,7 @@
   --text-6xl: var(--bd-text-6xl);
 
   --shadow-card: var(--bd-shadow-card);
+  --shadow-lift: var(--bd-shadow-lift);
 
   --radius-card: var(--bd-radius);
   --radius-sm: var(--bd-radius-sm);

@@ -949,3 +949,19 @@ oscuro. El pill nuevo entra sin desbordar ni envolver en 375, 390 y 412, y
 Orden final de la home: hero → buscador → línea de tokens/total → top 3 → riel →
 filas 4 en adelante → footer. Verificado idéntico en 375, 390, 412 y 1280, sin
 scroll lateral de página, y `check:layout` sigue pasando con 32px de sobra.
+
+---
+
+## 29. Tanda 23 — el badge va invertido
+
+| # | Decisión | Por qué |
+|---|---|---|
+| 159 | **El pill de atribución usa el esquema contrario al tema activo** | Es una firma encima del producto, no parte de él. Invertido se lee como una capa sobre la página en vez de disolverse en la card que le toque tener debajo. |
+| 160 | **Ni un hex nuevo: son los tokens del otro tema, cruzados** | `--bd-inverse-*` es `light-dark()` con los valores ya existentes al revés. Cada estado del badge es entonces un par que este archivo ya había medido: 13.98 y 11.35 para la tinta plena, 7.16 y 8.04 para la muted que realmente usa. |
+| 161 | **Sombra propia (`--bd-shadow-lift`), no la de card** | La sombra de card está afinada para el tema en el que vive: abajo de un pill invertido o desaparece o se convierte en un halo. Esta es el mismo oscuro en los dos temas, que es lo que despega un pill claro de una página oscura y uno oscuro de una crema. |
+
+Medido en pantalla: tinta sobre pill 7.16 en oscuro y 8.04 en claro, y el pill
+contra la página 14.63 y 12.25 — que es el punto, tiene que despegarse. La
+transición de tema se muestreó cada ~50ms durante el crossfade: el rango de
+luminancia dentro del badge se mantiene en 0.98 de punta a punta, así que la
+tinta nunca se cruza con el fondo a mitad de camino. Sin flash.

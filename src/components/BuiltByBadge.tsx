@@ -17,6 +17,13 @@ import Image from "next/image";
  * pbs.twimg.com: the CSP allows images from ourselves and DexScreener's CDN and
  * nothing else, and an X avatar URL rotates whenever the profile picture
  * changes. One file, checked in, no third-party request on every page view.
+ *
+ * It runs inverted: cream on the dark page, slate on the cream one. This is a
+ * signature on top of the product rather than part of it, and inverting is what
+ * keeps it reading as an overlay instead of dissolving into whichever card it
+ * is floating over. The colours are the other theme's own tokens, crossed in
+ * tokens.css, so both states are pairs that were already measured — see the
+ * third documented exception there.
  */
 export function BuiltByBadge() {
   return (
@@ -24,7 +31,11 @@ export function BuiltByBadge() {
       href="https://x.com/CryptoSandlerr"
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-3 left-3 z-40 inline-flex items-center gap-2 rounded-pill border border-line bg-surface py-1.5 pr-3.5 pl-1.5 text-xs text-muted shadow-card transition-colors hover:text-text sm:bottom-4 sm:left-4"
+      // shadow-lift rather than shadow-card: the card shadow is tuned to the
+      // theme it belongs to, and under an inverted pill it either vanishes or
+      // glows. This one is dark in both themes, which is what actually lifts a
+      // cream pill off a dark page and a slate pill off cream.
+      className="fixed bottom-3 left-3 z-40 inline-flex items-center gap-2 rounded-pill border border-inverse-line bg-inverse-surface py-1.5 pr-3.5 pl-1.5 text-xs text-inverse-muted shadow-lift transition-colors hover:text-inverse-text sm:bottom-4 sm:left-4"
     >
       {/* next/image rather than the bare <img> the token logos use: those come
           from DexScreener's CDN, this one is a local file, so it can go through

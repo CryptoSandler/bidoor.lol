@@ -182,6 +182,32 @@
   --bd-danger: light-dark(#86484e, #ffb0b8); /* 6.78/5.39/4.63 · 10.80/7.20/4.76 */
 }
 
+/* --- Documented exception 3: the attribution pill ---------------------------
+   The floating "Built by" badge runs inverted: cream on the dark page, slate on
+   the cream one. It is the one element that is not part of the product surface
+   — it is a signature on top of it — and inverting is how it stays legible as
+   an overlay instead of dissolving into whatever card it happens to be over.
+
+   Not one new colour. Every value below is a value already in this file with
+   the two themes crossed, so the inverted pill is always exactly the other
+   theme's card and the other theme's ink, and the pair is one that has already
+   been measured on that ground:
+
+     dark page  -> #1a1714 on #e9e3d9, the light theme's text on its card, 13.98
+     light page -> #f1f5f8 on #2c353f, the dark theme's text on its card, 11.35
+
+   The muted ink it actually uses is the same crossing: 7.16 and 8.04. */
+:root {
+  --bd-inverse-surface: light-dark(#2c353f, #e9e3d9);
+  --bd-inverse-text: light-dark(#f1f5f8, #1a1714);
+  --bd-inverse-muted: light-dark(#c8d1d8, #4e4740);
+  --bd-inverse-border: light-dark(#3a454f, #d5ccbc);
+  /* The card shadow is tuned to the theme it sits in; under an inverted pill it
+     either disappears or turns into a glow. This one is the same dark cast in
+     both themes, which is what a floating element needs to look floating. */
+  --bd-shadow-lift: 0 6px 18px rgb(0 0 0 / 0.28);
+}
+
 /* --- Documented exception 2: chain chips ------------------------------------
    Each chain wears its own brand colour, because the chip encodes which chain a
    token is on. Flattening them into the neutral base would cost a reader

@@ -88,7 +88,11 @@ export function BoardRow({
         size={isPodium ? "var(--bd-podium-logo)" : "var(--bd-row-logo)"}
       />
 
-      <div className={`min-w-0 flex-1 ${entry.bannerUrl ? "sm:grow-0" : ""}`}>
+      {/* `flex-1` is `flex: 1 1 0%`, so turning off the grow alone left this at
+          basis zero and the block collapsed: the name disappeared behind its own
+          truncation and the meta line kept the separators it no longer had
+          values between. It has to stop growing AND size to its content. */}
+      <div className={`min-w-0 flex-1 ${entry.bannerUrl ? "sm:grow-0 sm:basis-auto" : ""}`}>
         <div className="flex items-center gap-2">
           {/* An entry can have nowhere to send a click — the destination is
               fixed when the entry is created and never adopted later. Those rows

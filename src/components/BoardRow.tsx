@@ -37,7 +37,9 @@ export function BoardRow({
     ticker: entry.ticker,
     rank: entry.rank,
     priceToClaim: usd(entry.priceToClaim),
-    id: entry.id,
+    // Entries created before slugs exist fall back to their id, which /t/
+    // resolves the same way. The backfill gives every live row a real one.
+    slug: entry.slug ?? entry.id,
     origin: process.env.SITE_URL ?? "",
   });
 
@@ -86,7 +88,7 @@ export function BoardRow({
         size={isPodium ? "var(--bd-podium-logo)" : "var(--bd-row-logo)"}
       />
 
-      <div className="min-w-0 flex-1">
+      <div className={`min-w-0 flex-1 ${entry.bannerUrl ? "sm:grow-0" : ""}`}>
         <div className="flex items-center gap-2">
           {/* An entry can have nowhere to send a click — the destination is
               fixed when the entry is created and never adopted later. Those rows
@@ -136,9 +138,17 @@ export function BoardRow({
         </div>
       </div>
 
-      {/* The middle of the row is dead space on a wide screen. The banner fills
-          exactly that, and only that. */}
-      {entry.bannerUrl && <RowBanner src={entry.bannerUrl} isPodium={isPodium} />}
+      {/* The middle of the row is dead space on a wide screen. The banner is
+          centred in exactly that space rather than pushed against the amount:
+          the wrapper takes what is left between the name block and the price
+          column, and the strip sits in the middle of it with its own air on
+          both sides. The wrapper is what bounds it, so a banner can never reach
+          the amount or the claim pill however wide the row gets. */}
+      {entry.bannerUrl && (
+        <div className="hidden min-w-0 flex-1 justify-center self-stretch sm:flex">
+          <RowBanner src={entry.bannerUrl} isPodium={isPodium} />
+        </div>
+      )}
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         <span

@@ -13,8 +13,8 @@ import { bannerSources } from "@/lib/banner";
  * eating most of the image and reading as washed out rather than blended: it is
  * the transition edge, not the treatment.
  *
- * Hidden below `sm`, where that middle gap does not exist: on a phone the row is
- * already name against price with nothing to spare.
+ * Its wrapper hides it below `sm`, where that middle gap does not exist: on a
+ * phone the row is already name against price with nothing to spare.
  */
 export function RowBanner({ src, isPodium }: { src: string; isPodium: boolean }) {
   const fade = "linear-gradient(to right, transparent, #000 12%, #000 88%, transparent)";
@@ -23,7 +23,7 @@ export function RowBanner({ src, isPodium }: { src: string; isPodium: boolean })
   return (
     <div
       aria-hidden
-      className="hidden shrink-0 self-stretch overflow-hidden sm:block sm:w-24 md:w-40 lg:w-56"
+      className="w-24 shrink-0 self-stretch overflow-hidden md:w-40 lg:w-56"
       style={{
         // Pulled out over the row's own padding so the strip is the full height
         // of the card rather than the height of the text inside it.

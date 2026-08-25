@@ -138,6 +138,23 @@ body {
 }
 
 /*
+ * Anything that can be clicked says so.
+ *
+ * Tailwind's reset follows the HTML spec and leaves <button> on the default
+ * arrow, which is correct by the letter and wrong for this product: the row's
+ * copy, share and chart controls are buttons and links sitting side by side,
+ * and half of them pointing and half not reads as half of them being broken.
+ * Disabled buttons are left alone — the arrow is the honest cursor for a
+ * control that will not respond.
+ */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label[for],
+summary {
+  cursor: pointer;
+}
+
+/*
  * The theme crossfade. Only the duration is set here — the fade itself is what
  * a view transition does by default, and the first paint never runs one because
  * nothing calls startViewTransition on load.

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Pool } from "pg";
+import { takeSuiteLock, type SuiteLock } from "./suite-lock";
 
 // Loaded here so the connection string lives in .env.local rather than being
 // exported into a shell where it would end up in history.
@@ -47,6 +48,19 @@ if (runtimeUrl && runtimeUrl === testUrl) {
 process.env.DATABASE_URL = testUrl;
 
 export async function setup() {
+  /*
+    THE MACHINE-WIDE SUITE LOCK, before anything else this file does.
+
+    Every repository on this machine takes the same lock, so a second suite
+    QUEUES instead of competing for the cores. Measured in `milliondollarpage`
+    on 2026-09-02: three runs of one commit took 1269s green, then 2883s with
+    three failures, then 6249s with nine — every failure a dropped Postgres
+    connection, from workers that waited for CPU longer than the database's idle
+    timeout. `suite-lock.ts` carries the whole argument, and it is the same file
+    in all six repositories on purpose.
+  */
+  const suiteLock: SuiteLock = await takeSuiteLock();
+
   const pool = new Pool({ connectionString: testUrl });
   try {
     for (const file of readdirSync("migrations").filter((f) => f.endsWith(".sql")).sort()) {
@@ -55,4 +69,10 @@ export async function setup() {
   } finally {
     await pool.end();
   }
+
+  // Vitest treats what `setup` returns as the teardown. This file had none;
+  // it has one now, and its only job is to hand the machine lock on.
+  return () => {
+    suiteLock.release();
+  };
 }

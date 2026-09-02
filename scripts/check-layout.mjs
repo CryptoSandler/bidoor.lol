@@ -10,7 +10,7 @@
  */
 import { chromium } from "playwright";
 
-const BASE = process.env.BASE_URL ?? "http://localhost:3000";
+const BASE = process.env.BASE_URL ?? "http://localhost:3104";
 const VIEWPORTS = [
   { name: "iPhone SE", width: 375, height: 667 },
   { name: "iPhone 14", width: 390, height: 844 },
